@@ -60,11 +60,20 @@ export function furnCenter(f) {
 }
 export const frontDir = r => [{ x: 0, z: 1 }, { x: 1, z: 0 }, { x: 0, z: -1 }, { x: -1, z: 0 }][r];
 
-// Obstacles fixes du quartier (immeubles, mobilier urbain, terrasse du café).
-let outdoor = null;
+// Obstacles fixes du quartier (immeubles, mobilier urbain, terrasse du café), plus ce qui change :
+// l'appartement quand on n'y habite pas, le véhicule garé devant.
+let outdoor = null, blocking = { noHome: false, vehicule: null };
+export function setBlocking(b) { blocking = b; outdoor = null; }
+export function vehiculeCells(v) {
+  if (v === 'voiture') return [{ x: 1, z: D + 3 }, { x: 2, z: D + 3 }, { x: 3, z: D + 3 }, { x: 1, z: D + 4 }, { x: 2, z: D + 4 }, { x: 3, z: D + 4 }];
+  if (v === 'scooter') return [{ x: 7, z: D }];
+  return [];
+}
 export function outdoorGrid() {
   if (outdoor) return outdoor;
   const g = new Uint8Array(GW * GD);
+  if (blocking.noHome) for (let z = 0; z < D; z++) for (let x = 0; x < W; x++) g[idx(x, z)] = 1;
+  vehiculeCells(blocking.vehicule).forEach(c => { g[idx(c.x, c.z)] = 1; });
   const inPlace = (x, z) => x >= PLACE.x0 && x < PLACE.x1 && z >= PLACE.z0 && z < PLACE.z1;
   for (let z = Z0; z < Z1; z++) for (let x = X0; x < X1; x++) {
     if (z < D && !inHome(x, z)) g[idx(x, z)] = 1;                       // notre pâté de maisons
@@ -81,7 +90,7 @@ export function outdoorGrid() {
 // Grille des cases bloquées. noHome : l'appartement entier est interdit (pour les voisins).
 export function blockedGrid(home, ignoreId, noHome = false) {
   const g = new Uint8Array(outdoorGrid());
-  if (noHome) { for (let z = 0; z < D; z++) for (let x = 0; x < W; x++) g[idx(x, z)] = 1; return g; }
+  if (noHome || blocking.noHome) { for (let z = 0; z < D; z++) for (let x = 0; x < W; x++) g[idx(x, z)] = 1; return g; }
   for (const f of home.furn) {
     if (f.id === ignoreId || FURN[f.type].sol) continue;
     for (const t of furnTiles(f)) g[idx(t.x, t.z)] = 1;

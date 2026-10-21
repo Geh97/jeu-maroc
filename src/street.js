@@ -201,9 +201,77 @@ function bougainvillea(g, x, y, z) {
   for (let i = 0; i < 9; i++) sph(g, 0.3 + (i % 3) * 0.1, mat(i % 3 ? '#c2185b' : '#3f7a3a'), x + (i % 3) * 0.5 - 0.5, y + Math.floor(i / 3) * 0.5, z + ((i * 7) % 3) * 0.15);
 }
 
-export function makeStreet() {
+// Villa d'Anfa : mur de clôture blanc, portail, jardin avec palmier, maison blanche aux lignes droites.
+function villa(g, x0, x1, z, seed) {
+  const w = x1 - x0, cx = (x0 + x1) / 2, v = new THREE.Group(); v.position.set(cx, 0, z); g.add(v);
+  box(v, w, 2.2, 0.3, mat('#f7f4ee'), 0, 1.1, 0);
+  box(v, w + 0.2, 0.25, 0.5, mat(VERT), 0, 2.25, 0);
+  const gate = new THREE.Group(); gate.position.set(w / 2 - 2.2, 0, 0); v.add(gate);
+  box(gate, 2.4, 2.2, 0.08, mat(FER, { metalness: 0.4 }), 0, 1.1, 0);
+  for (let i = -5; i <= 5; i++) box(gate, 0.04, 2.1, 0.12, mat('#d9d2c2'), i * 0.2, 1.05, 0);
+  const h = 6 + (seed % 2) * 1.5, depth = 8;
+  box(v, w - 3, h, depth, mat(seed % 2 ? '#fbf8f2' : '#f3eee4'), -1, h / 2, -depth / 2 - 3);
+  box(v, w - 2.6, 0.3, depth + 0.4, mat('#e3dccd'), -1, h + 0.1, -depth / 2 - 3);
+  for (let fx = -w / 2 + 2; fx < w / 2 - 3; fx += 2.6) for (let fy = 1.6; fy < h - 1; fy += 3) {
+    box(v, 1.6, 1.5, 0.06, mat('#2b3440', { roughness: 0.2 }), fx, fy, -3 + 0.03);
+    box(v, 1.8, 0.1, 0.5, mat('#e3dccd'), fx, fy - 0.85, -3 + 0.2);
+  }
+  box(v, w - 3, 0.9, 0.08, mat('#2b3440', { roughness: 0.2 }), -1, h - 0.6, -3 + 0.03);
+  palm(v, w / 2 - 5, -1.6);
+  for (let i = 0; i < 6; i++) sph(v, 0.5, mat(i % 2 ? '#3f7a3a' : '#4b8c3f'), -w / 2 + 1.2 + i * 1.1, 0.5, -1.2);
+  bougainvillea(v, -w / 2 + 2, 2.4, 0.2);
+  return v;
+}
+function suv(g, x, z, color) {
+  const c = new THREE.Group(); c.position.set(x, 0, z); g.add(c);
+  box(c, 4.4, 0.9, 1.9, mat(color, { roughness: 0.35 }), 0, 0.75, 0);
+  box(c, 2.8, 0.75, 1.75, mat(color, { roughness: 0.35 }), -0.2, 1.55, 0);
+  box(c, 2.7, 0.5, 1.78, mat('#1d2630', { roughness: 0.15 }), -0.2, 1.55, 0);
+  for (const [dx, dz] of [[-1.5, 0.95], [1.5, 0.95], [-1.5, -0.95], [1.5, -0.95]]) { const w = cyl(c, 0.4, 0.4, 0.26, mat('#1b1b1b'), dx, 0.4, dz, 16); w.rotation.x = Math.PI / 2; }
+}
+function voiture(g, x, z) {
+  const c = new THREE.Group(); c.position.set(x, 0, z); g.add(c);
+  box(c, 3.5, 0.6, 1.6, mat('#2f4f7a', { roughness: 0.4 }), 0, 0.5, 0);
+  box(c, 2, 0.55, 1.45, mat('#2f4f7a', { roughness: 0.4 }), -0.2, 1.05, 0);
+  box(c, 1.9, 0.4, 1.47, mat('#2b3440', { roughness: 0.2 }), -0.2, 1.05, 0);
+  for (const [dx, dz] of [[-1.1, 0.8], [1.1, 0.8], [-1.1, -0.8], [1.1, -0.8]]) { const w = cyl(c, 0.3, 0.3, 0.22, mat('#1b1b1b'), dx, 0.3, dz, 16); w.rotation.x = Math.PI / 2; }
+}
+function scooter(g, x, z) {
+  const c = new THREE.Group(); c.position.set(x, 0, z); c.rotation.y = 0.4; g.add(c);
+  for (const dz of [-0.55, 0.55]) { const w = cyl(c, 0.22, 0.22, 0.1, mat('#1b1b1b'), 0, 0.22, dz, 14); w.rotation.z = Math.PI / 2; }
+  box(c, 0.3, 0.3, 1.1, mat('#c8102e', { roughness: 0.4 }), 0, 0.45, 0);
+  box(c, 0.32, 0.12, 0.5, mat('#2a2a2a'), 0, 0.75, -0.1);
+  box(c, 0.5, 0.04, 0.04, mat('#d8d8dc', { metalness: 0.7 }), 0, 0.95, 0.45);
+  cyl(c, 0.03, 0.03, 0.5, mat('#d8d8dc', { metalness: 0.7 }), 0, 0.7, 0.45, 8);
+}
+function parc(g, P) {
+  const lawn = new THREE.Mesh(new THREE.PlaneGeometry(P.x1 - P.x0, P.z1 - P.z0), mat('#5f9a4a'));
+  lawn.rotation.x = -Math.PI / 2; lawn.position.set((P.x0 + P.x1) / 2, 0.006, (P.z0 + P.z1) / 2); lawn.receiveShadow = true; g.add(lawn);
+  const path = new THREE.Mesh(new THREE.PlaneGeometry(P.x1 - P.x0 - 2, 1.2), mat('#d9c7a6'));
+  path.rotation.x = -Math.PI / 2; path.position.set((P.x0 + P.x1) / 2, 0.008, P.fontaine.z + 0.5); g.add(path);
+  const path2 = new THREE.Mesh(new THREE.PlaneGeometry(1.2, P.z1 - P.z0 - 1), mat('#d9c7a6'));
+  path2.rotation.x = -Math.PI / 2; path2.position.set(P.fontaine.x, 0.008, (P.z0 + P.z1) / 2); g.add(path2);
+  for (const o of P.orangers) { cyl(g, 0.12, 0.16, 2.2, mat('#6b4a2c'), o.x + 0.5, 1.1, o.z + 0.5, 8); sph(g, 1.1, mat('#3f7a3a'), o.x + 0.5, 2.9, o.z + 0.5); sph(g, 0.7, mat('#4b8c3f'), o.x + 0.9, 3.4, o.z + 0.2); }
+  for (const c of P.fontaine.cells) if ((c.x + c.z) % 2) sph(g, 0.3, mat(['#c2185b', '#e0a526', '#f2ede3'][(c.x * 3 + c.z) % 3]), c.x + 0.5, 0.3, c.z + 0.5);
+  for (const b of P.bancs) bench(g, b.x + 1, b.z + 0.5, b.r);
+  for (const x of [P.x0 + 1, P.x1 - 1]) palm(g, x, P.z1 - 1);
+}
+function ocean(g, z) {
+  const sea = new THREE.Mesh(new THREE.PlaneGeometry(260, 80), new THREE.MeshStandardMaterial({ color: '#2d7fb8', roughness: 0.25, metalness: 0.1 }));
+  sea.rotation.x = -Math.PI / 2; sea.position.set(W / 2, -0.01, z + 50); g.add(sea);
+  box(g, 260, 1.1, 1.2, mat('#d9d2c2'), W / 2, 0.55, z + 10);
+  for (let x = -60; x < 80; x += 9) palm(g, x, z + 8);
+  const phare = new THREE.Group(); phare.position.set(W / 2 + 26, 0, z + 30); g.add(phare);
+  cyl(phare, 1.4, 1.9, 18, mat('#f7f4ee'), 0, 9, 0, 12);
+  for (let y = 3; y < 17; y += 4) cyl(phare, 1.75, 1.75, 0.8, mat('#c8102e'), 0, y, 0, 12);
+  cyl(phare, 1.1, 1.1, 2, GLASS(), 0, 19, 0, 12);
+  cyl(phare, 0, 1.5, 1.2, mat('#2a2f36'), 0, 20.6, 0, 12);
+}
+
+export function makeStreet(opts = {}) {
+  const quartier = opts.quartier || 'populaire', anfa = quartier === 'anfa', withHome = opts.withHome !== false;
   const g = new THREE.Group();
-  const ground = new THREE.Mesh(new THREE.PlaneGeometry(200, 200), mat('#cdbfa6'));
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(200, 200), mat(anfa ? '#d8ccb0' : '#cdbfa6'));
   ground.rotation.x = -Math.PI / 2; ground.position.set(W / 2, -0.02, D / 2); ground.receiveShadow = true; g.add(ground);
   const plane = (w, d, m, x, z, y = 0) => {
     const p = new THREE.Mesh(new THREE.PlaneGeometry(w, d), m); p.rotation.x = -Math.PI / 2; p.position.set(x, y, z); p.receiveShadow = true; g.add(p); return p;
@@ -219,6 +287,15 @@ export function makeStreet() {
   for (let z = D + 3.5; z < D + 11; z += 1) plane(2.4, 0.5, mat('#f2f0e6'), RUE.traversee.x0 + 1, z, 0.012);
   plane(len, 3, trM, cx, D + 12.5, 0.005);
   box(g, len, 0.15, 0.25, mat('#bdb5a6'), cx, 0.06, D + 11);
+  // Le véhicule du personnage, garé devant chez lui.
+  if (opts.vehicule === 'voiture' && withHome) voiture(g, 2.5, D + 4);
+  if (opts.vehicule === 'scooter' && withHome) scooter(g, 7.5, D + 0.5);
+  // Quand on n'habite pas ici, l'emplacement de l'appartement est un immeuble comme les autres.
+  if (!withHome) {
+    building(g, W / 2, 1.5, W, 15, 7.6, 1, 5, 0);
+    door(g, 5, D, anfa ? '#1b1b1b' : '#5a3423', 1.2, null, !anfa);
+  }
+  if (anfa) return anfaStreet(g, opts, plane);
 
   // Notre pâté de maisons : deux immeubles de part et d'autre de l'appartement, boutiques au rez-de-chaussée.
   const lw = 12 - X0, rw = X1 + 12 - W;
@@ -335,5 +412,82 @@ export function makeStreet() {
   box(m, 2.4, 5, 2.4, mat('#e3d6bd'), 0, 36.5, 0);
   box(m, 2.5, 0.8, 2.5, mat(VERT), 0, 38.5, 0);
   cyl(m, 0.08, 0.08, 2.4, BRASS(), 0, 40, 0, 6);
+  return g;
+}
+
+// Anfa : villas, café branché, épicerie fine, pâtisserie, agence immobilière, parc, et l'océan au bout de la rue.
+function anfaStreet(g, opts, plane) {
+  const withHome = opts.withHome !== false;
+  // Les villas de part et d'autre de l'appartement (lui-même au rez-de-chaussée d'une résidence blanche).
+  villa(g, X0 - 12, -8, D, 1); villa(g, -8, 0, D, 2);
+  villa(g, W, W + 11, D, 3); villa(g, W + 11, X1 + 12, D, 4);
+  // Devant l'appartement : le socle de la résidence, un portier, des plantes.
+  for (const [x, z] of [[-0.5, D + 0.5], [W + 0.5, D + 0.5]]) { const p = makeFurniture('plante'); p.position.set(x, 0, z); g.add(p); }
+  // Le café La Corniche : devanture vitrée, bandeau noir et laiton, parasols crème, tables blanches.
+  const C = CAFE;
+  box(g, C.x1 - C.x0, 0.5, 0.1, mat('#1b1b1b'), (C.x0 + C.x1) / 2, 2.85, D + 0.04);
+  box(g, C.x1 - C.x0 + 0.1, 0.06, 0.14, BRASS(), (C.x0 + C.x1) / 2, 3.1, D + 0.04);
+  box(g, C.x1 - C.x0 - 1.6, 2.3, 0.06, mat('#2b3440', { roughness: 0.15 }), (C.x0 + C.x1) / 2 - 0.8, 1.45, D + 0.03);
+  door(g, C.porte.x, D, '#1b1b1b', 1.4, null, false);
+  for (const t of C.tables) {
+    cyl(g, 0.45, 0.45, 0.04, mat('#f7f4ee', { roughness: 0.4 }), t.x + 0.5, 0.72, t.z + 0.5, 20);
+    cyl(g, 0.03, 0.03, 0.7, iron(), t.x + 0.5, 0.36, t.z + 0.5, 8);
+    cyl(g, 0.03, 0.03, 2.4, iron(), t.x + 0.5, 1.9, t.z + 0.5, 8);
+    cyl(g, 0, 1.3, 0.5, mat('#f2ede3', { side: THREE.DoubleSide }), t.x + 0.5, 2.6, t.z + 0.5, 8);
+  }
+  C.chaises.forEach((c, i) => {
+    const ch = new THREE.Group(); ch.position.set(c.x + 0.5, 0, c.z + 0.5); ch.rotation.y = c.r * Math.PI / 2; g.add(ch);
+    box(ch, 0.44, 0.04, 0.44, mat('#f7f4ee'), 0, 0.45, 0);
+    for (const [dx, dz] of [[-0.19, -0.19], [0.19, -0.19], [-0.19, 0.19], [0.19, 0.19]]) box(ch, 0.03, 0.45, 0.03, iron(), dx, 0.225, dz);
+    box(ch, 0.44, 0.5, 0.03, mat('#f7f4ee'), 0, 0.72, -0.2);
+    ch.traverse(o => { o.userData.chair = i; });
+  });
+  // L'épicerie fine (à la place du hanout) : façade vert foncé, lettrage doré remplacé par un bandeau, paniers de fruits.
+  const H = RUE.hanout;
+  box(g, H.x1 - H.x0, 3, 0.1, mat('#1f5a45'), (H.x0 + H.x1) / 2, 1.5, D + 0.04);
+  box(g, H.x1 - H.x0 + 0.1, 0.06, 0.14, BRASS(), (H.x0 + H.x1) / 2, 2.8, D + 0.04);
+  door(g, H.porte, D, '#1b1b1b', 1.2, 'hanout', false);
+  const vit = new THREE.Group(); g.add(vit);
+  box(vit, 2.2, 1.6, 0.06, mat('#2b3440', { roughness: 0.15 }), H.porte - 1.6, 1.5, D + 0.1);
+  for (let i = 0; i < 4; i++) sph(vit, 0.12, mat(['#e8641a', '#c8102e', '#7a2e3a', '#e0a526'][i]), H.porte - 2.2 + i * 0.4, 1.0, D + 0.16);
+  vit.traverse(o => { o.userData.hanout = true; });
+  crate(g, H.caisses[0].x, H.caisses[0].z, '#e8641a');
+  crate(g, H.caisses[1].x, H.caisses[1].z, '#c2185b');
+  // La pâtisserie (à la place du four) et l'agence immobilière (à la place de la mahlaba).
+  const F = RUE.four;
+  awning(g, F.x0, F.x1, D, 1.2, 2.75, T.rayures('#c2185b', '#f2ede3'));
+  door(g, F.porte, D, '#f7f4ee', 1.2, null, false);
+  box(g, 2.4, 1.3, 0.06, mat('#2b3440', { roughness: 0.15 }), F.porte - 1.6, 1.6, D + 0.03);
+  for (let i = 0; i < 6; i++) cyl(g, 0.14, 0.14, 0.12, mat(['#f5e6b8', '#c2185b', '#8a5a3b', '#f7f4ee', '#e0a526', '#2e6b57'][i]), F.porte - 2.4 + i * 0.32, 1.3 + (i % 2) * 0.4, D + 0.07, 10);
+  const M = RUE.mahlaba, ag = new THREE.Group(); g.add(ag);
+  box(ag, M.x1 - M.x0, 3, 0.1, mat('#f7f4ee'), (M.x0 + M.x1) / 2, 1.5, D + 0.04);
+  box(ag, M.x1 - M.x0, 0.5, 0.12, mat('#2f4f7a'), (M.x0 + M.x1) / 2, 2.8, D + 0.05);
+  box(ag, 4, 1.8, 0.06, mat('#2b3440', { roughness: 0.15 }), M.porte - 1.5, 1.5, D + 0.1);
+  for (let i = 0; i < 6; i++) box(ag, 0.5, 0.35, 0.02, mat('#f7f4ee'), M.porte - 2.9 + (i % 3) * 0.8, 1.3 + Math.floor(i / 3) * 0.5, D + 0.14);
+  door(ag, M.porte, D, '#2f4f7a', 1.2, null, false);
+  ag.traverse(o => { o.userData.agence = true; });
+  // Lanternes, palmiers, gros 4x4 garés.
+  for (const l of RUE.lampes) lantern(g, l.x + 0.5, l.z + 0.5, 4);
+  for (const p of RUE.palmiers) palm(g, p.x + 0.5, p.z + 0.5);
+  for (let x = X0 - 10; x < X1 + 12; x += 6) palm(g, x, D + 2.6);
+  suv(g, RUE.taxi.x, RUE.taxi.z, '#1b1b1b');
+  suv(g, RUE.taxi.x + 14, RUE.taxi.z, '#f7f4ee');
+  // L'arrêt de taxi (au même coin).
+  const A = TAXI.arret, arret = new THREE.Group(); g.add(arret);
+  cyl(arret, 0.04, 0.05, 2.6, iron(), A.x + 0.5, 1.3, A.z + 0.5, 8);
+  box(arret, 0.9, 0.5, 0.06, mat('#f2ede3'), A.x + 0.5, 2.45, A.z + 0.5);
+  box(arret, 0.9, 0.16, 0.07, mat('#c8102e'), A.x + 0.5, 2.6, A.z + 0.5);
+  box(arret, 0.9, 0.16, 0.07, mat('#2f4f7a'), A.x + 0.5, 2.3, A.z + 0.5);
+  arret.traverse(o => { o.userData.taxi = true; });
+  const gt = new THREE.Group(); gt.position.set(A.x + 3.5, 0, D + 4.5); g.add(gt);
+  box(gt, 4.6, 0.65, 1.7, mat('#f2f0e6', { roughness: 0.35 }), 0, 0.55, 0);
+  box(gt, 2.6, 0.6, 1.55, mat('#f2f0e6', { roughness: 0.35 }), -0.3, 1.15, 0);
+  box(gt, 2.5, 0.42, 1.57, mat('#2b3440', { roughness: 0.2 }), -0.3, 1.15, 0);
+  for (const [x, z] of [[-1.5, 0.85], [1.5, 0.85], [-1.5, -0.85], [1.5, -0.85]]) { const w = cyl(gt, 0.33, 0.33, 0.22, mat('#1b1b1b'), x, 0.33, z, 16); w.rotation.x = Math.PI / 2; }
+  gt.traverse(o => { o.userData.taxi = true; });
+  // En face : le parc, et l'océan au bout avec le phare.
+  parc(g, PLACE);
+  for (let x = X0 - 12; x < X1 + 12; x += 12) { if (x + 6 > PLACE.x0 && x < PLACE.x1) continue; villa(g, x, x + 12, D + 14 - 0.1, (x / 12) | 0).rotation.y = Math.PI; }
+  ocean(g, PLACE.z1 + 1);
   return g;
 }

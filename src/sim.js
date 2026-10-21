@@ -4,7 +4,9 @@ import {
   MARCHE, LIEUX, RUE, CAFE, HANOUT, NPCS, PASSANTS, SALUTS, X0, X1, D, matchEnCours, relLabel,
   MILIEUX, POCHE, EPARGNE_TAUX, DARET, BOULOTS, VENTE, VENTE_MAX, ACHETEURS, ANIMAUX, ADOPT_SEUIL,
   SUJETS, GOUTS, REPONSES, EVENEMENTS, PLATS_SUCRES, TAXI, SORTIES, MARCHANDAGE, OUTFIT_COLORS,
+  QUARTIERS, NPCS_ANFA, GOUTS_ANFA, BOULOTS_ANFA, CAUTION_SEMAINES, VEHICULES,
 } from './data.js';
+const GOUTS_ALL = { ...GOUTS, ...GOUTS_ANFA }, BOULOTS_ALL = [...BOULOTS, ...BOULOTS_ANFA];
 import * as Wd from './world.js';
 
 export const G = {
@@ -15,7 +17,7 @@ export const G = {
   speed: 1, mode: 'live', modal: false,
   yaw: 0, walkPhase: 0, idle: 0, amb: 0, alerts: {}, pendingWork: false, workAsk: false, qid: 1,
 };
-export const hooks = { toast: () => {}, askWork: () => {}, workEvent: () => {}, sortieEvent: () => {}, lookChanged: () => {} };
+export const hooks = { toast: () => {}, askWork: () => {}, workEvent: () => {}, sortieEvent: () => {}, lookChanged: () => {}, quartierChanged: () => {} };
 const toast = (m, k) => hooks.toast(m, k);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const rand = (a, b) => a + Math.random() * (b - a);
@@ -36,10 +38,18 @@ export const fmtDH = n => Math.round(n).toLocaleString('fr-FR').replace(/ /g, 
 export const fmtDur = m => (m < 60 ? m + ' min' : Math.floor(m / 60) + ' h' + (m % 60 ? ' ' + (m % 60) : ''));
 export const cafeOuvert = t => hour(t) >= CAFE.ouvre && hour(t) < CAFE.ferme;
 export const hanoutOuvert = t => hour(t) >= HANOUT.ouvre && hour(t) < HANOUT.ferme;
-export const hanoutCost = b => HANOUT.articles.reduce((t, m) => t + (b[m.id] || 0) * m.prix, 0);
+export const hanoutCost = b => HANOUT.articles.reduce((t, m) => t + (b[m.id] || 0) * prix(m.prix), 0);
 export const milieu = () => MILIEUX[G.s.milieu];
 export const jobOf = () => milieu().jobs[G.s.job.level];
 export const revenu = k => milieu().revenus.includes(k);
+// Le quartier où l'on est, celui où l'on habite, et les prix du coin.
+export const Q = () => QUARTIERS[G.s.quartier];
+export const homeHere = () => G.s.quartier === G.s.chezMoi;
+export const prix = p => Math.round(p * Q().coeff);
+export const npcDefs = (q = G.s.quartier) => (q === 'anfa' ? NPCS_ANFA : NPCS);
+// Le loyer hebdomadaire : celui du milieu dans le quartier d'origine, sinon celui du quartier.
+export const loyerHebdo = (q = G.s.chezMoi) => (q === 'populaire' ? milieu().loyer : Math.max(700, milieu().loyer) * QUARTIERS[q].loyer);
+export const vehicule = () => (G.s.vehicule ? VEHICULES[G.s.vehicule] : null);
 
 // ---------- Partie ----------
 export function newGame(look) {
@@ -54,6 +64,7 @@ export function newGame(look) {
     job: { level: 0, perf: 40, day: -1, week: 0, absences: 0, competence: 0, collegues: 50 },
     rel: {}, ventes: { day: -1 }, boulots: { day: -1 }, daret: null, epargne: 0, autoWork: false,
     animaux: {}, stock: {}, home, pos: center(ent), away: null, lastBill: 0, autonomy: true,
+    quartier: 'populaire', chezMoi: 'populaire', visites: { populaire: true }, vehicule: null,
   };
   for (const a of ANIMAUX) G.s.animaux[a.id] = { confiance: 0, adopte: false, nom: '', faim: 70, fled: 0 };
   resetRuntime();
@@ -64,7 +75,8 @@ function resetRuntime() {
   G.cur = null; G.queue = []; G.idle = 0; G.alerts = {}; G.pendingWork = false; G.workAsk = false;
   G.yaw = Math.PI; G.amb = Wd.ambiance(s.home);
   G.chairs = CAFE.chaises.map(() => null);
-  G.npcs = NPCS.map(def => ({ id: def.id, def, visible: false, x: 0, z: 0, yaw: 0, state: 'home', path: [], walkPhase: 0, nextAt: 0, chair: -1, goal: null, talkUntil: 0, greetedAt: -9999, talks: 0, talkDay: -1, sujets: {}, sujetsDay: -1 }));
+  G.npcs = npcDefs().map(def => ({ id: def.id, def, visible: false, x: 0, z: 0, yaw: 0, state: 'home', path: [], walkPhase: 0, nextAt: 0, chair: -1, goal: null, talkUntil: 0, greetedAt: -9999, talks: 0, talkDay: -1, sujets: {}, sujetsDay: -1 }));
+  Wd.setBlocking({ noHome: !homeHere(), vehicule: s.vehicule });
   G.passants = PASSANTS.map((look, i) => ({ id: 'p' + i, look, visible: false, x: 0, z: 0, yaw: 0, path: [], walkPhase: 0, nextAt: rand(0, 40) }));
   G.animaux = ANIMAUX.map(def => {
     const home = s.animaux[def.id].adopte, c = home ? center({ x: 6, z: 7 }) : center(def.coin);
@@ -85,6 +97,7 @@ export function load() {
     }
     if (s.job.competence == null) { s.job.competence = 0; s.job.collegues = 50; }
     if (!s.stock) s.stock = {};
+    if (!s.quartier) { s.quartier = 'populaire'; s.chezMoi = 'populaire'; s.visites = { populaire: true }; s.vehicule = null; }
     G.s = s; resetRuntime(); return true;
   } catch { return false; }
 }
@@ -113,7 +126,7 @@ const getF = id => G.s.home.furn.find(f => f.id === id);
 const getN = id => G.npcs.find(n => n.id === id);
 const getA = id => G.animaux.find(a => a.id === id);
 const findPlat = key => { const [r, q] = key.split(':'); return G.s.plats.find(p => p.r === r && p.q === +q); };
-const boulotOf = id => BOULOTS.find(b => b.id === id);
+const boulotOf = id => BOULOTS_ALL.find(b => b.id === id);
 
 export function itemLabel(it) {
   if (it.kind === 'goto') return 'Aller ici';
@@ -125,7 +138,8 @@ export function itemLabel(it) {
   }
   if (it.kind === 'cafe') return 'Café : ' + CAFE.options.find(o => o.id === it.opt).nom.toLowerCase();
   if (it.kind === 'hanout') return 'Courses au hanout';
-  if (it.kind === 'sortie') return SORTIES[it.dest].nom + ' (' + TAXI[it.taxi].nom.toLowerCase() + ')';
+  if (it.kind === 'sortie') return SORTIES[it.dest].nom + (vehicule() ? '' : ' (' + TAXI[it.taxi].nom.toLowerCase() + ')');
+  if (it.kind === 'quartier') return (it.to === 'anfa' ? 'Aller à Anfa' : 'Rentrer au quartier') + (vehicule() ? '' : ' (' + TAXI[it.taxi].nom.toLowerCase() + ')');
   if (it.kind === 'animal') return ANIMAL_ACTS[it.act].label + ' : ' + animalName(it.id);
   if (it.kind === 'talk') {
     const n = getN(it.npc).def.nom;
@@ -214,15 +228,15 @@ export function doorActions() {
   };
 }
 export function chairActions(i) {
-  const s = G.s, c = CAFE.chaises[i], occ = G.chairs[i];
-  if (occ && occ !== 'player') return { title: CAFE.nom, items: [], info: `${getN(occ).def.nom} est assis(e) ici.` };
-  if (!cafeOuvert(s.t)) return { title: CAFE.nom, items: [], info: `Le café est fermé. Il ouvre à ${CAFE.ouvre} h.` };
+  const s = G.s, c = CAFE.chaises[i], occ = G.chairs[i], nom = Q().cafeNom;
+  if (occ && occ !== 'player') return { title: nom, items: [], info: `${getN(occ).def.nom} est assis(e) ici.` };
+  if (!cafeOuvert(s.t)) return { title: nom, items: [], info: `Le café est fermé. Il ouvre à ${CAFE.ouvre} h.` };
   const h = hour(s.t), match = matchEnCours(dow(s.t), h);
   const voisin = G.npcs.find(n => n.chair >= 0 && CAFE.chaises[n.chair].table === c.table);
   const items = CAFE.options.filter(o => (!o.jusqua || h < o.jusqua) && (!o.de || h >= o.de)).filter(o => !o.match || match).filter(o => !o.voisin || voisin).map(o => ({
-    act: 'cafe', chair: i, opt: o.id, label: o.nom + (o.voisin ? ` : ${voisin.def.nom}` : ''), sub: `${fmtDH(o.prix)} · ${fmtDur(o.dur)}`, disabled: o.prix > s.money, why: "Pas assez d'argent.",
+    act: 'cafe', chair: i, opt: o.id, label: o.nom + (o.voisin ? ` : ${voisin.def.nom}` : ''), sub: `${fmtDH(prix(o.prix))} · ${fmtDur(o.dur)}`, disabled: prix(o.prix) > s.money, why: "Pas assez d'argent.",
   }));
-  return { title: CAFE.nom, items, info: voisin ? `${voisin.def.nom} est à cette table.` : 'Une chaise libre en terrasse.' };
+  return { title: nom, items, info: voisin ? `${voisin.def.nom} est à cette table.` : 'Une chaise libre en terrasse.' };
 }
 const sellable = () => G.s.plats.filter(p => VENTE[p.r] && VENTE[p.r][p.q] > 0);
 export function npcActions(id) {
@@ -239,11 +253,12 @@ export function npcActions(id) {
   items.push({ kind: 'talk', npc: id, mode: 'offrir', plat: plat && plat.r + ':' + plat.q, label: 'Offrir un plat fait maison', sub: plat ? `${RECETTES[plat.r].nom} (${QUAL[plat.q]})` : '', disabled: !plat, why: 'Il faut avoir cuisiné quelque chose de réussi.' });
   if (!n.def.serveur && !n.def.boutique) {
     const libre = CAFE.tables.map((t, ti) => CAFE.chaises.filter((c, ci) => c.table === ti && !G.chairs[ci]).length >= 2).some(Boolean);
-    const why = !cafeOuvert(s.t) ? 'Le café est fermé.' : n.chair >= 0 ? 'Il est déjà attablé.' : !libre ? 'Pas deux chaises libres à la même table.' : s.money < 20 ? "Pas assez d'argent (20 DH pour deux thés)." : rel < 10 ? 'Il faut mieux se connaître (amitié 10).' : null;
-    items.push({ kind: 'talk', npc: id, mode: 'inviter', label: 'Inviter à prendre un thé au café', sub: '20 DH pour deux · 45 min', disabled: !!why, why });
+    const deux = prix(20);
+    const why = !cafeOuvert(s.t) ? 'Le café est fermé.' : n.chair >= 0 ? 'Il est déjà attablé.' : !libre ? 'Pas deux chaises libres à la même table.' : s.money < deux ? `Pas assez d'argent (${deux} DH pour deux thés).` : rel < 10 ? 'Il faut mieux se connaître (amitié 10).' : null;
+    items.push({ kind: 'talk', npc: id, mode: 'inviter', label: 'Inviter à prendre un thé au café', sub: `${deux} DH pour deux · 45 min`, disabled: !!why, why });
   }
-  if (revenu('boulots') || revenu('cours')) {
-    for (const b of BOULOTS.filter(b => b.npc === id && b.milieux.includes(s.milieu))) {
+  if (revenu('boulots') || revenu('cours') || s.quartier === 'anfa') {
+    for (const b of BOULOTS_ALL.filter(b => b.npc === id && b.milieux.includes(s.milieu))) {
       const done = s.boulots.day === d && s.boulots[b.id];
       let why = null;
       if (rel < b.rel) why = `Il faut mieux se connaître (amitié ${b.rel}).`;
@@ -330,7 +345,7 @@ function startItem(it) {
     G.cur.spot = { x: HANOUT.devant.x + 0.5, z: HANOUT.devant.z + 0.5, yaw: Math.PI, pose: 'stand', anim: 'talk', h: 0 };
     return;
   }
-  if (it.kind === 'sortie') {
+  if (it.kind === 'sortie' || it.kind === 'quartier') {
     if (!go(Wd.approachCells(home, [TAXI.arret], blocked))) return fail(it, "Impossible d'atteindre l'arrêt de taxi.");
     return;
   }
@@ -355,6 +370,7 @@ function startItem(it) {
   }
   if (it.kind === 'animal') {
     const a = getA(it.id);
+    if (!animalHere(a)) return fail(it, `${animalName(it.id)} n'est pas ici.`);
     const app = Wd.approachCells(home, [tileOf(a)], blocked);
     if (!app.length || !go(app)) return fail(it, `${animalName(it.id)} est hors d'atteinte.`);
     a.hold = s.t + 20;
@@ -433,9 +449,10 @@ function arrive(c) {
   if (it.kind === 'goto') { G.cur = null; return; }
   if (it.kind === 'out') { depart(it); return; }
   if (it.kind === 'sortie') { departSortie(it); return; }
+  if (it.kind === 'quartier') { departQuartier(it); return; }
   if (it.kind === 'hanout') {
     const cost = hanoutCost(it.basket), n = Object.values(it.basket).reduce((a, b) => a + b, 0);
-    if (!hanoutOuvert(s.t)) return fail(it, 'Le hanout vient de fermer.');
+    if (!hanoutOuvert(s.t)) return fail(it, 'La boutique vient de fermer.');
     if (cost > s.money) return fail(it, "Pas assez d'argent pour ça.");
     s.money -= cost;
     c.dur = 3 + n * 1.5; c.stage = 'do'; c.t = 0; G.yaw = c.spot.yaw;
@@ -444,8 +461,8 @@ function arrive(c) {
   if (it.kind === 'cafe') {
     const opt = CAFE.options.find(o => o.id === it.opt);
     if (G.chairs[it.chair]) return fail(it, 'La chaise vient d\'être prise.');
-    if (s.money < opt.prix) return fail(it, "Pas assez d'argent pour ça.");
-    s.money -= opt.prix;
+    if (s.money < prix(opt.prix)) return fail(it, "Pas assez d'argent pour ça.");
+    s.money -= prix(opt.prix);
     G.chairs[it.chair] = 'player';
     c.dur = opt.dur; c.rates = {};
     for (const k in opt.eff) c.rates[k] = opt.eff[k] / opt.dur * 60 * (k === 'moral' && has('sociable') ? 1.4 : 1);
@@ -566,7 +583,7 @@ function finish(c) {
 
 // Discussion sur un sujet : la réaction dépend des goûts du voisin.
 function topic(it, n) {
-  const s = G.s, g = (GOUTS[n.id] || {})[it.sujet] || 0, faits = sujetsOf(n), k = faits[it.sujet] ? 0.3 : 1;
+  const s = G.s, g = (GOUTS_ALL[n.id] || {})[it.sujet] || 0, faits = sujetsOf(n), k = faits[it.sujet] ? 0.3 : 1;
   faits[it.sujet] = true;
   const gain = [-3, 5, 10][g + 1] * k, soc = [4, 12, 18][g + 1] * k, mor = [-4, 4, 8][g + 1] * (has('sociable') ? 1.4 : 1) * k;
   addRel(n, gain);
@@ -591,7 +608,7 @@ function invite(it, n) {
   const ti = CAFE.tables.findIndex((t, i) => CAFE.chaises.filter((c, ci) => c.table === i && !G.chairs[ci]).length >= 2);
   if (ti < 0 || !cafeOuvert(s.t) || n.chair >= 0 || s.money < 20) return toast('Ça ne va pas être possible maintenant.');
   const [a, b] = CAFE.chaises.map((c, ci) => ci).filter(ci => CAFE.chaises[ci].table === ti && !G.chairs[ci]);
-  s.money -= 10;
+  s.money -= prix(10);
   G.chairs[a] = n.id; n.state = 'idle';
   goTo(n, Wd.approachCells(s.home, [CAFE.chaises[a]], grid()), 'cafe', a);
   n.hold = s.t + 75; // il reste le temps du thé, même si c'est l'heure de rentrer
@@ -599,7 +616,9 @@ function invite(it, n) {
   enqueue({ kind: 'cafe', chair: b, opt: 'the', invite: n.id, label: 'Thé au café avec ' + n.def.nom }, true);
 }
 function addRel(n, v) {
-  const s = G.s, before = s.rel[n.id] || 0, after = clamp(before + v, 0, 100);
+  const s = G.s, before = s.rel[n.id] || 0;
+  if (v > 0) v *= Q().regard[s.milieu] || 1; // le regard des autres selon le milieu et le quartier
+  const after = clamp(before + v, 0, 100);
   s.rel[n.id] = after;
   for (const seuil of [20, 50, 80]) if (before < seuil && after >= seuil) toast(`${n.def.nom} : ${relLabel(after)}.`, 'good');
 }
@@ -682,10 +701,12 @@ function finishAnimal(it) {
   }
   save();
 }
+export const animalHere = a => (G.s.animaux[a.id].adopte ? homeHere() : G.s.quartier === 'populaire');
 function stepAnimaux(m) {
   const s = G.s, h = hour(s.t);
   for (const a of G.animaux) {
     const st = s.animaux[a.id];
+    if (!animalHere(a)) continue;
     if (st.adopte) {
       st.faim = clamp(st.faim - 3 * m / 60, 0, 100);
       if (st.faim < 25 && !G.alerts['an-' + a.id]) { G.alerts['an-' + a.id] = true; toast(`${st.nom} a faim.`, 'bad'); }
@@ -740,25 +761,32 @@ function depart(it) {
   G.cur = null; G.queue = []; G.pendingWork = G.pendingWork && it.lieu !== 'travail';
   if (it.lieu === 'travail') s.away.startNeeds = { ...s.needs };
 }
-// ---------- Sorties en ville : taxi, activité, un événement, retour ----------
-export const sortieCost = (dest, taxi, actId) => SORTIES[dest].trajet[taxi].prix * 2 + SORTIES[dest].activites.find(a => a.id === actId).prix;
+// ---------- Sorties en ville : taxi (ou son propre véhicule), activité, un événement, retour ----------
+// Le trajet : prix et durée selon le taxi choisi, ou gratuit et plus court avec son propre véhicule.
+export function trajet(tr, taxi) {
+  const v = vehicule();
+  if (v) return { prix: 0, dur: Math.round(tr.petit.dur * v.vitesse), attente: 0, label: it => (G.s.vehicule === 'voiture' ? 'En voiture' : 'En scooter') };
+  const t = tr[taxi];
+  return { prix: t.prix, dur: t.dur, attente: taxi === 'grand' ? Math.round(rand(...TAXI.grand.attente)) : 0, label: () => 'En taxi' };
+}
+export const sortieCost = (dest, taxi, actId) => (vehicule() ? 0 : SORTIES[dest].trajet[taxi].prix * 2) + SORTIES[dest].activites.find(a => a.id === actId).prix;
 function departSortie(it) {
-  const s = G.s, Sd = SORTIES[it.dest], tr = Sd.trajet[it.taxi], act = Sd.activites.find(a => a.id === it.act);
+  const s = G.s, Sd = SORTIES[it.dest], tr = trajet(Sd.trajet, it.taxi), act = Sd.activites.find(a => a.id === it.act);
   const cost = sortieCost(it.dest, it.taxi, it.act);
   if (cost > s.money) { G.cur = null; toast("Pas assez d'argent pour cette sortie.", 'bad'); return; }
   s.money -= cost;
   const t0 = s.t, phases = [];
   let t = t0;
-  if (it.taxi === 'grand') { const w = Math.round(rand(...TAXI.grand.attente)); t += w; phases.push({ until: t, label: `Attente du grand taxi (${w} min)` }); }
-  t += tr.dur; phases.push({ until: t, label: 'En taxi' });
+  if (tr.attente) { t += tr.attente; phases.push({ until: t, label: `Attente du grand taxi (${tr.attente} min)` }); }
+  t += tr.dur; phases.push({ until: t, label: tr.label() });
   const extra = {};
   for (const k in act.eff) extra[k] = act.eff[k] / act.dur * 60;
   phases.push({ until: t + act.dur, label: Sd.ici + ' : ' + act.nom.toLowerCase(), extra, evtAt: t + act.dur / 2 });
   t += act.dur;
-  phases.push({ until: t + tr.dur, label: 'Retour en taxi' });
+  phases.push({ until: t + tr.dur, label: 'Retour' });
   s.away = { lieu: 'sortie', dest: it.dest, taxi: it.taxi, act: it.act, phases, start: t0, back: { ...s.pos }, backYaw: G.yaw, evt: false };
   G.cur = null; G.queue = [];
-  if (it.taxi === 'petit' && Math.random() < 0.3) {
+  if (!vehicule() && it.taxi === 'petit' && Math.random() < 0.3) {
     const ev = { titre: 'Le taxi', texte: 'Le chauffeur annonce que le compteur est « en panne » et demande 10 DH de plus.', choix: [
       { label: 'Payer les 10 DH', eff: { money: -10 }, suite: 'Il démarre en sifflotant.' },
       { label: 'Insister pour le compteur', cond: 'chance50', ok: { moral: 4 }, ko: { moral: -3, attente: 10 }, suiteOk: 'Il soupire et met le compteur.', suiteKo: 'Il te fait descendre. Le suivant arrive dix minutes plus tard.' },
@@ -811,6 +839,63 @@ function stepSortie(m) {
     if (act.achat) bargain(act);
   }
 }
+// ---------- Changer de quartier, déménager, acheter un véhicule ----------
+export const quartierCost = (to, taxi) => (vehicule() ? 0 : QUARTIERS[to].trajet[taxi].prix);
+function departQuartier(it) {
+  const s = G.s, tr = trajet(QUARTIERS[it.to].trajet, it.taxi);
+  if (tr.prix > s.money) { G.cur = null; toast("Pas assez d'argent pour le taxi.", 'bad'); return; }
+  s.money -= tr.prix;
+  const t0 = s.t, phases = [];
+  let t = t0;
+  if (tr.attente) { t += tr.attente; phases.push({ until: t, label: `Attente du grand taxi (${tr.attente} min)` }); }
+  phases.push({ until: t + tr.dur, label: `${tr.label()} vers ${QUARTIERS[it.to].nom}` });
+  s.away = { lieu: 'quartier', to: it.to, phases, start: t0 };
+  G.cur = null; G.queue = [];
+}
+function arriveQuartier(to) {
+  const s = G.s, first = !s.visites[to];
+  s.quartier = to; s.visites[to] = true;
+  s.pos = center({ x: TAXI.arret.x + 1, z: TAXI.arret.z }); G.yaw = Math.PI / 2;
+  G.chairs = CAFE.chaises.map(() => null);
+  G.npcs = npcDefs().map(def => ({ id: def.id, def, visible: false, x: 0, z: 0, yaw: 0, state: 'home', path: [], walkPhase: 0, nextAt: 0, chair: -1, goal: null, talkUntil: 0, greetedAt: -9999, talks: 0, talkDay: -1, sujets: {}, sujetsDay: -1 }));
+  npcGrid = null;
+  Wd.setBlocking({ noHome: !homeHere(), vehicule: s.vehicule });
+  hooks.quartierChanged();
+  toast(`${nm()} arrive ${QUARTIERS[to].article}.`);
+  if (first && QUARTIERS[to].accueil) toast(QUARTIERS[to].accueil[s.milieu]);
+  save();
+}
+export function demenager(to) {
+  const s = G.s, loyer = loyerHebdo(to), caution = loyer * CAUTION_SEMAINES;
+  if (to === s.chezMoi) return;
+  if (!s.visites[to]) return toast('Il faut d\'abord aller voir sur place.');
+  if (s.money < caution + loyer) return toast(`Il faut ${fmtDH(caution + loyer)} : la caution (${CAUTION_SEMAINES} semaines) et la première semaine.`, 'bad');
+  s.money -= caution + loyer;
+  s.chezMoi = to; s.quartier = to; s.lastBill = dayIdx(s.t);
+  s.pos = center(Wd.entrance(s.home));
+  G.chairs = CAFE.chaises.map(() => null);
+  G.npcs = npcDefs().map(def => ({ id: def.id, def, visible: false, x: 0, z: 0, yaw: 0, state: 'home', path: [], walkPhase: 0, nextAt: 0, chair: -1, goal: null, talkUntil: 0, greetedAt: -9999, talks: 0, talkDay: -1, sujets: {}, sujetsDay: -1 }));
+  npcGrid = null;
+  Wd.setBlocking({ noHome: false, vehicule: s.vehicule });
+  for (const a of G.animaux) { const c = center(Wd.doorstep(s.home)); a.x = c.x; a.z = c.z; a.path = []; a.state = 'idle'; }
+  hooks.quartierChanged();
+  toast(`Déménagement ${QUARTIERS[to].article} ! Caution ${fmtDH(caution)}, loyer ${fmtDH(loyer)} par semaine. Tes meubles ont suivi.`, 'good');
+  save();
+}
+export function acheterVehicule(id) {
+  const s = G.s, v = VEHICULES[id];
+  if (s.vehicule) return toast('Tu as déjà un véhicule.');
+  if (!spend(v.prix)) return;
+  s.vehicule = id;
+  s.needs.moral = clamp(s.needs.moral + 12, 0, 100);
+  Wd.setBlocking({ noHome: !homeHere(), vehicule: id });
+  npcGrid = null;
+  hooks.quartierChanged();
+  toast(`${v.nom} : à toi ! Les voisins l'ont remarqué.`, 'good');
+  const omar = getN('omar');
+  if (omar && omar.visible) toast('Omar : « Tu as une voiture maintenant ? Tu vas m\'oublier… »');
+  save();
+}
 export function awayPhase() {
   const a = G.s.away;
   return a && (a.phases.find(p => G.s.t < p.until) || a.phases[a.phases.length - 1]);
@@ -818,7 +903,7 @@ export function awayPhase() {
 export function comeBack() {
   const s = G.s, a = s.away;
   if (!a || a.lieu === 'travail' || a.lieu === 'marche' || a.lieu === 'boulot') return;
-  if (a.lieu === 'sortie') { a.fin = true; a.phases = [{ until: s.t + SORTIES[a.dest].trajet[a.taxi].dur, label: 'Retour en taxi' }]; return; }
+  if (a.lieu === 'sortie') { a.fin = true; a.phases = [{ until: s.t + trajet(SORTIES[a.dest].trajet, a.taxi).dur, label: 'Retour' }]; return; }
   a.phases = [{ until: s.t + LIEUX[a.lieu].trajet, label: 'Sur le chemin du retour' }];
 }
 function stepAway(m) {
@@ -863,6 +948,7 @@ function workChoice(ev, i) {
 function returnHome() {
   const s = G.s, a = s.away;
   s.away = null;
+  if (a.lieu === 'quartier') { arriveQuartier(a.to); return; }
   if (a.lieu === 'sortie') {
     s.pos = { ...a.back }; G.yaw = a.backYaw || 0;
     toast(`${nm()} est de retour de ${SORTIES[a.dest].nom.toLowerCase()}.`);
@@ -889,7 +975,7 @@ function returnHome() {
   const d = dayIdx(s.t);
   if (dow(s.t) <= 4 && hm(s.t).h < 12 && s.job.day !== d && (G.pendingWork || G.workAsk)) {
     if (s.autoWork) goWork(); else hooks.askWork();
-  } else enqueue({ kind: 'goto', ...Wd.entrance(s.home), auto: true, label: 'Rentrer à la maison' });
+  } else if (homeHere()) enqueue({ kind: 'goto', ...Wd.entrance(s.home), auto: true, label: 'Rentrer à la maison' });
   G.pendingWork = false; G.workAsk = false;
 }
 
@@ -919,8 +1005,10 @@ function minuteEvent(T) {
   const s = G.s, d = dayIdx(T), w = d % 7, mm = T % 1440, M = milieu();
   if (w === 0 && mm === 6 * 60 && d > 0 && s.lastBill !== d) {
     s.lastBill = d;
-    s.money -= M.loyer + M.facture;
-    toast(M.loyer ? `Loyer de la semaine (${fmtDH(M.loyer)}) et facture d'eau et d'électricité (${fmtDH(M.facture)}) payés.` : `Facture d'eau et d'électricité payée (${fmtDH(M.facture)}).`);
+    const loyer = loyerHebdo();
+    s.money -= loyer + M.facture;
+    toast(loyer ? `Loyer de la semaine (${fmtDH(loyer)}) et facture d'eau et d'électricité (${fmtDH(M.facture)}) payés.` : `Facture d'eau et d'électricité payée (${fmtDH(M.facture)}).`);
+    if (s.vehicule) { s.money -= VEHICULES[s.vehicule].essence; toast(`${VEHICULES[s.vehicule].nom} : ${fmtDH(VEHICULES[s.vehicule].essence)} d'essence et d'entretien.`); }
     if (s.daret) {
       s.money -= DARET.part; s.daret.tour++;
       if (s.daret.tour === s.daret.pos) { s.money += DARET.part * DARET.membres; toast(`C'est ton tour de daret : +${fmtDH(DARET.part * DARET.membres)} !`, 'good'); }
@@ -1009,6 +1097,11 @@ function checkAlerts() {
 // Libre arbitre : le personnage s'occupe de lui quand il n'a rien à faire.
 function decide() {
   const s = G.s, n = s.needs, h = hour(s.t);
+  if (!homeHere()) {
+    // Loin de chez soi : on rentre quand ça devient urgent, sinon on profite du quartier.
+    if ((n.energie < 20 || n.faim < 15 || h >= 23) && s.money >= QUARTIERS[s.chezMoi].trajet.grand.prix) enqueue({ kind: 'quartier', to: s.chezMoi, taxi: 'grand', auto: true });
+    return;
+  }
   const tryAct = (types, act, param) => {
     for (const f of s.home.furn.filter(f => types.includes(f.type))) {
       const it = { kind: 'act', fid: f.id, act, param, auto: true };
@@ -1157,10 +1250,10 @@ export function view() {
     pose: n.state === 'walk' ? { base: 'walk' } : n.state === 'sit' ? { base: 'sit', h: 0.45, anim: 'eat' } : n.state === 'talk' ? { base: 'stand', anim: 'talk' } : { base: 'stand' },
   })).concat(G.passants.map(p => ({ id: p.id, visible: p.visible, x: p.x, z: p.z, yaw: p.yaw, walkPhase: p.walkPhase, pose: { base: 'walk' } })));
   const animaux = G.animaux.map(a => ({
-    id: a.id, x: a.x, z: a.z, yaw: a.yaw, walkPhase: a.walkPhase,
+    id: a.id, x: a.x, z: a.z, yaw: a.yaw, walkPhase: a.walkPhase, visible: animalHere(a),
     pose: a.state === 'walk' ? 'walk' : (h >= 23 || h < 7) && s.t >= a.hold ? 'lie' : 'idle',
   }));
-  return { visible: !s.away, x, z, yaw, pose, walkPhase: G.walkPhase, t: s.t, active, outside: !Wd.inHome(Math.floor(x), Math.floor(z)), npcs, animaux };
+  return { visible: !s.away, x, z, yaw, pose, walkPhase: G.walkPhase, t: s.t, active, outside: !Wd.inHome(Math.floor(x), Math.floor(z)) || !homeHere(), npcs, animaux };
 }
 export function progress() {
   const c = G.cur;

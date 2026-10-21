@@ -1,7 +1,7 @@
 // Démarrage, boucle de jeu et gestion du toucher / de la souris.
 import { SPEEDS } from './data.js';
 import {
-  G, hooks, newGame, load, save, wipe, advance, view, enqueue, enqueueWork, cancelAll, isHome,
+  G, hooks, newGame, load, save, wipe, advance, view, enqueue, enqueueWork, cancelAll, isHome, homeHere, npcDefs, demenager, acheterVehicule,
   availableActions, doorActions, chairActions, npcActions, animalActions,
 } from './sim.js';
 import { defaultHome, entrance, doorstep } from './world.js';
@@ -17,7 +17,9 @@ hooks.askWork = UI.askWork;
 hooks.workEvent = UI.workEvent;
 hooks.sortieEvent = UI.sortieEvent;
 hooks.lookChanged = () => S.setCharLook(G.s.char);
-window.jeu = { G, advance, enqueue, hooks, debugCam: S.debugCam, npcActions, animalActions, newGame, start, rebuild: () => S.rebuildHome(G.s.home), setCam: S.setCam, setFollow: S.setFollow }; // pour tester depuis la console du navigateur
+const ctx = () => ({ quartier: G.s.quartier, withHome: homeHere(), vehicule: G.s.vehicule, npcs: npcDefs() });
+hooks.quartierChanged = () => { S.setQuartier(ctx()); UI.updateHud(); };
+window.jeu = { G, advance, enqueue, hooks, debugCam: S.debugCam, npcActions, animalActions, newGame, start, rebuild: () => S.rebuildHome(G.s.home), setCam: S.setCam, setFollow: S.setFollow, demenager, acheterVehicule }; // pour tester depuis la console du navigateur
 
 const walls = ['coupes', 'bas', 'hauts'];
 let wallIdx = 0, preview = null;
@@ -41,6 +43,7 @@ function toggleMode() {
 
 function start() {
   preview = null;
+  S.setQuartier(ctx());
   S.rebuildHome(G.s.home);
   S.setCharLook(G.s.char);
   S.setFollow(true);
@@ -53,6 +56,7 @@ function start() {
 function creation() {
   UI.showHud(false);
   S.setFollow(false);
+  S.setQuartier({ quartier: 'populaire', withHome: true, vehicule: null, npcs: [] });
   const look = UI.randomLook();
   let shown = null;
   const refresh = l => {
@@ -131,6 +135,8 @@ function onTap(x, y, type) {
     UI.openHanout();
   } else if (h.type === 'taxi') {
     UI.openSorties();
+  } else if (h.type === 'agence') {
+    UI.openFiche('argent');
   } else if (h.type === 'chair') {
     UI.showPop(x, y, chairActions(h.id), it => enqueue({ kind: 'cafe', chair: it.chair, opt: it.opt }));
   } else if (h.type === 'npc') {

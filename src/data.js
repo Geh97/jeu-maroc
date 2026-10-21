@@ -466,6 +466,71 @@ export const SORTIES = {
     ],
   },
 };
+// Les quartiers. Le plan de la rue est le même (appartement à l'origine, café à droite, boutique à gauche),
+// mais les décors, les gens, les prix et les loyers changent.
+export const QUARTIERS = {
+  populaire: {
+    nom: 'Le quartier', article: 'au quartier', coeff: 1, loyer: 1, desc: 'Le quartier où tout a commencé : le café de Hamid, le hanout de Ba Lahcen, la placette et la mosquée.',
+    cafeNom: 'Café du quartier', boutiqueNom: 'Hanout de Ba Lahcen', regard: { populaire: 1, moyen: 1, aise: 0.8 },
+    trajet: { petit: { prix: 40, dur: 25 }, grand: { prix: 12, dur: 35 } },
+  },
+  anfa: {
+    nom: 'Anfa', article: 'à Anfa', coeff: 3, loyer: 3, desc: 'Villas blanches, palmiers, grosses voitures et cafés branchés, à deux pas de la corniche. Tout coûte trois fois plus cher.',
+    cafeNom: 'Café La Corniche', boutiqueNom: 'Épicerie fine Anfa', regard: { populaire: 0.55, moyen: 0.85, aise: 1.25 },
+    trajet: { petit: { prix: 40, dur: 25 }, grand: { prix: 12, dur: 35 } },
+    accueil: { populaire: 'On te regarde de haut, ici. Il faudra faire tes preuves.', moyen: 'Les gens sont polis, sans plus.', aise: 'Tu es chez toi, ici.' },
+  },
+};
+export const NPCS_ANFA = [
+  {
+    id: 'rachid', nom: 'Rachid', desc: 'Gardien de la villa d\'en face depuis vingt ans. Il voit tout, il ne dit rien.',
+    look: { skin: '#8a5a3c', hair: 'courte', hairColor: '#3b2618', outfit: 'jean', outfitColor: '#2f4f7a' },
+    porte: { x: -8, z: D }, sorties: [[7, 23]], boutique: false, poste: { x: -9, z: D + 1 }, cafe: 0,
+    lignes: ['Le patron rentre tard, je ferme à minuit.', 'Avant, j\'étais au quartier, moi aussi.', 'Tu veux que je te garde un œil sur ta voiture ?', 'Les gens d\'ici, ils ne disent pas bonjour. Toi, si.'],
+  },
+  {
+    id: 'sofia', nom: 'Sofia', desc: 'Elle filme sa vie pour ses abonnés : brunchs, sport, et la corniche au coucher du soleil.',
+    look: { skin: '#e6b994', hair: 'longue', hairColor: '#3b2618', outfit: 'jean', outfitColor: '#f2ede3' },
+    porte: { x: 27, z: D }, sorties: [[10, 13], [17, 20]], cafe: 0.9,
+    lignes: ['Tu connais un endroit photogénique dans ton quartier ?', 'Le latte ici est le meilleur de Casa, je te jure.', 'Je fais un vlog sur la vraie vie marocaine. Tu veux apparaître ?', 'Mon coach dit que le sucre, c\'est fini.'],
+  },
+  {
+    id: 'haj', nom: 'Haj Abdellah', desc: 'Ancien promoteur immobilier, retraité. Il joue au golf le matin et connaît tous les banquiers de la ville.',
+    look: { skin: '#b07a55', hair: 'rasee', hairColor: '#9a958f', outfit: 'costume', outfitColor: '#f2ede3' },
+    porte: { x: -8, z: D }, sorties: [[8, 10], [16, 19]], cafe: 0.7,
+    lignes: ['J\'ai construit la moitié de cette rue, tu sais.', 'Le secret, c\'est de connaître les bonnes personnes.', 'Mon fils est à Londres. Il ne reviendra pas.', 'À mon époque, on travaillait. Maintenant, on filme.'],
+  },
+  {
+    id: 'leila', nom: 'Leila', desc: 'Mère de deux enfants, toujours entre l\'école, le club de tennis et le supermarché, au volant de son grand SUV.',
+    look: { skin: '#d19e78', hair: 'attachee', hairColor: '#1d1714', outfit: 'costume', outfitColor: '#5b3d6e' },
+    porte: { x: 27, z: D }, sorties: [[8.5, 9.5], [12, 14], [16.5, 18]], cafe: 0.4,
+    lignes: ['Je cherche quelqu\'un de sérieux pour des cours à mes enfants.', 'Cette école privée nous coûte une fortune, mais bon.', 'On a passé l\'été à Marbella, c\'était épuisant.', 'Tu habites où, exactement ?'],
+  },
+  {
+    id: 'karim', nom: 'Karim', desc: 'Barista du café La Corniche. Il vient du quartier populaire et travaille ici depuis trois ans.',
+    look: { skin: '#b07a55', hair: 'courte', hairColor: '#1d1714', outfit: 'costume', outfitColor: '#1b1b1b' },
+    porte: { x: 22, z: D }, sorties: [[7, 23]], serveur: true,
+    lignes: ['Ici, un thé coûte le prix de trois chez nous.', 'Le patron veut qu\'on sourie tout le temps.', 'Si tu cherches un coin tranquille, la table du fond.', 'Je rentre au quartier le dimanche, ça me fait du bien.'],
+  },
+];
+export const GOUTS_ANFA = {
+  rachid: { nouvelles: 1, quartier: 1, foot: 1, blague: 1, confier: 1 },
+  sofia: { nouvelles: 1, quartier: 0, foot: -1, blague: 1, confier: 0 },
+  haj: { nouvelles: 0, quartier: 1, foot: 0, blague: -1, confier: 0 },
+  leila: { nouvelles: 1, quartier: -1, foot: -1, blague: 0, confier: 1 },
+  karim: { nouvelles: 1, quartier: 1, foot: 1, blague: 1, confier: 0 },
+};
+export const BOULOTS_ANFA = [
+  { id: 'cours_anfa', npc: 'leila', milieux: ['moyen', 'aise'], nom: 'Cours particuliers aux enfants de Leila', dur: 120, paie: 300, rel: 20, ici: 'En cours particulier dans une villa', eff: { energie: -8, social: 6 } },
+  { id: 'chien_anfa', npc: 'sofia', milieux: ['populaire', 'moyen'], nom: 'Promener le chien de Sofia', dur: 60, paie: 100, rel: 10, ici: 'Sur la corniche avec un chien', eff: { energie: -8, social: 4, moral: 6 } },
+  { id: 'villa_anfa', npc: 'rachid', milieux: ['populaire'], nom: 'Remplacer Rachid une soirée', dur: 240, paie: 180, rel: 20, ici: 'De garde devant une villa', eff: { energie: -16, social: -4 } },
+];
+export const CAUTION_SEMAINES = 4; // caution demandée par l'agence, en semaines de loyer
+export const VEHICULES = {
+  scooter: { nom: 'Scooter d\'occasion', prix: 9000, essence: 60, vitesse: 0.7, desc: 'Plus de taxi à attendre : trajets 30 % plus courts, 60 DH d\'essence par semaine.' },
+  voiture: { nom: 'Voiture d\'occasion', prix: 45000, essence: 250, vitesse: 0.5, desc: 'Trajets deux fois plus courts, 250 DH par semaine d\'essence et d\'entretien, et le regard des voisins qui change.' },
+};
+
 // Le marchandage : trois façons d'aborder le prix.
 export const MARCHANDAGE = [
   { label: 'Proposer la moitié', chance: 0.35, ok: 0.6, ko: 0.95, suiteOk: 'Il râle, puis il accepte. Belle affaire.', suiteKo: 'Il fait mine de ranger l\'objet. Tu finis par payer presque le prix fort.' },

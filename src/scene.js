@@ -47,22 +47,17 @@ export function initScene(canvas) {
   sun.target.position.set(W / 2, 0, D / 2 + 4);
   amb = new THREE.AmbientLight('#ffd49a', 0);
   wallMat.map = T.tadelakt();
-  street = makeStreet();
-  scene.add(hemi, sun, sun.target, amb, homeG, helpers, street);
+  scene.add(hemi, sun, sun.target, amb, homeG, helpers);
   for (let i = 0; i < 4; i++) {
     const l = new THREE.PointLight('#ffb35c', 0, 6, 2);
     scene.add(l); lampLights.push(l);
   }
-  for (const l of (street.userData.lamps || []).filter(l => !l.small)) {
-    const p = new THREE.PointLight('#ffd27a', 0, 12, 1.6);
-    p.position.set(l.x, l.y, l.z); scene.add(p); streetLights.push(p);
-  }
+  setQuartier({ quartier: 'populaire', withHome: true, vehicule: null, npcs: [] });
   floorPlane = new THREE.Mesh(new THREE.PlaneGeometry(X1 - X0 + 60, Z1 + 60), new THREE.MeshBasicMaterial({ visible: false }));
   floorPlane.rotation.x = -Math.PI / 2;
   floorPlane.position.set((X0 + X1) / 2, 0, Z1 / 2);
   floorPlane.userData.floor = true;
   scene.add(floorPlane);
-  for (const def of NPCS) addNpc(def.id, def.look);
   PASSANTS.forEach((look, i) => addNpc('p' + i, look));
   for (const def of ANIMAUX) {
     const a = M.makeAnimal(def);
@@ -155,6 +150,21 @@ export function setCharLook(c) {
   ch.root.traverse(o => { if (o.isMesh) o.castShadow = true; o.userData.char = true; });
   scene.add(ch.root);
 }
+// Changer de quartier : on reconstruit la rue, ses lumières et ses habitants.
+export function setQuartier(ctx) {
+  if (street) { disposeGroup(street); scene.remove(street); }
+  for (const l of streetLights) scene.remove(l);
+  streetLights = []; chairMeshes = null;
+  street = makeStreet({ quartier: ctx.quartier, withHome: ctx.withHome, vehicule: ctx.vehicule });
+  scene.add(street);
+  for (const l of (street.userData.lamps || []).filter(l => !l.small)) {
+    const p = new THREE.PointLight('#ffd27a', 0, 12, 1.6);
+    p.position.set(l.x, l.y, l.z); scene.add(p); streetLights.push(p);
+  }
+  homeG.visible = ctx.withHome;
+  for (const [id, n] of [...npcs]) if (!id.startsWith('p')) { scene.remove(n.root); npcs.delete(id); }
+  for (const def of ctx.npcs) addNpc(def.id, def.look);
+}
 function addNpc(id, lookDef) {
   const n = M.makeCharacter(lookDef);
   n.root.traverse(o => { if (o.isMesh) o.castShadow = true; o.userData.npc = id; });
@@ -210,6 +220,7 @@ export function updateFrame(dt, v) {
     for (const av of v.animaux || []) {
       const a = animaux.get(av.id);
       if (!a) continue;
+      a.root.visible = av.visible !== false;
       a.root.position.set(av.x, 0, av.z); a.root.rotation.y = av.yaw;
       M.poseAnimal(a, av.pose, clock + av.x, av.walkPhase);
     }
@@ -252,7 +263,7 @@ const tmp = new THREE.Vector3();
 function cutaway() {
   tmp.subVectors(camera.position, controls.target); tmp.y = 0; tmp.normalize();
   const cx = W / 2, cz = D / 2;
-  for (const s of segs) {
+  if (homeG.visible) for (const s of segs) {
     let low = wallMode === 'bas';
     if (wallMode === 'coupes') low = (s.x - cx) * tmp.x + (s.z - cz) * tmp.z > -1.2;
     s.g.scale.y = low ? 0.24 : 1;
@@ -269,11 +280,11 @@ let chairMeshes = null;
 export function pick(px, py, opts = {}) {
   ndc.set(px / innerWidth * 2 - 1, -(py / innerHeight) * 2 + 1);
   ray.setFromCamera(ndc, camera);
-  if (!chairMeshes) { chairMeshes = []; street.traverse(o => { if (o.isMesh && (o.userData.chair != null || o.userData.hanout || o.userData.taxi)) chairMeshes.push(o); }); }
-  const objs = [...furnGroups.values(), ...segs.map(s => s.g), ...chairMeshes, floorPlane];
+  if (!chairMeshes) { chairMeshes = []; street.traverse(o => { if (o.isMesh && (o.userData.chair != null || o.userData.hanout || o.userData.taxi || o.userData.agence)) chairMeshes.push(o); }); }
+  const objs = [...(homeG.visible ? [...furnGroups.values(), ...segs.map(s => s.g)] : []), ...chairMeshes, floorPlane];
   if (!opts.build) {
     for (const n of npcs.values()) if (n.root.visible) objs.unshift(n.root);
-    for (const a of animaux.values()) objs.unshift(a.root);
+    for (const a of animaux.values()) if (a.root.visible) objs.unshift(a.root);
   }
   if (ch && ch.root.visible) objs.unshift(ch.root);
   for (const h of ray.intersectObjects(objs, true)) {
@@ -284,6 +295,7 @@ export function pick(px, py, opts = {}) {
     if (u.chair != null) return { type: 'chair', id: u.chair };
     if (u.hanout && !opts.build) return { type: 'hanout' };
     if (u.taxi && !opts.build) return { type: 'taxi' };
+    if (u.agence && !opts.build) return { type: 'agence' };
     if (u.fid != null) {
       if (!opts.build && FURN[typeOf(u.fid)].sol) return floorHit(h.point);
       return { type: 'furn', id: u.fid, point: h.point };

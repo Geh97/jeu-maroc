@@ -2,11 +2,11 @@
 import {
   JOURS, NEEDS, NEED_ICONS, SKINS, HAIRS, HAIR_COLORS, SCARF_COLORS, OUTFITS, OUTFIT_COLORS, TRAITS,
   LIEUX, MARCHE, RECETTES, QUAL, NPCS, CAFE, HANOUT, relLabel, asset,
-  MILIEUX, MILIEU_IDS, BOULOTS, VENTE, DARET, POCHE, EPARGNE_TAUX, ANIMAUX, SORTIES, TAXI,
+  MILIEUX, MILIEU_IDS, BOULOTS, VENTE, DARET, POCHE, EPARGNE_TAUX, ANIMAUX, SORTIES, TAXI, QUARTIERS, VEHICULES, CAUTION_SEMAINES,
 } from './data.js';
 import {
   G, dow, dayIdx, fmtTime, fmtDH, fmtDur, enqueue, cancel, comeBack, awayPhase, basketCost, progress, hanoutOuvert, hanoutCost,
-  milieu, jobOf, revenu, joinDaret, epargne, enqueueWork, skipWork, animalName, sortieCost,
+  milieu, jobOf, revenu, joinDaret, epargne, enqueueWork, skipWork, animalName, sortieCost, Q, prix, homeHere, loyerHebdo, vehicule, demenager, acheterVehicule, quartierCost,
 } from './sim.js';
 import { ambiance } from './world.js';
 
@@ -53,7 +53,7 @@ const barColor = v => (v > 60 ? '#3f9a5b' : v > 30 ? '#e0a526' : '#c8442f');
 let queueSig = '';
 export function updateHud() {
   const s = G.s;
-  $('day').textContent = `${JOURS[dow(s.t)]} · jour ${dayIdx(s.t) + 1}`;
+  $('day').textContent = `${JOURS[dow(s.t)]} · jour ${dayIdx(s.t) + 1}${s.quartier !== 'populaire' ? ' · ' + Q().nom : ''}`;
   $('time').textContent = fmtTime(s.t);
   $('money').lastChild.textContent = fmtDH(s.money);
   $('money').classList.toggle('neg', s.money < 0);
@@ -72,7 +72,7 @@ export function updateHud() {
   $('away').hidden = !a;
   $('queue').hidden = !!a;
   if (a) {
-    const p = awayPhase(), L = LIEUX[a.lieu] || SORTIES[a.dest] || { nom: '' }, end = a.phases[a.phases.length - 1].until;
+    const p = awayPhase(), L = LIEUX[a.lieu] || SORTIES[a.dest] || QUARTIERS[a.to] || { nom: '' }, end = a.phases[a.phases.length - 1].until;
     const pct = Math.min(100, (s.t - a.start) / (end - a.start) * 100);
     $('away').innerHTML = `<div class="away-t"><b>${esc(p.label === 'En chemin' ? 'En chemin : ' + L.nom.toLowerCase() : p.label)}</b>
       <span>Retour vers ${fmtTime(end)}</span></div><div class="bar"><i style="width:${pct}%"></i></div>
@@ -241,8 +241,8 @@ function openMarche() {
 export function openHanout() {
   if (!hanoutOuvert(G.s.t)) { toast(`Le hanout est fermé. Il ouvre à ${HANOUT.ouvre} h.`); return; }
   openCourses({
-    titre: HANOUT.nom, img: 'illu-hanout', articles: HANOUT.articles, cost: hanoutCost, verbe: 'Aller acheter',
-    intro: `L'épicerie du coin, ouverte de ${HANOUT.ouvre} h à ${HANOUT.ferme} h. Un peu plus cher qu'au marché, mais c'est à deux pas.`,
+    titre: Q().boutiqueNom, img: 'illu-hanout', articles: HANOUT.articles.map(a => ({ ...a, prix: prix(a.prix) })), cost: hanoutCost, verbe: 'Aller acheter',
+    intro: G.s.quartier === 'anfa' ? 'Produits fins, prix fins. Mais c\'est à deux pas.' : `L'épicerie du coin, ouverte de ${HANOUT.ouvre} h à ${HANOUT.ferme} h. Un peu plus cher qu'au marché, mais c'est à deux pas.`,
     go: basket => enqueue({ kind: 'hanout', basket }),
   });
 }
@@ -306,6 +306,8 @@ export function openFiche(tab = 'moi') {
   const daretBtn = sheet.querySelector('#daretJoin');
   if (daretBtn) daretBtn.onclick = () => { joinDaret(); openFiche('argent'); };
   sheet.querySelectorAll('[data-ep]').forEach(b => { b.onclick = () => { epargne(+b.dataset.ep); openFiche('argent'); }; });
+  sheet.querySelectorAll('[data-dem]').forEach(b => { b.onclick = () => { closeModal(); demenager(b.dataset.dem); }; });
+  sheet.querySelectorAll('[data-veh]').forEach(b => { b.onclick = () => { closeModal(); acheterVehicule(b.dataset.veh); }; });
 }
 // L'onglet Argent : comment ce personnage peut gagner sa vie, selon son milieu.
 function moneyWays() {
@@ -336,6 +338,15 @@ function moneyWays() {
     h += stat('icone-epargne', `<span>Compte épargne</span><b>${fmtDH(s.epargne)}</b><small>${EPARGNE_TAUX * 100} % d'intérêts chaque lundi.</small>
       <div class="bacts"><button class="btn small" data-ep="1000" ${s.money < 1000 ? 'disabled' : ''}>Placer 1 000 DH</button><button class="btn small" data-ep="5000" ${s.money < 5000 ? 'disabled' : ''}>Placer 5 000 DH</button><button class="btn small" data-ep="-1" ${s.epargne ? '' : 'disabled'}>Tout retirer</button></div>`);
   }
+  // Logement : où l'on habite, et où l'on pourrait déménager.
+  const autre = s.chezMoi === 'anfa' ? 'populaire' : 'anfa', loyerAutre = loyerHebdo(autre), caution = loyerAutre * CAUTION_SEMAINES;
+  let dem;
+  if (!s.visites[autre]) dem = `Pour louer ${QUARTIERS[autre].article}, il faut d'abord y aller voir (taxi depuis le coin de la rue).`;
+  else dem = `Loyer ${fmtDH(loyerAutre)} par semaine, caution ${fmtDH(caution)} (${CAUTION_SEMAINES} semaines), première semaine d'avance : ${fmtDH(caution + loyerAutre)} à verser. Tes meubles suivent. <button class="btn small primary" data-dem="${autre}" ${s.money < caution + loyerAutre ? 'disabled' : ''}>Déménager ${QUARTIERS[autre].article}</button>`;
+  h += stat('milieu-' + s.milieu, `<span>Logement</span><b>Tu habites ${QUARTIERS[s.chezMoi].article}</b><small>${loyerHebdo() ? `Loyer ${fmtDH(loyerHebdo())} par semaine.` : 'Sans loyer.'} ${dem}</small>`);
+  // Se déplacer : le véhicule.
+  const v = vehicule();
+  h += stat('icone-boulot', `<span>Se déplacer</span>${v ? `<b>${esc(v.nom)}</b><small>${esc(v.desc)}</small>` : `<small>Les taxis, en attendant mieux.</small><div class="list">${Object.entries(VEHICULES).map(([k, x]) => `<div class="opt line"><span><b>${esc(x.nom)}</b><small>${esc(x.desc)}</small></span><button class="btn small" data-veh="${k}" ${s.money < x.prix ? 'disabled' : ''}>${fmtDH(x.prix)}</button></div>`).join('')}</div>`}`);
   h += stat('icone-animal', `<span>Et aussi</span><small>Revendre un meuble rapporte 75 % de son prix. Un animal adopté ne rapporte rien, mais il tient compagnie.</small>`);
   return h;
 }
@@ -363,16 +374,28 @@ export const sortieEvent = (ev, cb) => choiceEvent(ev.titre, ev.img, ev, cb);
 
 // Sortir en ville : choisir la destination, puis le taxi et l'activité.
 export function openSorties() {
-  const sheet = openModal(`${closeBtn}<h2>Sortir en ville</h2><p>Depuis l'arrêt de taxi au coin de la rue. Chaque sortie prend l'après-midi ou la soirée.</p>
-    <div class="list">${Object.entries(SORTIES).map(([k, d]) => `<button class="opt" data-d="${k}"><span><b>${esc(d.nom)}</b><small>${esc(d.desc)}</small></span></button>`).join('')}</div>`);
+  const s = G.s, autre = s.quartier === 'anfa' ? 'populaire' : 'anfa', A = QUARTIERS[autre], v = vehicule();
+  const sheet = openModal(`${closeBtn}<h2>Sortir en ville</h2><p>${v ? `Avec ${v.nom.toLowerCase()}, plus besoin de taxi.` : "Depuis l'arrêt de taxi au coin de la rue."} Chaque sortie prend l'après-midi ou la soirée.</p>
+    <div class="list">
+      <button class="opt" id="goQ"><span><b>${autre === 'anfa' ? 'Aller à Anfa' : 'Rentrer au quartier'}${autre === s.chezMoi ? ' (chez toi)' : ''}</b><small>${esc(A.desc)}</small></span><em>${v ? fmtDur(Math.round(A.trajet.petit.dur * v.vitesse)) : `${fmtDH(A.trajet.petit.prix)} / ${fmtDH(A.trajet.grand.prix)}`}</em></button>
+      ${Object.entries(SORTIES).map(([k, d]) => `<button class="opt" data-d="${k}"><span><b>${esc(d.nom)}</b><small>${esc(d.desc)}</small></span></button>`).join('')}</div>`);
   bindClose(sheet);
   sheet.querySelectorAll('[data-d]').forEach(b => { b.onclick = () => openSortie(b.dataset.d); });
+  sheet.querySelector('#goQ').onclick = () => {
+    if (v) { closeModal(); enqueue({ kind: 'quartier', to: autre, taxi: 'petit' }); return; }
+    const sh = openModal(`${closeBtn}<h2>${autre === 'anfa' ? 'Aller à Anfa' : 'Rentrer au quartier'}</h2><p>${esc(A.desc)}</p>
+      <div class="list">${['petit', 'grand'].map(t => `<button class="opt" data-t="${t}" ${A.trajet[t].prix > s.money ? 'disabled' : ''}><span><b>${TAXI[t].nom}</b><small>${esc(TAXI[t].desc)} · ${fmtDur(A.trajet[t].dur)}</small></span><em>${fmtDH(A.trajet[t].prix)}</em></button>`).join('')}</div>`);
+    bindClose(sh);
+    sh.querySelectorAll('[data-t]').forEach(b => { b.onclick = () => { closeModal(); enqueue({ kind: 'quartier', to: autre, taxi: b.dataset.t }); }; });
+  };
 }
 function openSortie(dest) {
   const Sd = SORTIES[dest], s = G.s, choix = { taxi: 'petit', act: Sd.activites[0].id };
   const effTxt = eff => Object.entries(eff).map(([k, v]) => `${NEEDS[k]} ${v > 0 ? '+' : ''}${v}`).join(' · ');
+  const v = vehicule();
   const sheet = openModal(`${closeBtn}${banner(Sd.img)}<h2>${esc(Sd.nom)}</h2><p>${esc(Sd.desc)}</p>
-    <div class="row"><span>Le taxi (aller et retour)</span><div class="chips">${['petit', 'grand'].map(t => `<button data-taxi="${t}">${TAXI[t].nom} · ${fmtDH(Sd.trajet[t].prix * 2)} · ${fmtDur(Sd.trajet[t].dur)}</button>`).join('')}</div><p class="hint" id="taxiDesc"></p></div>
+    ${v ? `<p class="hint">Trajet avec ${v.nom.toLowerCase()} : ${fmtDur(Math.round(Sd.trajet.petit.dur * v.vitesse))}, sans frais.</p><div hidden><button data-taxi="petit"></button><p id="taxiDesc"></p></div>`
+      : `<div class="row"><span>Le taxi (aller et retour)</span><div class="chips">${['petit', 'grand'].map(t => `<button data-taxi="${t}">${TAXI[t].nom} · ${fmtDH(Sd.trajet[t].prix * 2)} · ${fmtDur(Sd.trajet[t].dur)}</button>`).join('')}</div><p class="hint" id="taxiDesc"></p></div>`}
     <div class="row"><span>Sur place</span><div class="list">${Sd.activites.map(a => `<button class="opt" data-act="${a.id}"><span><b>${esc(a.nom)}</b><small>${fmtDur(a.dur)} · ${a.achat ? 'à marchander' : effTxt(a.eff)}</small></span><em>${a.prix ? fmtDH(a.prix) : 'gratuit'}</em></button>`).join('')}</div></div>
     <div class="actions"><button class="btn" id="sBack">Retour</button><button class="btn primary" id="sGo">Partir</button></div>`);
   bindClose(sheet);
