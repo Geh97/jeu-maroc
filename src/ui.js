@@ -99,7 +99,7 @@ function isLight(hex) {
 export function showPop(x, y, data, onPick) {
   const p = $('pop');
   const items = data.items || [];
-  p.innerHTML = `<div class="pop-h"><b>${esc(data.title)}</b>${data.info ? `<small>${esc(data.info)}</small>` : ''}</div>` +
+  p.innerHTML = `<div class="pop-h ${data.img ? 'with-img' : ''}">${data.img ? img(data.img, 'pop-img') : ''}<div><b>${esc(data.title)}</b>${data.info ? `<small>${esc(data.info)}</small>` : ''}</div></div>` +
     (items.length ? items.map((it, i) => `<button class="pop-i" data-i="${i}" ${it.disabled ? 'disabled' : ''}>
       <span>${esc(it.label)}</span>${it.disabled && it.why ? `<small>${esc(it.why)}</small>` : it.sub ? `<small>${esc(it.sub)}</small>` : ''}</button>`).join('')
       : '');
@@ -158,7 +158,7 @@ export function openCreation(look, onChange, onDone) {
       <div class="chips">${Object.entries(TRAITS).map(([v, t]) => `<button data-k="traits" data-v="${v}">${esc(t.nom)}</button>`).join('')}</div>
       <p class="hint" id="traitDesc"></p></div>
     <div class="row"><span>Milieu</span>
-      <div class="chips">${MILIEU_IDS.map(v => `<button data-k="milieu" data-v="${v}">${esc(MILIEUX[v].nom)}</button>`).join('')}</div>
+      <div class="chips icons">${MILIEU_IDS.map(v => `<button data-k="milieu" data-v="${v}">${img('milieu-' + v)}${esc(MILIEUX[v].nom)}</button>`).join('')}</div>
       <p class="hint" id="milieuDesc"></p></div>
     <div class="actions"><button class="btn" id="cRand">Au hasard</button><button class="btn primary" id="cGo">Emménager</button></div>
   `, { cls: 'side', seeThrough: true });
@@ -240,7 +240,7 @@ function openMarche() {
 export function openHanout() {
   if (!hanoutOuvert(G.s.t)) { toast(`Le hanout est fermé. Il ouvre à ${HANOUT.ouvre} h.`); return; }
   openCourses({
-    titre: HANOUT.nom, img: 'illu-marche', articles: HANOUT.articles, cost: hanoutCost, verbe: 'Aller acheter',
+    titre: HANOUT.nom, img: 'illu-hanout', articles: HANOUT.articles, cost: hanoutCost, verbe: 'Aller acheter',
     intro: `L'épicerie du coin, ouverte de ${HANOUT.ouvre} h à ${HANOUT.ferme} h. Un peu plus cher qu'au marché, mais c'est à deux pas.`,
     go: basket => enqueue({ kind: 'hanout', basket }),
   });
@@ -274,9 +274,9 @@ function openCourses(o) {
 export function openFiche(tab = 'moi') {
   const s = G.s, J = s.job, sk = s.skills.cuisine, lvl = Math.floor(sk), M = milieu(), job = jobOf();
   const plats = s.plats.length ? s.plats.map(p => `${RECETTES[p.r].nom} (${QUAL[p.q]}) : ${p.n}`).join('<br>') : 'Aucun';
-  const animaux = ANIMAUX.filter(a => s.animaux[a.id].adopte).map(a => `${esc(s.animaux[a.id].nom)} (${a.espece}) · faim ${Math.round(s.animaux[a.id].faim)} / 100`).join('<br>');
+  const animaux = ANIMAUX.filter(a => s.animaux[a.id].adopte).map(a => `${img('animal-' + a.id, 'mini')} ${esc(s.animaux[a.id].nom)} (${a.espece}) · faim ${Math.round(s.animaux[a.id].faim)} / 100`).join('<br>');
   const moi = `
-    <div class="stat"><span>Milieu</span><b>${esc(M.nom)}</b><small>${M.loyer ? `Loyer ${fmtDH(M.loyer)} + factures ${fmtDH(M.facture)}` : `Sans loyer, factures ${fmtDH(M.facture)}`} par semaine</small></div>
+    <div class="stat ico">${img('milieu-' + s.milieu)}<div><span>Milieu</span><b>${esc(M.nom)}</b><small>${M.loyer ? `Loyer ${fmtDH(M.loyer)} + factures ${fmtDH(M.facture)}` : `Sans loyer, factures ${fmtDH(M.facture)}`} par semaine</small></div></div>
     <div class="stat"><span>Argent</span><b>${fmtDH(s.money)}</b>${s.epargne ? `<small>Épargne : ${fmtDH(s.epargne)}</small>` : ''}</div>
     <div class="stat"><span>Travail</span><b>${esc(job.titre)}</b><small>${fmtDH(job.salaire)} par semaine · ${J.week} jour${J.week > 1 ? 's' : ''} travaillé${J.week > 1 ? 's' : ''} cette semaine</small>
       <div class="bar"><i style="width:${J.perf}%"></i></div><small>Performance : ${Math.round(J.perf)} / 100 (promotion à 100)</small></div>
@@ -289,8 +289,11 @@ export function openFiche(tab = 'moi') {
   const heures = n => n.sorties.map(([a, b]) => `${fmtH(a)}–${fmtH(b)}`).join(' et ');
   const voisins = `${banner('illu-cafe')}<p class="hint">Le ${CAFE.nom.toLowerCase()} ouvre de ${CAFE.ouvre} h à ${CAFE.ferme} h. Les voisins passent dans la rue à leurs heures.</p>` +
     NPCS.map(n => { const v = s.rel[n.id] || 0, live = G.npcs.find(x => x.id === n.id); return `
-    <div class="stat voisin"><span>${esc(n.nom)} · ${relLabel(v)}${live && live.visible ? ' · dans la rue' : ''}</span>
-      <div class="bar"><i style="width:${v}%"></i></div><small>${esc(n.desc)} Dehors : ${heures(n)}.</small></div>`; }).join('');
+    <div class="stat voisin ico">${img('portrait-' + n.id)}<div><span>${esc(n.nom)} · ${relLabel(v)}${live && live.visible ? ' · dans la rue' : ''}</span>
+      <div class="bar"><i style="width:${v}%"></i></div><small>${esc(n.desc)} Dehors : ${heures(n)}.</small></div></div>`; }).join('') +
+    ANIMAUX.map(a => { const st = s.animaux[a.id]; return `
+    <div class="stat voisin ico">${img('animal-' + a.id)}<div><span>${esc(st.adopte ? st.nom : a.nom)} · ${st.adopte ? 'adopté' : 'confiance ' + Math.round(st.confiance)}</span>
+      <div class="bar"><i style="width:${st.adopte ? st.faim : st.confiance}%"></i></div><small>${esc(a.desc)}</small></div></div>`; }).join('');
   const sheet = openModal(`${closeBtn}<h2>${esc(s.char.name)}</h2>
     <p class="hint">${s.char.traits.map(t => TRAITS[t].nom).join(' · ') || 'Aucun trait'}</p>
     <nav class="tabs small"><button data-t="moi" class="${tab === 'moi' ? 'on' : ''}">Ma vie</button><button data-t="argent" class="${tab === 'argent' ? 'on' : ''}">Argent</button><button data-t="quartier" class="${tab === 'quartier' ? 'on' : ''}">Le quartier</button></nav>
@@ -304,17 +307,18 @@ export function openFiche(tab = 'moi') {
 // L'onglet Argent : comment ce personnage peut gagner sa vie, selon son milieu.
 function moneyWays() {
   const s = G.s, M = milieu(), job = jobOf();
-  let h = `<p class="hint">${esc(M.nom)} : ${esc(M.desc)}</p>
-    <div class="stat"><span>Salaire</span><b>${fmtDH(job.salaire)} par semaine</b><small>${esc(job.titre)}. Payé le vendredi soir, au prorata des jours travaillés. Promotion quand la performance atteint 100.</small></div>`;
+  const stat = (icon, inner) => `<div class="stat ico">${img(icon)}<div>${inner}</div></div>`;
+  let h = banner(revenu('boulots') ? 'illu-boulots' : revenu('daret') ? 'illu-daret' : 'illu-travail') + `<p class="hint">${esc(M.nom)} : ${esc(M.desc)}</p>` +
+    stat('icone-salaire', `<span>Salaire</span><b>${fmtDH(job.salaire)} par semaine</b><small>${esc(job.titre)}. Payé le vendredi soir, au prorata des jours travaillés. Promotion quand la performance atteint 100.</small>`);
   if (revenu('boulots') || revenu('cours')) {
     const list = BOULOTS.filter(b => b.milieux.includes(s.milieu)).map(b => {
       const n = NPCS.find(x => x.id === b.npc), rel = s.rel[b.npc] || 0;
       return `<li><b>${esc(b.nom)}</b> avec ${esc(n.nom)} : ${fmtDur(b.dur)}, ${fmtDH(b.paie)}${b.pourboire ? ' + pourboires' : ''}${b.match ? ', pendant un match' : ''}. ${rel >= b.rel ? 'Disponible : touche-le dans la rue.' : `Il faut une amitié de ${b.rel} (actuelle : ${Math.round(rel)}).`}</li>`;
     }).join('');
-    h += `<div class="stat"><span>Petits boulots des voisins</span><small>Une fois par jour chacun. On les propose en touchant le voisin.</small><ul class="tips">${list}</ul></div>`;
+    h += stat('icone-boulot', `<span>Petits boulots des voisins</span><small>Une fois par jour chacun. On les propose en touchant le voisin.</small><ul class="tips">${list}</ul>`);
   }
   if (revenu('vente')) {
-    h += `<div class="stat"><span>Vendre ses plats</span><small>Hamid (café) et Ba Lahcen (hanout) achètent jusqu'à 8 parts par jour chacun. Msemen : ${VENTE.msemen[1]} DH la part (${VENTE.msemen[2]} si délicieux). Tajine : ${VENTE.tajine[1]} DH (${VENTE.tajine[2]} si délicieux). Les plats ratés ne se vendent pas.</small></div>`;
+    h += stat('icone-vente', `<span>Vendre ses plats</span><small>Hamid (café) et Ba Lahcen (hanout) achètent jusqu'à 8 parts par jour chacun. Msemen : ${VENTE.msemen[1]} DH la part (${VENTE.msemen[2]} si délicieux). Tajine : ${VENTE.tajine[1]} DH (${VENTE.tajine[2]} si délicieux). Les plats ratés ne se vendent pas.</small>`);
   }
   if (revenu('daret')) {
     const rel = s.rel.khadija || 0;
@@ -322,14 +326,14 @@ function moneyWays() {
     if (s.daret) txt = `Tu en fais partie : ${fmtDH(DARET.part)} chaque lundi. Ton tour (${fmtDH(DARET.part * DARET.membres)}) dans ${(s.daret.pos - s.daret.tour + DARET.membres) % DARET.membres || DARET.membres} semaine(s).`;
     else if (rel >= 20) txt = `Lalla Khadija te propose d'entrer dans la daret : ${DARET.membres} membres, ${fmtDH(DARET.part)} chacun par semaine, et chacun son tour touche la cagnotte. <button class="btn small primary" id="daretJoin">Entrer dans la daret</button>`;
     else txt = `Épargne tournante entre voisins. Lalla Khadija l'organise : il faut d'abord devenir sa connaissance (amitié 20, actuelle : ${Math.round(rel)}).`;
-    h += `<div class="stat"><span>La daret</span><small>${txt}</small></div>`;
+    h += stat('icone-daret', `<span>La daret</span><small>${txt}</small>`);
   }
-  if (revenu('poche')) h += `<div class="stat"><span>Argent de poche</span><small>Tes parents t'envoient ${fmtDH(POCHE)} chaque dimanche, à condition de ne pas avoir séché le travail dans la semaine.</small></div>`;
+  if (revenu('poche')) h += stat('icone-poche', `<span>Argent de poche</span><small>Tes parents t'envoient ${fmtDH(POCHE)} chaque dimanche, à condition de ne pas avoir séché le travail dans la semaine.</small>`);
   if (revenu('epargne')) {
-    h += `<div class="stat"><span>Compte épargne</span><b>${fmtDH(s.epargne)}</b><small>${EPARGNE_TAUX * 100} % d'intérêts chaque lundi.</small>
-      <div class="bacts"><button class="btn small" data-ep="1000" ${s.money < 1000 ? 'disabled' : ''}>Placer 1 000 DH</button><button class="btn small" data-ep="5000" ${s.money < 5000 ? 'disabled' : ''}>Placer 5 000 DH</button><button class="btn small" data-ep="-1" ${s.epargne ? '' : 'disabled'}>Tout retirer</button></div></div>`;
+    h += stat('icone-epargne', `<span>Compte épargne</span><b>${fmtDH(s.epargne)}</b><small>${EPARGNE_TAUX * 100} % d'intérêts chaque lundi.</small>
+      <div class="bacts"><button class="btn small" data-ep="1000" ${s.money < 1000 ? 'disabled' : ''}>Placer 1 000 DH</button><button class="btn small" data-ep="5000" ${s.money < 5000 ? 'disabled' : ''}>Placer 5 000 DH</button><button class="btn small" data-ep="-1" ${s.epargne ? '' : 'disabled'}>Tout retirer</button></div>`);
   }
-  h += `<div class="stat"><span>Et aussi</span><small>Revendre un meuble rapporte 75 % de son prix.</small></div>`;
+  h += stat('icone-animal', `<span>Et aussi</span><small>Revendre un meuble rapporte 75 % de son prix. Un animal adopté ne rapporte rien, mais il tient compagnie.</small>`);
   return h;
 }
 

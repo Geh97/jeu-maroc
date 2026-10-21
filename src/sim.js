@@ -239,7 +239,7 @@ export function npcActions(id) {
       items.push({ kind: 'talk', npc: id, mode: 'vendre', plat: p.r + ':' + p.q, label: `Vendre : ${RECETTES[p.r].nom.toLowerCase()} (${QUAL[p.q]})`, sub: `${n} part${n > 1 ? 's' : ''} à ${prix} DH = ${fmtDH(n * prix)}`, disabled: left <= 0, why: "Il en a assez acheté pour aujourd'hui." });
     }
   }
-  return { title: n.def.nom, items, info: `${relLabelOf(rel)} · ${n.def.desc}` };
+  return { title: n.def.nom, items, info: `${relLabelOf(rel)} · ${n.def.desc}`, img: 'portrait-' + id };
 }
 const relLabelOf = v => relLabel(v) + (v > 0 ? ` (${Math.round(v)})` : '');
 export const basketCost = b => MARCHE.reduce((t, m) => t + (b[m.id] || 0) * m.prix, 0);
@@ -260,7 +260,7 @@ export function animalActions(id) {
   if (a.adopte) items.push({ kind: 'animal', id, act: 'jouer', label: ANIMAL_ACTS.jouer.label });
   else items.push({ kind: 'animal', id, act: 'adopter', label: 'Adopter et ramener à la maison', sub: conf >= ADOPT_SEUIL ? 'Il te suit partout maintenant' : `Confiance ${conf} / ${ADOPT_SEUIL}`, disabled: conf < ADOPT_SEUIL, why: 'Nourris-le et caresse-le plusieurs jours.' });
   const info = a.adopte ? `${a.nom} · faim ${Math.round(a.faim)} / 100` : `${def.desc} Confiance : ${conf} / 100.`;
-  return { title: a.adopte ? a.nom : def.nom, items, info };
+  return { title: a.adopte ? a.nom : def.nom, items, info, img: 'animal-' + id };
 }
 
 // ---------- File d'actions ----------
