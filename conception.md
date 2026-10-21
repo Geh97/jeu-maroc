@@ -145,3 +145,38 @@ Les autres villes, la famille et les voisins, les grands moments de la vie (mari
 - Le nom du jeu.
 - Le style visuel précis de la 3D (plutôt réaliste ou plutôt arrondi et coloré).
 - Le quartier de Casablanca choisi pour le prototype (réel ou inventé).
+
+## 12. Décisions du 21 octobre 2026 : société, travail, quartiers
+
+Réponses aux vingt questions, à respecter pour les versions suivantes.
+
+### La société
+- Le milieu social se sent partout : regard des autres, portes qui s'ouvrent ou pas, prix et dépenses obligatoires, façon de vivre.
+- Réputation dans le quartier : une jauge dans la fiche, et des effets concrets dans la rue (accueil, prix au hanout, crédit, rumeurs).
+- Famille selon le milieu : très présente et exigeante dans le quartier populaire, plus distante dans la famille aisée, entre les deux pour la classe moyenne.
+- Pression sociale forte et jouable : elle pèse sur le moral, crée des événements (« mta tzewej ? », la tante qui veut présenter quelqu'un), on peut y céder ou résister.
+- Mobilité sociale possible, lente et difficile : argent, carrière, réseau ou mariage font changer le regard ; on peut aussi tomber (dettes, licenciement).
+- Le réseau et le piston aident, mais ont un prix : il faut renvoyer l'ascenseur, et ça peut mal tourner.
+- Religion : dans le décor et le rythme (appel à la prière, vendredi, Ramadan qui change les horaires), au choix du personnage, et les voisins remarquent ce qu'il fait.
+
+### Le travail
+- La journée reste hors écran la plupart du temps, avec des événements à choix ; des journées spéciales se jouent sur place, dans un lieu en 3D (premier jour, réunion, pot de départ).
+- Collègues et chef sont des personnages à part entière : nom, caractère, amitié, qu'on peut croiser au café.
+- Carrière : changer d'employeur (entretien, négociation, réseau), perdre son emploi (chômage, retrouver un poste), monter son affaire. Pas de reprise d'études.
+- Dilemmes recherchés : honnêteté contre argent, loyauté contre ambition, vie perso contre travail, fierté contre prudence.
+- Argent : primes et retards de paie, extras au noir (surtout dans le quartier populaire), charges de la vie (impôts, assurance, crédit, loyer qui augmente), aider la famille.
+- Monter son affaire : hanout ou snack, café, activité à domicile (traiteur, couture, cours), société ou agence pour la famille aisée.
+
+### Les quartiers
+- Prochain quartier : un quartier chic (Anfa, Californie) : villas, voitures, cafés branchés, mall, corniche.
+- On visite les autres quartiers en gardant son appartement (taxi), et on peut déménager quand on en a les moyens, ou plus les moyens.
+- Ce qui différencie un quartier : les lieux, les gens, les prix et les loyers.
+- Transports : petit taxi et grand taxi, puis acheter une voiture ou un scooter. Pas de tram ni de bus joués.
+- Sorties prioritaires : la plage et la corniche, le mall et le cinéma, le souk et la médina.
+- Événements qui reviennent : le Ramadan, les Aïds, les mariages et naissances du quartier.
+
+### Ordre de réalisation
+1. Le quartier chic et les sorties (taxis, plage, mall, médina, déménagement).
+2. La société et la famille.
+3. Le travail en profondeur.
+4. Le Ramadan, les Aïds et les mariages.
