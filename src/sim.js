@@ -76,7 +76,7 @@ function resetRuntime() {
   G.yaw = Math.PI; G.amb = Wd.ambiance(s.home);
   G.chairs = CAFE.chaises.map(() => null);
   G.npcs = npcDefs().map(def => ({ id: def.id, def, visible: false, x: 0, z: 0, yaw: 0, state: 'home', path: [], walkPhase: 0, nextAt: 0, chair: -1, goal: null, talkUntil: 0, greetedAt: -9999, talks: 0, talkDay: -1, sujets: {}, sujetsDay: -1 }));
-  Wd.setBlocking({ noHome: !homeHere(), vehicule: s.vehicule });
+  Wd.setBlocking({ noHome: !homeHere(), vehicule: s.vehicule, quartier: s.quartier });
   G.passants = PASSANTS.map((look, i) => ({ id: 'p' + i, look, visible: false, x: 0, z: 0, yaw: 0, path: [], walkPhase: 0, nextAt: rand(0, 40) }));
   G.animaux = ANIMAUX.map(def => {
     const home = s.animaux[def.id].adopte, c = home ? center({ x: 6, z: 7 }) : center(def.coin);
@@ -859,7 +859,7 @@ function arriveQuartier(to) {
   G.chairs = CAFE.chaises.map(() => null);
   G.npcs = npcDefs().map(def => ({ id: def.id, def, visible: false, x: 0, z: 0, yaw: 0, state: 'home', path: [], walkPhase: 0, nextAt: 0, chair: -1, goal: null, talkUntil: 0, greetedAt: -9999, talks: 0, talkDay: -1, sujets: {}, sujetsDay: -1 }));
   npcGrid = null;
-  Wd.setBlocking({ noHome: !homeHere(), vehicule: s.vehicule });
+  Wd.setBlocking({ noHome: !homeHere(), vehicule: s.vehicule, quartier: s.quartier });
   hooks.quartierChanged();
   toast(`${nm()} arrive ${QUARTIERS[to].article}.`);
   if (first && QUARTIERS[to].accueil) toast(QUARTIERS[to].accueil[s.milieu]);
@@ -876,7 +876,7 @@ export function demenager(to) {
   G.chairs = CAFE.chaises.map(() => null);
   G.npcs = npcDefs().map(def => ({ id: def.id, def, visible: false, x: 0, z: 0, yaw: 0, state: 'home', path: [], walkPhase: 0, nextAt: 0, chair: -1, goal: null, talkUntil: 0, greetedAt: -9999, talks: 0, talkDay: -1, sujets: {}, sujetsDay: -1 }));
   npcGrid = null;
-  Wd.setBlocking({ noHome: false, vehicule: s.vehicule });
+  Wd.setBlocking({ noHome: false, vehicule: s.vehicule, quartier: s.quartier });
   for (const a of G.animaux) { const c = center(Wd.doorstep(s.home)); a.x = c.x; a.z = c.z; a.path = []; a.state = 'idle'; }
   hooks.quartierChanged();
   toast(`Déménagement ${QUARTIERS[to].article} ! Caution ${fmtDH(caution)}, loyer ${fmtDH(loyer)} par semaine. Tes meubles ont suivi.`, 'good');
@@ -888,7 +888,7 @@ export function acheterVehicule(id) {
   if (!spend(v.prix)) return;
   s.vehicule = id;
   s.needs.moral = clamp(s.needs.moral + 12, 0, 100);
-  Wd.setBlocking({ noHome: !homeHere(), vehicule: id });
+  Wd.setBlocking({ noHome: !homeHere(), vehicule: id, quartier: s.quartier });
   npcGrid = null;
   hooks.quartierChanged();
   toast(`${v.nom} : à toi ! Les voisins l'ont remarqué.`, 'good');

@@ -201,26 +201,69 @@ function bougainvillea(g, x, y, z) {
   for (let i = 0; i < 9; i++) sph(g, 0.3 + (i % 3) * 0.1, mat(i % 3 ? '#c2185b' : '#3f7a3a'), x + (i % 3) * 0.5 - 0.5, y + Math.floor(i / 3) * 0.5, z + ((i * 7) % 3) * 0.15);
 }
 
-// Villa d'Anfa : mur de clôture blanc, portail, jardin avec palmier, maison blanche aux lignes droites.
-function villa(g, x0, x1, z, seed) {
+// Villa de Californie : mur de clôture blanc et portail, jardin avec palmier et haie, maison blanche en deux
+// volumes aux lignes droites, grandes baies vitrées, toit-terrasse, et une piscine pour certaines.
+function villa(g, x0, x1, z, seed, face = 1) {
   const w = x1 - x0, cx = (x0 + x1) / 2, v = new THREE.Group(); v.position.set(cx, 0, z); g.add(v);
+  const back = -face; // vers l'intérieur de la parcelle
   box(v, w, 2.2, 0.3, mat('#f7f4ee'), 0, 1.1, 0);
-  box(v, w + 0.2, 0.25, 0.5, mat(VERT), 0, 2.25, 0);
+  box(v, w + 0.2, 0.25, 0.5, mat(seed % 3 === 0 ? VERT : '#e3dccd'), 0, 2.25, 0);
   const gate = new THREE.Group(); gate.position.set(w / 2 - 2.2, 0, 0); v.add(gate);
   box(gate, 2.4, 2.2, 0.08, mat(FER, { metalness: 0.4 }), 0, 1.1, 0);
   for (let i = -5; i <= 5; i++) box(gate, 0.04, 2.1, 0.12, mat('#d9d2c2'), i * 0.2, 1.05, 0);
-  const h = 6 + (seed % 2) * 1.5, depth = 8;
-  box(v, w - 3, h, depth, mat(seed % 2 ? '#fbf8f2' : '#f3eee4'), -1, h / 2, -depth / 2 - 3);
-  box(v, w - 2.6, 0.3, depth + 0.4, mat('#e3dccd'), -1, h + 0.1, -depth / 2 - 3);
-  for (let fx = -w / 2 + 2; fx < w / 2 - 3; fx += 2.6) for (let fy = 1.6; fy < h - 1; fy += 3) {
-    box(v, 1.6, 1.5, 0.06, mat('#2b3440', { roughness: 0.2 }), fx, fy, -3 + 0.03);
-    box(v, 1.8, 0.1, 0.5, mat('#e3dccd'), fx, fy - 0.85, -3 + 0.2);
+  for (const dx of [-1.3, 1.3]) box(gate, 0.4, 2.5, 0.4, mat('#f7f4ee'), dx, 1.25, 0);
+  const depth = 8, zc = back * (depth / 2 + 3), white = mat(seed % 2 ? '#fbf8f2' : '#f3eee4');
+  const h1 = 3.6, h2 = 6.4 + (seed % 2) * 0.8;
+  box(v, w - 3, h1, depth, white, -1, h1 / 2, zc);                         // le volume bas
+  box(v, (w - 3) * 0.55, h2, depth * 0.7, white, -1 - (w - 3) * 0.2, h2 / 2, zc + back * depth * 0.1); // le volume haut
+  box(v, w - 2.6, 0.25, depth + 0.4, mat('#e3dccd'), -1, h1 + 0.1, zc);
+  box(v, (w - 3) * 0.55 + 0.4, 0.25, depth * 0.7 + 0.4, mat('#e3dccd'), -1 - (w - 3) * 0.2, h2 + 0.1, zc + back * depth * 0.1);
+  const front = back * 3 + face * 0.03;
+  box(v, (w - 3) * 0.8, 2.4, 0.06, mat('#2b3440', { roughness: 0.15 }), -1, 1.5, front); // grande baie vitrée
+  for (let i = -2; i <= 2; i++) box(v, 0.06, 2.4, 0.08, mat('#f7f4ee'), -1 + i * (w - 3) * 0.16, 1.5, front);
+  box(v, (w - 3) * 0.45, 1.4, 0.06, mat('#2b3440', { roughness: 0.15 }), -1 - (w - 3) * 0.2, h1 + 1.5, front + back * depth * 0.1 * 0);
+  box(v, (w - 3) * 0.8, 0.12, 1.6, mat('#e3dccd'), -1, h1 + 0.02, back * 2.4);                   // la terrasse de l'étage
+  for (let i = 0; i <= 8; i++) box(v, 0.03, 0.9, 0.03, iron(), -1 - (w - 3) * 0.4 + i * (w - 3) * 0.1, h1 + 0.55, back * 1.65);
+  box(v, (w - 3) * 0.8, 0.03, 0.03, iron(), -1, h1 + 1, back * 1.65);
+  const pots = makeFurniture('plante'); pots.position.set(-1 + (w - 3) * 0.3, h1, back * 2.2); v.add(pots);
+  palm(v, w / 2 - 5, back * 1.6);
+  for (let i = 0; i < Math.floor((w - 4) / 1.1); i++) sph(v, 0.5, mat(i % 2 ? '#3f7a3a' : '#4b8c3f'), -w / 2 + 1.2 + i * 1.1, 0.5, back * 1.2);
+  bougainvillea(v, -w / 2 + 2, 2.4, face * 0.2);
+  if (seed % 2) { // piscine le long du mur latéral
+    box(v, 2.2, 0.08, 5, mat('#f7f4ee'), w / 2 - 2.2, 0.04, back * 7.5);
+    box(v, 1.8, 0.06, 4.6, new THREE.MeshStandardMaterial({ color: '#3fb1d9', roughness: 0.1 }), w / 2 - 2.2, 0.08, back * 7.5);
+    for (const dz of [-1.8, 0, 1.8]) box(v, 0.6, 0.3, 1.6, mat('#f7f4ee'), w / 2 - 0.7, 0.15, back * 7.5 + dz);
   }
-  box(v, w - 3, 0.9, 0.08, mat('#2b3440', { roughness: 0.2 }), -1, h - 0.6, -3 + 0.03);
-  palm(v, w / 2 - 5, -1.6);
-  for (let i = 0; i < 6; i++) sph(v, 0.5, mat(i % 2 ? '#3f7a3a' : '#4b8c3f'), -w / 2 + 1.2 + i * 1.1, 0.5, -1.2);
-  bougainvillea(v, -w / 2 + 2, 2.4, 0.2);
   return v;
+}
+// Restaurant ou café d'Anfa, face à la rue : façade basse et blanche, terrasse avec tables, parasols ou pergola.
+function restaurant(g, x0, x1, z, style, o = {}) {
+  const w = x1 - x0, cx = (x0 + x1) / 2, r = new THREE.Group(); r.position.set(cx, 0, z); g.add(r);
+  const dark = style === 'lounge', terrasse = o.terrasse !== false;
+  box(r, w, 4.6, 9, mat(dark ? '#2a2a2e' : '#fbf8f2'), 0, 2.3, 4.5);
+  box(r, w + 0.3, 0.3, 9.3, mat(dark ? '#1b1b1b' : '#e3dccd'), 0, 4.75, 4.5);
+  box(r, w - 1.5, 2.2, 0.06, mat('#2b3440', { roughness: 0.15 }), 0, 1.5, -0.03);
+  for (let i = 0; i < 5; i++) box(r, 0.06, 2.2, 0.08, mat(dark ? '#1b1b1b' : '#f7f4ee'), -w / 2 + 0.75 + i * (w - 1.5) / 4, 1.5, -0.03);
+  box(r, w, 0.5, 0.1, mat({ glacier: '#c2185b', lounge: '#1b1b1b', cafe: '#1b1b1b', epicerie: '#1f5a45', agence: '#2f4f7a', pergola: '#2e6b57' }[style]), 0, 3.3, -0.05);
+  box(r, w + 0.1, 0.06, 0.14, BRASS(), 0, 3.6, -0.05);
+  if (style === 'pergola') {
+    for (const dx of [-w / 2 + 0.4, w / 2 - 0.4]) for (const dz of [-0.3, -2.6]) box(r, 0.14, 3, 0.14, mat('#8a5a3b'), dx, 1.5, dz);
+    for (let i = 0; i < 7; i++) box(r, w, 0.08, 0.12, mat('#8a5a3b'), 0, 3, -0.3 - i * 0.38);
+    for (let i = 0; i < 12; i++) sph(r, 0.3, mat(i % 3 ? '#3f7a3a' : '#c2185b'), -w / 2 + 0.6 + i * (w - 1.2) / 11, 3.15, -0.3 - (i % 4) * 0.6);
+  }
+  if (dark) for (let i = 0; i < 9; i++) sph(r, 0.06, new THREE.MeshStandardMaterial({ color: '#fff3c4', emissive: '#ffd27a', emissiveIntensity: 1.2 }), -w / 2 + 0.6 + i * (w - 1.2) / 8, 2.7 - (i % 2) * 0.2, -1.4);
+  if (terrasse) for (let x = -w / 2 + 1.5; x < w / 2 - 1; x += 2) {
+    cyl(r, 0.4, 0.4, 0.04, mat(dark ? '#1b1b1b' : '#f7f4ee', { roughness: 0.4 }), x, 0.72, -1.4, 18);
+    cyl(r, 0.03, 0.03, 0.7, iron(), x, 0.36, -1.4, 8);
+    for (const dx of [-0.6, 0.6]) {
+      box(r, 0.4, 0.04, 0.4, mat(dark ? '#8a5a3b' : '#f7f4ee'), x + dx, 0.45, -1.4);
+      box(r, 0.4, 0.45, 0.03, mat(dark ? '#8a5a3b' : '#f7f4ee'), x + dx, 0.68, -1.4 - (dx > 0 ? -0.2 : 0.2) * -1);
+      for (const [ax, az] of [[-0.18, -0.18], [0.18, -0.18], [-0.18, 0.18], [0.18, 0.18]]) box(r, 0.03, 0.45, 0.03, iron(), x + dx + ax, 0.22, -1.4 + az);
+    }
+    if (style !== 'pergola') { cyl(r, 0.03, 0.03, 2.4, iron(), x, 1.9, -1.4, 8); cyl(r, 0, 1.2, 0.45, mat(style === 'glacier' ? '#f5c6d6' : '#f2ede3', { side: THREE.DoubleSide }), x, 2.6, -1.4, 8); }
+  }
+  for (const dx of [-w / 2 + 0.5, w / 2 - 0.5]) { const p = makeFurniture('plante'); p.scale.set(1.3, 1.3, 1.3); p.position.set(dx, 0, -0.6); r.add(p); }
+  return r;
 }
 function suv(g, x, z, color) {
   const c = new THREE.Group(); c.position.set(x, 0, z); g.add(c);
@@ -292,8 +335,8 @@ export function makeStreet(opts = {}) {
   if (opts.vehicule === 'scooter' && withHome) scooter(g, 7.5, D + 0.5);
   // Quand on n'habite pas ici, l'emplacement de l'appartement est un immeuble comme les autres.
   if (!withHome) {
-    building(g, W / 2, 1.5, W, 15, 7.6, 1, 5, 0);
-    door(g, 5, D, anfa ? '#1b1b1b' : '#5a3423', 1.2, null, !anfa);
+    if (anfa) villa(g, 0, W, D, 6);
+    else { building(g, W / 2, 1.5, W, 15, 7.6, 1, 5, 0); door(g, 5, D, '#5a3423', 1.2); }
   }
   if (anfa) return anfaStreet(g, opts, plane);
 
@@ -415,20 +458,26 @@ export function makeStreet(opts = {}) {
   return g;
 }
 
-// Anfa : villas, café branché, épicerie fine, pâtisserie, agence immobilière, parc, et l'océan au bout de la rue.
+// Anfa (Californie) : rien que des villas, des cafés et des restaurants, un parc, et l'océan au bout de la rue.
 function anfaStreet(g, opts, plane) {
-  const withHome = opts.withHome !== false;
-  // Les villas de part et d'autre de l'appartement (lui-même au rez-de-chaussée d'une résidence blanche).
-  villa(g, X0 - 12, -8, D, 1); villa(g, -8, 0, D, 2);
-  villa(g, W, W + 11, D, 3); villa(g, W + 11, X1 + 12, D, 4);
-  // Devant l'appartement : le socle de la résidence, un portier, des plantes.
-  for (const [x, z] of [[-0.5, D + 0.5], [W + 0.5, D + 0.5]]) { const p = makeFurniture('plante'); p.position.set(x, 0, z); g.add(p); }
-  // Le café La Corniche : devanture vitrée, bandeau noir et laiton, parasols crème, tables blanches.
+  // Notre côté : une villa, le glacier, l'épicerie fine, l'appartement, le café La Corniche, l'agence, une villa.
+  villa(g, X0 - 12, -17, D, 1);
+  restaurant(g, -17, -9, D + 0.2, 'glacier').rotation.y = Math.PI;
+  restaurant(g, -9, 0, D + 0.2, 'epicerie', { terrasse: false }).rotation.y = Math.PI;
+  restaurant(g, W, 24, D + 0.2, 'cafe', { terrasse: false }).rotation.y = Math.PI;
+  restaurant(g, 24, 32, D + 0.2, 'agence', { terrasse: false }).rotation.y = Math.PI;
+  villa(g, 32, X1 + 12, D, 4);
+  // L'épicerie fine : sa porte et sa vitrine (c'est elle qu'on touche pour faire les courses).
+  const H = RUE.hanout, vit = new THREE.Group(); g.add(vit);
+  door(vit, H.porte, D + 0.28, '#1b1b1b', 1.2, null, false);
+  box(vit, 2.2, 1.6, 0.06, mat('#1d2630', { roughness: 0.15 }), H.porte - 1.6, 1.5, D + 0.3);
+  for (let i = 0; i < 4; i++) sph(vit, 0.12, mat(['#e8641a', '#c8102e', '#7a2e3a', '#e0a526'][i]), H.porte - 2.2 + i * 0.4, 1.0, D + 0.38);
+  vit.traverse(o => { o.userData.hanout = true; });
+  crate(g, H.caisses[0].x, H.caisses[0].z, '#e8641a');
+  crate(g, H.caisses[1].x, H.caisses[1].z, '#c2185b');
+  // Le café La Corniche : sa porte, ses tables blanches et ses parasols crème.
   const C = CAFE;
-  box(g, C.x1 - C.x0, 0.5, 0.1, mat('#1b1b1b'), (C.x0 + C.x1) / 2, 2.85, D + 0.04);
-  box(g, C.x1 - C.x0 + 0.1, 0.06, 0.14, BRASS(), (C.x0 + C.x1) / 2, 3.1, D + 0.04);
-  box(g, C.x1 - C.x0 - 1.6, 2.3, 0.06, mat('#2b3440', { roughness: 0.15 }), (C.x0 + C.x1) / 2 - 0.8, 1.45, D + 0.03);
-  door(g, C.porte.x, D, '#1b1b1b', 1.4, null, false);
+  door(g, C.porte.x, D + 0.28, '#1b1b1b', 1.4, null, false);
   for (const t of C.tables) {
     cyl(g, 0.45, 0.45, 0.04, mat('#f7f4ee', { roughness: 0.4 }), t.x + 0.5, 0.72, t.z + 0.5, 20);
     cyl(g, 0.03, 0.03, 0.7, iron(), t.x + 0.5, 0.36, t.z + 0.5, 8);
@@ -442,29 +491,11 @@ function anfaStreet(g, opts, plane) {
     box(ch, 0.44, 0.5, 0.03, mat('#f7f4ee'), 0, 0.72, -0.2);
     ch.traverse(o => { o.userData.chair = i; });
   });
-  // L'épicerie fine (à la place du hanout) : façade vert foncé, lettrage doré remplacé par un bandeau, paniers de fruits.
-  const H = RUE.hanout;
-  box(g, H.x1 - H.x0, 3, 0.1, mat('#1f5a45'), (H.x0 + H.x1) / 2, 1.5, D + 0.04);
-  box(g, H.x1 - H.x0 + 0.1, 0.06, 0.14, BRASS(), (H.x0 + H.x1) / 2, 2.8, D + 0.04);
-  door(g, H.porte, D, '#1b1b1b', 1.2, 'hanout', false);
-  const vit = new THREE.Group(); g.add(vit);
-  box(vit, 2.2, 1.6, 0.06, mat('#2b3440', { roughness: 0.15 }), H.porte - 1.6, 1.5, D + 0.1);
-  for (let i = 0; i < 4; i++) sph(vit, 0.12, mat(['#e8641a', '#c8102e', '#7a2e3a', '#e0a526'][i]), H.porte - 2.2 + i * 0.4, 1.0, D + 0.16);
-  vit.traverse(o => { o.userData.hanout = true; });
-  crate(g, H.caisses[0].x, H.caisses[0].z, '#e8641a');
-  crate(g, H.caisses[1].x, H.caisses[1].z, '#c2185b');
-  // La pâtisserie (à la place du four) et l'agence immobilière (à la place de la mahlaba).
-  const F = RUE.four;
-  awning(g, F.x0, F.x1, D, 1.2, 2.75, T.rayures('#c2185b', '#f2ede3'));
-  door(g, F.porte, D, '#f7f4ee', 1.2, null, false);
-  box(g, 2.4, 1.3, 0.06, mat('#2b3440', { roughness: 0.15 }), F.porte - 1.6, 1.6, D + 0.03);
-  for (let i = 0; i < 6; i++) cyl(g, 0.14, 0.14, 0.12, mat(['#f5e6b8', '#c2185b', '#8a5a3b', '#f7f4ee', '#e0a526', '#2e6b57'][i]), F.porte - 2.4 + i * 0.32, 1.3 + (i % 2) * 0.4, D + 0.07, 10);
+  // L'agence immobilière : porte bleue et vitrine d'annonces (on la touche pour déménager).
   const M = RUE.mahlaba, ag = new THREE.Group(); g.add(ag);
-  box(ag, M.x1 - M.x0, 3, 0.1, mat('#f7f4ee'), (M.x0 + M.x1) / 2, 1.5, D + 0.04);
-  box(ag, M.x1 - M.x0, 0.5, 0.12, mat('#2f4f7a'), (M.x0 + M.x1) / 2, 2.8, D + 0.05);
-  box(ag, 4, 1.8, 0.06, mat('#2b3440', { roughness: 0.15 }), M.porte - 1.5, 1.5, D + 0.1);
-  for (let i = 0; i < 6; i++) box(ag, 0.5, 0.35, 0.02, mat('#f7f4ee'), M.porte - 2.9 + (i % 3) * 0.8, 1.3 + Math.floor(i / 3) * 0.5, D + 0.14);
-  door(ag, M.porte, D, '#2f4f7a', 1.2, null, false);
+  box(ag, 4, 1.8, 0.06, mat('#1d2630', { roughness: 0.15 }), M.porte - 1.5, 1.5, D + 0.3);
+  for (let i = 0; i < 6; i++) box(ag, 0.5, 0.35, 0.02, mat('#f7f4ee'), M.porte - 2.9 + (i % 3) * 0.8, 1.3 + Math.floor(i / 3) * 0.5, D + 0.36);
+  door(ag, M.porte, D + 0.28, '#2f4f7a', 1.2, null, false);
   ag.traverse(o => { o.userData.agence = true; });
   // Lanternes, palmiers, gros 4x4 garés.
   for (const l of RUE.lampes) lantern(g, l.x + 0.5, l.z + 0.5, 4);
@@ -485,9 +516,11 @@ function anfaStreet(g, opts, plane) {
   box(gt, 2.5, 0.42, 1.57, mat('#2b3440', { roughness: 0.2 }), -0.3, 1.15, 0);
   for (const [x, z] of [[-1.5, 0.85], [1.5, 0.85], [-1.5, -0.85], [1.5, -0.85]]) { const w = cyl(gt, 0.33, 0.33, 0.22, mat('#1b1b1b'), x, 0.33, z, 16); w.rotation.x = Math.PI / 2; }
   gt.traverse(o => { o.userData.taxi = true; });
-  // En face : le parc, et l'océan au bout avec le phare.
+  // En face : un restaurant à pergola, le parc, un lounge, et des villas aux deux bouts ; l'océan derrière.
   parc(g, PLACE);
-  for (let x = X0 - 12; x < X1 + 12; x += 12) { if (x + 6 > PLACE.x0 && x < PLACE.x1) continue; villa(g, x, x + 12, D + 14 - 0.1, (x / 12) | 0).rotation.y = Math.PI; }
+  restaurant(g, -18, -2, D + 14, 'pergola');
+  restaurant(g, 18, 32, D + 14, 'lounge');
+  villa(g, X0 - 14, -18, D + 14, 7, -1); villa(g, 32, X1 + 14, D + 14, 8, -1);
   ocean(g, PLACE.z1 + 1);
   return g;
 }

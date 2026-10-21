@@ -84,6 +84,7 @@ export function outdoorGrid() {
   mark(RUE.banc); mark({ x: RUE.banc.x + 1, z: RUE.banc.z });
   CAFE.tables.forEach(mark); CAFE.chaises.forEach(mark); CAFE.poteaux.forEach(mark);
   PLACE.fontaine.cells.forEach(mark); PLACE.orangers.forEach(mark); mark(TAXI.arret);
+  if (blocking.quartier === 'anfa') RUE.terrassesLoin.forEach(mark);
   for (const b of PLACE.bancs) { mark(b); mark({ x: b.x + 1, z: b.z }); }
   return (outdoor = g);
 }

@@ -23,6 +23,9 @@ export const RUE = {
   traversee: { x0: 10, x1: 12 },
 };
 for (let x = 6; x <= 9; x++) for (let z = D + 3; z <= D + 5; z++) RUE.taxi.cells.push({ x, z });
+// Terrasses des restaurants d'en face (à Anfa) : des tables contre les façades, sur la dernière rangée du trottoir.
+RUE.terrassesLoin = [];
+for (const x of [-15, -13, -11, -9, -7, 20, 22, 24, 26, 28]) RUE.terrassesLoin.push({ x, z: D + 13 });
 // La placette en face : fontaine en zellige, orangers, bancs, et la mosquée du quartier au fond.
 export const PLACE = {
   x0: 2, x1: 18, z0: D + 11, z1: D + 19,
