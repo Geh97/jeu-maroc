@@ -1,10 +1,12 @@
 // Interface : barre du haut, besoins, file d'actions, menus et fenêtres.
 import {
   JOURS, NEEDS, NEED_ICONS, SKINS, HAIRS, HAIR_COLORS, SCARF_COLORS, OUTFITS, OUTFIT_COLORS, TRAITS,
-  LIEUX, MARCHE, RECETTES, QUAL, JOB, LOYER, FACTURE, NPCS, CAFE, HANOUT, relLabel, asset,
+  LIEUX, MARCHE, RECETTES, QUAL, NPCS, CAFE, HANOUT, relLabel, asset,
+  MILIEUX, MILIEU_IDS, BOULOTS, VENTE, DARET, POCHE, EPARGNE_TAUX, ANIMAUX,
 } from './data.js';
 import {
   G, dow, dayIdx, fmtTime, fmtDH, fmtDur, enqueue, cancel, comeBack, awayPhase, basketCost, progress, hanoutOuvert, hanoutCost,
+  milieu, jobOf, revenu, joinDaret, epargne, enqueueWork, skipWork, animalName,
 } from './sim.js';
 import { ambiance } from './world.js';
 
@@ -137,7 +139,7 @@ export function randomLook() {
   const tr = Object.keys(TRAITS).sort(() => Math.random() - 0.5).slice(0, 2);
   return {
     name: pickR(NAMES), skin: pickR(SKINS), hair, hairColor: pickR(HAIR_COLORS), scarfColor: pickR(SCARF_COLORS),
-    outfit: pickR(Object.keys(OUTFITS)), outfitColor: pickR(OUTFIT_COLORS), traits: tr,
+    outfit: pickR(Object.keys(OUTFITS)), outfitColor: pickR(OUTFIT_COLORS), traits: tr, milieu: pickR(MILIEU_IDS),
   };
 }
 export function openCreation(look, onChange, onDone) {
@@ -155,6 +157,9 @@ export function openCreation(look, onChange, onDone) {
     <div class="row"><span>Caractère (2 traits au choix)</span>
       <div class="chips">${Object.entries(TRAITS).map(([v, t]) => `<button data-k="traits" data-v="${v}">${esc(t.nom)}</button>`).join('')}</div>
       <p class="hint" id="traitDesc"></p></div>
+    <div class="row"><span>Milieu</span>
+      <div class="chips">${MILIEU_IDS.map(v => `<button data-k="milieu" data-v="${v}">${esc(MILIEUX[v].nom)}</button>`).join('')}</div>
+      <p class="hint" id="milieuDesc"></p></div>
     <div class="actions"><button class="btn" id="cRand">Au hasard</button><button class="btn primary" id="cGo">Emménager</button></div>
   `, { cls: 'side', seeThrough: true });
   const sync = () => {
@@ -166,6 +171,8 @@ export function openCreation(look, onChange, onDone) {
     sheet.querySelector('#rowHair').hidden = look.hair === 'foulard';
     sheet.querySelector('#rowScarf').hidden = look.hair !== 'foulard';
     sheet.querySelector('#traitDesc').textContent = look.traits.map(t => `${TRAITS[t].nom} : ${TRAITS[t].desc}`).join(' ');
+    const M = MILIEUX[look.milieu];
+    sheet.querySelector('#milieuDesc').textContent = `${M.desc} Départ avec ${fmtDH(M.argent)}${M.loyer ? `, loyer ${fmtDH(M.loyer)} par semaine` : ', sans loyer'}.`;
     onChange(look);
   };
   sheet.addEventListener('click', e => {
@@ -189,17 +196,20 @@ export function openCreation(look, onChange, onDone) {
 }
 
 export function welcome() {
-  const n = esc(G.s.char.name);
+  const n = esc(G.s.char.name), M = milieu();
   const sheet = openModal(`${closeBtn}${banner('ecran-accueil')}
     <h2>Bienvenue à Casablanca, ${n} !</h2>
-    <p>Voici ton nouvel appartement, en rez-de-chaussée dans un quartier animé : le café est juste à droite, le hanout à gauche.</p>
+    <p>Voici ton appartement, en rez-de-chaussée dans un quartier animé : le café est juste à droite, le hanout à gauche.</p>
+    <p><b>${esc(M.nom)}.</b> ${esc(M.desc)} Les façons de gagner de l'argent sont dans ta fiche (touche ton portrait).</p>
     <ul class="tips">
+      <li>Un chien et un chat errants traînent dans la rue. Nourris-les (restes de poulet au hanout) et caresse-les plusieurs jours : quand ils te font confiance, tu peux les adopter.</li>
+      <li>Chaque matin de semaine, on te demande si tu vas au travail. Sécher a des conséquences.</li>
       <li>Touche un meuble pour voir ce que ${n} peut y faire, le sol pour se déplacer.</li>
       <li>Touche la porte d'entrée verte pour sortir dans la rue, ou partir au hammam, au marché, au travail.</li>
       <li>Dehors, touche une chaise de la terrasse pour s'asseoir au café, le hanout pour acheter à manger, ou un voisin pour le saluer et discuter. Les voisins ont leurs habitudes : on les croise à certaines heures.</li>
       <li>Garde un œil sur les besoins en bas de l'écran. La vie sociale se remplit au café et en discutant.</li>
-      <li>Le travail : du lundi au vendredi de 9 h à 17 h. ${n} part tout(e) seul(e) à 8 h 20.</li>
-      <li>Le loyer (${fmtDH(LOYER)}) et la facture d'eau et d'électricité (${fmtDH(FACTURE)}) tombent chaque lundi, le salaire chaque vendredi soir.</li>
+      <li>Le travail : du lundi au vendredi de 9 h à 17 h, départ possible de 7 h à midi.</li>
+      <li>${M.loyer ? `Le loyer (${fmtDH(M.loyer)}) et la facture d'eau et d'électricité (${fmtDH(M.facture)}) tombent` : `La facture d'eau et d'électricité (${fmtDH(M.facture)}) tombe`} chaque lundi, le salaire chaque vendredi soir.</li>
       <li>« Construire » arrête le temps : murs, sols, meubles et peinture.</li>
     </ul>
     <div class="actions"><button class="btn primary" data-close>C'est parti</button></div>`);
@@ -262,16 +272,20 @@ function openCourses(o) {
 
 // Fiche du personnage et du quartier
 export function openFiche(tab = 'moi') {
-  const s = G.s, J = s.job, sk = s.skills.cuisine, lvl = Math.floor(sk);
+  const s = G.s, J = s.job, sk = s.skills.cuisine, lvl = Math.floor(sk), M = milieu(), job = jobOf();
   const plats = s.plats.length ? s.plats.map(p => `${RECETTES[p.r].nom} (${QUAL[p.q]}) : ${p.n}`).join('<br>') : 'Aucun';
+  const animaux = ANIMAUX.filter(a => s.animaux[a.id].adopte).map(a => `${esc(s.animaux[a.id].nom)} (${a.espece}) · faim ${Math.round(s.animaux[a.id].faim)} / 100`).join('<br>');
   const moi = `
-    <div class="stat"><span>Cuisine</span><b>Niveau ${lvl}</b><div class="bar"><i style="width:${lvl >= 10 ? 100 : (sk - lvl) * 100}%"></i></div></div>
-    <div class="stat"><span>Travail</span><b>${esc(JOB[J.level].titre)}</b><small>${fmtDH(JOB[J.level].salaire)} par semaine · ${J.week} jour${J.week > 1 ? 's' : ''} travaillé${J.week > 1 ? 's' : ''} cette semaine</small>
+    <div class="stat"><span>Milieu</span><b>${esc(M.nom)}</b><small>${M.loyer ? `Loyer ${fmtDH(M.loyer)} + factures ${fmtDH(M.facture)}` : `Sans loyer, factures ${fmtDH(M.facture)}`} par semaine</small></div>
+    <div class="stat"><span>Argent</span><b>${fmtDH(s.money)}</b>${s.epargne ? `<small>Épargne : ${fmtDH(s.epargne)}</small>` : ''}</div>
+    <div class="stat"><span>Travail</span><b>${esc(job.titre)}</b><small>${fmtDH(job.salaire)} par semaine · ${J.week} jour${J.week > 1 ? 's' : ''} travaillé${J.week > 1 ? 's' : ''} cette semaine</small>
       <div class="bar"><i style="width:${J.perf}%"></i></div><small>Performance : ${Math.round(J.perf)} / 100 (promotion à 100)</small></div>
-    <div class="stat"><span>Argent</span><b>${fmtDH(s.money)}</b></div>
+    <div class="stat"><span>Cuisine</span><b>Niveau ${lvl}</b><div class="bar"><i style="width:${lvl >= 10 ? 100 : (sk - lvl) * 100}%"></i></div></div>
     <div class="stat"><span>Ambiance de la maison</span><b>${ambiance(s.home)} / 30</b><small>Plus elle est belle, mieux on s'y sent.</small></div>
-    <div class="stat"><span>Ingrédients au frais</span><small>Thé : ${s.inv.the || 0} · Msemen : ${s.inv.msemen || 0} · Tajine : ${s.inv.tajine || 0} · Casse-croûte : ${s.inv.snack || 0}</small></div>
-    <div class="stat"><span>Plats prêts</span><small>${plats}</small></div>`;
+    <div class="stat"><span>Ingrédients au frais</span><small>Thé : ${s.inv.the || 0} · Msemen : ${s.inv.msemen || 0} · Tajine : ${s.inv.tajine || 0} · Casse-croûte : ${s.inv.snack || 0} · Restes pour animaux : ${s.inv.patee || 0}</small></div>
+    <div class="stat"><span>Plats prêts</span><small>${plats}</small></div>
+    ${animaux ? `<div class="stat"><span>À la maison</span><small>${animaux}</small></div>` : ''}`;
+  const argent = moneyWays();
   const heures = n => n.sorties.map(([a, b]) => `${fmtH(a)}–${fmtH(b)}`).join(' et ');
   const voisins = `${banner('illu-cafe')}<p class="hint">Le ${CAFE.nom.toLowerCase()} ouvre de ${CAFE.ouvre} h à ${CAFE.ferme} h. Les voisins passent dans la rue à leurs heures.</p>` +
     NPCS.map(n => { const v = s.rel[n.id] || 0, live = G.npcs.find(x => x.id === n.id); return `
@@ -279,10 +293,71 @@ export function openFiche(tab = 'moi') {
       <div class="bar"><i style="width:${v}%"></i></div><small>${esc(n.desc)} Dehors : ${heures(n)}.</small></div>`; }).join('');
   const sheet = openModal(`${closeBtn}<h2>${esc(s.char.name)}</h2>
     <p class="hint">${s.char.traits.map(t => TRAITS[t].nom).join(' · ') || 'Aucun trait'}</p>
-    <nav class="tabs small"><button data-t="moi" class="${tab === 'moi' ? 'on' : ''}">Ma vie</button><button data-t="quartier" class="${tab === 'quartier' ? 'on' : ''}">Le quartier</button></nav>
-    ${tab === 'moi' ? moi : voisins}`);
+    <nav class="tabs small"><button data-t="moi" class="${tab === 'moi' ? 'on' : ''}">Ma vie</button><button data-t="argent" class="${tab === 'argent' ? 'on' : ''}">Argent</button><button data-t="quartier" class="${tab === 'quartier' ? 'on' : ''}">Le quartier</button></nav>
+    ${tab === 'moi' ? moi : tab === 'argent' ? argent : voisins}`);
   bindClose(sheet);
   sheet.querySelectorAll('[data-t]').forEach(b => { b.onclick = () => openFiche(b.dataset.t); });
+  const daretBtn = sheet.querySelector('#daretJoin');
+  if (daretBtn) daretBtn.onclick = () => { joinDaret(); openFiche('argent'); };
+  sheet.querySelectorAll('[data-ep]').forEach(b => { b.onclick = () => { epargne(+b.dataset.ep); openFiche('argent'); }; });
+}
+// L'onglet Argent : comment ce personnage peut gagner sa vie, selon son milieu.
+function moneyWays() {
+  const s = G.s, M = milieu(), job = jobOf();
+  let h = `<p class="hint">${esc(M.nom)} : ${esc(M.desc)}</p>
+    <div class="stat"><span>Salaire</span><b>${fmtDH(job.salaire)} par semaine</b><small>${esc(job.titre)}. Payé le vendredi soir, au prorata des jours travaillés. Promotion quand la performance atteint 100.</small></div>`;
+  if (revenu('boulots') || revenu('cours')) {
+    const list = BOULOTS.filter(b => b.milieux.includes(s.milieu)).map(b => {
+      const n = NPCS.find(x => x.id === b.npc), rel = s.rel[b.npc] || 0;
+      return `<li><b>${esc(b.nom)}</b> avec ${esc(n.nom)} : ${fmtDur(b.dur)}, ${fmtDH(b.paie)}${b.pourboire ? ' + pourboires' : ''}${b.match ? ', pendant un match' : ''}. ${rel >= b.rel ? 'Disponible : touche-le dans la rue.' : `Il faut une amitié de ${b.rel} (actuelle : ${Math.round(rel)}).`}</li>`;
+    }).join('');
+    h += `<div class="stat"><span>Petits boulots des voisins</span><small>Une fois par jour chacun. On les propose en touchant le voisin.</small><ul class="tips">${list}</ul></div>`;
+  }
+  if (revenu('vente')) {
+    h += `<div class="stat"><span>Vendre ses plats</span><small>Hamid (café) et Ba Lahcen (hanout) achètent jusqu'à 8 parts par jour chacun. Msemen : ${VENTE.msemen[1]} DH la part (${VENTE.msemen[2]} si délicieux). Tajine : ${VENTE.tajine[1]} DH (${VENTE.tajine[2]} si délicieux). Les plats ratés ne se vendent pas.</small></div>`;
+  }
+  if (revenu('daret')) {
+    const rel = s.rel.khadija || 0;
+    let txt;
+    if (s.daret) txt = `Tu en fais partie : ${fmtDH(DARET.part)} chaque lundi. Ton tour (${fmtDH(DARET.part * DARET.membres)}) dans ${(s.daret.pos - s.daret.tour + DARET.membres) % DARET.membres || DARET.membres} semaine(s).`;
+    else if (rel >= 20) txt = `Lalla Khadija te propose d'entrer dans la daret : ${DARET.membres} membres, ${fmtDH(DARET.part)} chacun par semaine, et chacun son tour touche la cagnotte. <button class="btn small primary" id="daretJoin">Entrer dans la daret</button>`;
+    else txt = `Épargne tournante entre voisins. Lalla Khadija l'organise : il faut d'abord devenir sa connaissance (amitié 20, actuelle : ${Math.round(rel)}).`;
+    h += `<div class="stat"><span>La daret</span><small>${txt}</small></div>`;
+  }
+  if (revenu('poche')) h += `<div class="stat"><span>Argent de poche</span><small>Tes parents t'envoient ${fmtDH(POCHE)} chaque dimanche, à condition de ne pas avoir séché le travail dans la semaine.</small></div>`;
+  if (revenu('epargne')) {
+    h += `<div class="stat"><span>Compte épargne</span><b>${fmtDH(s.epargne)}</b><small>${EPARGNE_TAUX * 100} % d'intérêts chaque lundi.</small>
+      <div class="bacts"><button class="btn small" data-ep="1000" ${s.money < 1000 ? 'disabled' : ''}>Placer 1 000 DH</button><button class="btn small" data-ep="5000" ${s.money < 5000 ? 'disabled' : ''}>Placer 5 000 DH</button><button class="btn small" data-ep="-1" ${s.epargne ? '' : 'disabled'}>Tout retirer</button></div></div>`;
+  }
+  h += `<div class="stat"><span>Et aussi</span><small>Revendre un meuble rapporte 75 % de son prix.</small></div>`;
+  return h;
+}
+
+// Le matin : aller au travail ou non.
+export function askWork() {
+  const s = G.s;
+  const sheet = openModal(`<h2>C'est l'heure du travail</h2>
+    <p>Il est 8 h 20. ${esc(s.char.name)} doit être au bureau à 9 h (25 minutes de tram).${revenu('poche') ? ' Tes parents coupent l\'argent de poche si tu sèches.' : ' Sécher coûte 15 points de performance et une journée de salaire.'}</p>
+    <label class="check"><input type="checkbox" id="autoWork"> Ne plus demander : partir automatiquement</label>
+    <div class="actions"><button class="btn" id="wNo">Pas aujourd'hui</button><button class="btn primary" id="wYes">Y aller</button></div>`);
+  const auto = () => { if (sheet.querySelector('#autoWork').checked) s.autoWork = true; };
+  sheet.querySelector('#wYes').onclick = () => { auto(); closeModal(); enqueueWork(); };
+  sheet.querySelector('#wNo').onclick = () => { auto(); closeModal(); skipWork(); };
+}
+
+// Adopter un animal : lui donner un nom.
+export function openAdopt(id) {
+  const def = ANIMAUX.find(a => a.id === id);
+  const sheet = openModal(`${closeBtn}<h2>Adopter le ${esc(def.nom.toLowerCase())}</h2>
+    <p>Il te fait confiance. Comment veux-tu l'appeler ?</p>
+    <label class="field"><span>Nom</span><input id="aName" maxlength="16" autocomplete="off" value="${def.espece === 'chat' ? 'Mimi' : 'Rex'}"></label>
+    <div class="actions"><button class="btn primary" id="aGo">Ramener à la maison</button></div>`);
+  bindClose(sheet);
+  sheet.querySelector('#aGo').onclick = () => {
+    const nom = sheet.querySelector('#aName').value.trim();
+    if (!nom) { toast('Choisis un nom.'); return; }
+    closeModal(); enqueue({ kind: 'animal', id, act: 'adopter', nom, label: 'Adopter ' + nom });
+  };
 }
 const fmtH = h => { const m = Math.round((h % 1) * 60); return Math.floor(h) + ' h' + (m ? ' ' + String(m).padStart(2, '0') : ''); };
 
@@ -293,12 +368,14 @@ export function openMenu() {
     <div class="list">
       <button class="opt" id="mAuto"><span><b>Libre arbitre : ${s.autonomy ? 'activé' : 'désactivé'}</b>
         <small>${esc(s.char.name)} mange, dort, se lave et va au café tout(e) seul(e) quand rien n'est prévu.</small></span></button>
+      <button class="opt" id="mWork"><span><b>Départ au travail : ${s.autoWork ? 'automatique' : 'me demander chaque matin'}</b></span></button>
       <button class="opt" id="mHelp"><span><b>Comment jouer</b></span></button>
       <button class="opt danger" id="mNew"><span><b>Nouvelle partie</b><small>Efface la partie en cours.</small></span></button>
     </div>
     <div class="actions"><button class="btn primary" data-close>Reprendre</button></div>`);
   bindClose(sheet);
   sheet.querySelector('#mAuto').onclick = () => { s.autonomy = !s.autonomy; openMenu(); };
+  sheet.querySelector('#mWork').onclick = () => { s.autoWork = !s.autoWork; openMenu(); };
   sheet.querySelector('#mHelp').onclick = () => welcome();
   const nb = sheet.querySelector('#mNew');
   nb.onclick = () => {

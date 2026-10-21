@@ -3,9 +3,6 @@
 export const W = 12, D = 9; // taille de l'appartement en cases (1 case = 1 m)
 export const SAVE_KEY = 'jeu-maroc-v1';
 export const JOURS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
-export const START_MONEY = 5000;
-export const LOYER = 700;   // par semaine (environ 2 800 DH par mois)
-export const FACTURE = 120; // eau et électricité, par semaine
 export const WALK = 1.8;    // cases parcourues par minute de jeu
 export const SPEEDS = [0, 1, 3, 10]; // minutes de jeu par seconde réelle
 
@@ -52,8 +49,16 @@ export const HANOUT = {
     { id: 'msemen', nom: 'Farine, semoule et beurre', detail: 'Pour une fournée de msemen (4 parts)', prix: 22 },
     { id: 'tajine', nom: 'Poulet, légumes et olives', detail: 'Pour un tajine (4 parts)', prix: 90 },
     { id: 'snack', nom: 'Pain, fromage et olives', detail: 'Un casse-croûte, sans cuisiner', prix: 24 },
+    { id: 'patee', nom: 'Restes de poulet et croquettes', detail: 'Pour nourrir un chien ou un chat', prix: 8 },
   ],
 };
+
+// Les animaux errants du quartier. On les apprivoise en les nourrissant, puis on peut les adopter.
+export const ANIMAUX = [
+  { id: 'chien', espece: 'chien', nom: 'Chien errant', desc: 'Un chien beige qui traîne près du café, la queue basse. Il a faim.', couleur: '#c8a46a', coin: { x: 23, z: D + 1 }, vitesse: 2 },
+  { id: 'chat', espece: 'chat', nom: 'Chat de gouttière', desc: 'Un chat gris tigré, méfiant, souvent sous le palmier.', couleur: '#8a8378', coin: { x: -3, z: D + 1 }, vitesse: 1.8 },
+];
+export const ADOPT_SEUIL = 70;
 
 // Création du personnage
 export const SKINS = ['#f3d2b3', '#e6b994', '#d19e78', '#b07a55', '#8a5a3c', '#5e3b26'];
@@ -71,6 +76,7 @@ export const TRAITS = {
 };
 export const NEEDS = { faim: 'Faim', energie: 'Énergie', hygiene: 'Hygiène', social: 'Vie sociale', moral: 'Moral' };
 export const NEED_ICONS = { faim: 'besoin-faim', energie: 'besoin-energie', hygiene: 'besoin-hygiene', social: 'lieu-cafe', moral: 'besoin-moral' };
+export const MILIEU_IDS = ['populaire', 'moyen', 'aise'];
 
 // Les voisins. sorties : heures où ils sont dehors. cafe : goût pour la terrasse (0 à 1).
 export const NPCS = [
@@ -176,6 +182,7 @@ export const MARCHE = [
   { id: 'msemen', nom: 'Farine, semoule et beurre', detail: 'Pour une fournée de msemen (4 parts)', prix: 18 },
   { id: 'tajine', nom: 'Poulet, légumes, olives et citron confit', detail: 'Pour un tajine (4 parts)', prix: 75 },
   { id: 'snack', nom: 'Pain, fromage et olives', detail: 'Un casse-croûte, sans cuisiner', prix: 20 },
+  { id: 'patee', nom: 'Restes de poulet et croquettes', detail: 'Pour nourrir un chien ou un chat', prix: 6 },
 ];
 
 // Sorties hors du quartier (on part depuis le coin de la rue). trajet : minutes, aller simple.
@@ -192,11 +199,55 @@ export const LIEUX = {
   travail: { nom: 'Travail', trajet: 25, ici: 'Au travail', img: 'illu-travail' },
 };
 
-export const JOB = [
-  { titre: 'Assistant(e) administratif(ve)', salaire: 1300 },
-  { titre: 'Employé(e) de bureau', salaire: 1600 },
-  { titre: 'Chef(fe) de service', salaire: 2200 },
+// Les milieux : d'où vient le personnage, et donc comment il gagne sa vie. Loyer et factures à la semaine.
+export const MILIEUX = {
+  populaire: {
+    nom: 'Enfant du quartier', argent: 1500, loyer: 450, facture: 90,
+    desc: 'Grandi ici. Peu d\'argent au départ, un petit appartement, mais tout le quartier te connaît : petits boulots, plats à vendre et daret.',
+    revenus: ['boulots', 'vente', 'daret'],
+    jobs: [
+      { titre: 'Apprenti(e) chez le mécanicien', salaire: 900 },
+      { titre: 'Mécanicien(ne)', salaire: 1300 },
+      { titre: 'Chef(fe) d\'atelier', salaire: 1900 },
+    ],
+  },
+  moyen: {
+    nom: 'Classe moyenne', argent: 5000, loyer: 700, facture: 120,
+    desc: 'Un emploi de bureau, un loyer à payer, et des voisins qui peuvent te proposer des cours particuliers ou des missions. La daret aide pour les gros achats.',
+    revenus: ['cours', 'daret'],
+    jobs: [
+      { titre: 'Assistant(e) administratif(ve)', salaire: 1300 },
+      { titre: 'Employé(e) de bureau', salaire: 1600 },
+      { titre: 'Chef(fe) de service', salaire: 2200 },
+    ],
+  },
+  aise: {
+    nom: 'Famille aisée', argent: 40000, loyer: 0, facture: 200,
+    desc: 'L\'appartement appartient à tes parents, qui t\'envoient de l\'argent de poche tant que tu vas au travail. Un poste dans l\'entreprise familiale et un compte épargne.',
+    revenus: ['poche', 'epargne'],
+    jobs: [
+      { titre: 'Stagiaire dans l\'entreprise familiale', salaire: 1500 },
+      { titre: 'Chargé(e) d\'affaires', salaire: 2600 },
+      { titre: 'Directeur(rice)', salaire: 4000 },
+    ],
+  },
+};
+export const POCHE = 1200;   // argent de poche hebdomadaire (famille aisée)
+export const EPARGNE_TAUX = 0.01; // intérêt par semaine
+export const DARET = { part: 200, membres: 6, nom: 'daret du quartier' };
+
+// Petits boulots proposés par les voisins, selon le milieu. dur en minutes, rel : amitié minimale.
+export const BOULOTS = [
+  { id: 'livraisons', npc: 'lahcen', milieux: ['populaire'], nom: 'Livraisons pour le hanout', dur: 60, paie: 60, rel: 10, ici: 'En livraison dans le quartier', eff: { energie: -8, social: 6 } },
+  { id: 'service', npc: 'hamid', milieux: ['populaire'], nom: 'Service en terrasse (soir de match)', dur: 180, paie: 120, pourboire: 80, rel: 10, match: true, ici: 'Au service, en terrasse', eff: { energie: -18, social: 15, moral: 4 } },
+  { id: 'taxi', npc: 'omar', milieux: ['populaire'], nom: 'Laver et briquer le taxi', dur: 45, paie: 40, rel: 10, ici: 'En train de laver le taxi', eff: { energie: -8, hygiene: -10, social: 4 } },
+  { id: 'cours', npc: 'fz', milieux: ['moyen'], nom: 'Cours particuliers chez des voisins', dur: 120, paie: 150, rel: 20, ici: 'En cours particulier', eff: { energie: -8, social: 8 } },
+  { id: 'missions', npc: 'yassine', milieux: ['moyen'], nom: 'Mission informatique en ligne', dur: 180, paie: 200, rel: 20, ici: 'Sur une mission en ligne', eff: { energie: -10, social: 4 } },
 ];
+// Vente de plats faits maison (prix par part, selon la qualité : raté, correct, délicieux).
+export const VENTE = { msemen: [0, 8, 14], tajine: [0, 25, 40], the: [0, 0, 0] };
+export const VENTE_MAX = 8; // parts achetées par acheteur et par jour
+export const ACHETEURS = ['hamid', 'lahcen'];
 
 // Construction
 export const FLOORS = {

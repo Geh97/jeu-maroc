@@ -303,7 +303,49 @@ export function pose(ch, p, t, walkPhase) {
   if (p.anim === 'cook') { armL.rotation.x = -0.9 + Math.sin(t * 5) * 0.15; armR.rotation.x = -0.9 - Math.sin(t * 5) * 0.15; }
   if (p.anim === 'eat') armR.rotation.x = -1.2 + Math.max(0, Math.sin(t * 3)) * 0.7;
   if (p.anim === 'talk') { armR.rotation.x = -0.7 + Math.sin(t * 4) * 0.3; armR.rotation.z = -0.3; inner.rotation.x = Math.sin(t * 2.5) * 0.02; }
+  if (p.anim === 'pet') { inner.rotation.x = 0.35; armR.rotation.x = -1.1 + Math.sin(t * 4) * 0.2; armL.rotation.x = -0.6; }
   if (p.anim === 'shower') { armL.rotation.x = armR.rotation.x = -2.6 + Math.sin(t * 4) * 0.2; inner.position.y = p.h || 0; }
+}
+
+// ---------- Animaux (chien, chat), tête vers +z ----------
+export function makeAnimal(def) {
+  const root = new THREE.Group(), inner = new THREE.Group(), chat = def.espece === 'chat';
+  root.add(inner);
+  const fur = mat(def.couleur, { roughness: 0.95 }), dark = mat('#4a3f35', { roughness: 0.9 });
+  const k = chat ? 0.55 : 1, legH = 0.3 * k, bodyY = legH + 0.16 * k;
+  const body = box(inner, 0.26 * k, 0.28 * k, 0.62 * k, fur, 0, bodyY, 0);
+  if (chat) for (let i = -2; i <= 2; i++) box(inner, 0.27 * k, 0.29 * k, 0.05 * k, dark, 0, bodyY, i * 0.12 * k);
+  const head = box(inner, 0.24 * k, 0.24 * k, 0.26 * k, fur, 0, bodyY + 0.14 * k, 0.38 * k);
+  box(inner, 0.14 * k, 0.12 * k, 0.16 * k, chat ? fur : mat('#8a6a4a'), 0, bodyY + 0.08 * k, 0.52 * k);
+  sph(inner, 0.035 * k, dark, 0, bodyY + 0.1 * k, 0.6 * k);
+  for (const x of [-0.07, 0.07]) sph(inner, 0.025 * k, dark, x * k, bodyY + 0.18 * k, 0.5 * k);
+  for (const x of [-0.09, 0.09]) {
+    const ear = chat ? cyl(inner, 0, 0.05 * k, 0.1 * k, fur, x * k, bodyY + 0.3 * k, 0.36 * k, 4) : box(inner, 0.07 * k, 0.16 * k, 0.04 * k, dark, x * 1.4 * k, bodyY + 0.14 * k, 0.33 * k);
+    if (!chat) ear.rotation.x = 0.3;
+  }
+  const legs = [];
+  for (const [x, z] of [[-0.09, 0.22], [0.09, 0.22], [-0.09, -0.22], [0.09, -0.22]]) {
+    const p = new THREE.Group(); p.position.set(x * k, legH, z * k); inner.add(p);
+    box(p, 0.08 * k, legH, 0.09 * k, fur, 0, -legH / 2, 0);
+    legs.push(p);
+  }
+  const tail = new THREE.Group(); tail.position.set(0, bodyY + 0.08 * k, -0.31 * k); inner.add(tail);
+  const tb = box(tail, 0.05 * k, 0.05 * k, 0.32 * k, fur, 0, 0.06 * k, -0.14 * k); tb.rotation.x = chat ? 0.3 : -0.6;
+  root.traverse(o => { o.userData.animal = def.id; });
+  return { root, inner, legs, tail, body, head };
+}
+export function poseAnimal(a, p, t, walkPhase) {
+  const { inner, legs, tail } = a;
+  inner.position.y = 0; inner.rotation.set(0, 0, 0);
+  for (const l of legs) l.rotation.x = 0;
+  if (p === 'walk') {
+    const s = Math.sin(walkPhase * 1.4) * 0.6;
+    legs[0].rotation.x = s; legs[3].rotation.x = s; legs[1].rotation.x = -s; legs[2].rotation.x = -s;
+    tail.rotation.y = Math.sin(t * 6) * 0.3;
+  } else if (p === 'lie') {
+    inner.position.y = -0.14; inner.rotation.z = 0.08;
+    for (const l of legs) l.rotation.x = 1.4;
+  } else tail.rotation.y = Math.sin(t * 3) * 0.5;
 }
 
 // ---------- La rue, le café et le hanout ----------

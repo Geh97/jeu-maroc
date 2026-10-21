@@ -14,7 +14,8 @@ export const isBoundary = (t, x, z) => (t === 'v' ? x === 0 || x === W : z === 0
 export const edgeType = (home, t, x, z) => home.edges[ek(t, x, z)] || 'none';
 const BLOCKS = { wall: 1, window: 1 };
 
-export function defaultHome() {
+// L'appartement de départ dépend du milieu : nu pour l'enfant du quartier, bien équipé pour la famille aisée.
+export function defaultHome(milieu = 'moyen') {
   const edges = {};
   for (let x = 0; x < W; x++) { edges[ek('h', x, 0)] = 'wall'; edges[ek('h', x, D)] = 'wall'; edges[ek('h', x, 4)] = 'wall'; }
   for (let z = 0; z < D; z++) { edges[ek('v', 0, z)] = 'wall'; edges[ek('v', W, z)] = 'wall'; edges[ek('v', 8, z)] = 'wall'; }
@@ -23,24 +24,24 @@ export function defaultHome() {
     'h,2,0': 'window', 'h,5,0': 'window', 'h,10,0': 'window', 'h,1,9': 'window',
     'v,0,6': 'window', 'h,10,9': 'window', 'v,12,6': 'window',
   });
+  const SOLS = {
+    populaire: () => 'carrelage',
+    moyen: (x, z) => (z < 4 ? (x < 8 ? 'parquet' : 'zellige_bleu') : (x < 8 ? 'carrelage' : 'terre')),
+    aise: (x, z) => (z < 4 ? (x < 8 ? 'parquet' : 'zellige_bleu') : (x < 8 ? 'marbre' : 'zellige_vert')),
+  };
   const floors = [];
-  for (let z = 0; z < D; z++) for (let x = 0; x < W; x++) {
-    floors.push(z < 4 ? (x < 8 ? 'parquet' : 'zellige_bleu') : (x < 8 ? 'carrelage' : 'terre'));
-  }
-  const furn = [
-    { id: 1, type: 'lit', x: 1, z: 0, r: 0 },
-    { id: 2, type: 'douche', x: 11, z: 0, r: 0 },
-    { id: 3, type: 'frigo', x: 11, z: 4, r: 3 },
-    { id: 4, type: 'cuisiniere', x: 11, z: 5, r: 3 },
-    { id: 5, type: 'plan', x: 11, z: 6, r: 3 },
-    { id: 6, type: 'banquette', x: 0, z: 5, r: 1 },
-    { id: 7, type: 'banquette', x: 1, z: 4, r: 0 },
-    { id: 8, type: 'tapis', x: 1, z: 5, r: 0 },
-    { id: 9, type: 'mida', x: 2, z: 6, r: 0 },
-    { id: 10, type: 'lanterne', x: 0, z: 4, r: 0 },
-    { id: 11, type: 'plante', x: 7, z: 8, r: 0 },
+  for (let z = 0; z < D; z++) for (let x = 0; x < W; x++) floors.push(SOLS[milieu](x, z));
+  const base = [
+    ['douche', 11, 0, 0], ['frigo', 11, 4, 3], ['cuisiniere', 11, 5, 3],
   ];
-  return { edges, floors, furn, wall: 'chaux', wainscot: 'vert', nextId: 12 };
+  const FURNS = {
+    populaire: [...base, ['lit1', 1, 0, 0], ['table', 9, 7, 0], ['pouf', 1, 6, 0], ['pouf', 3, 6, 0], ['mida', 2, 6, 0], ['plante', 7, 8, 0]],
+    moyen: [...base, ['lit', 1, 0, 0], ['plan', 11, 6, 3], ['banquette', 0, 5, 1], ['banquette', 1, 4, 0], ['tapis', 1, 5, 0], ['mida', 2, 6, 0], ['lanterne', 0, 4, 0], ['plante', 7, 8, 0]],
+    aise: [...base, ['lit', 1, 0, 0], ['armoire', 4, 0, 0], ['plan', 11, 6, 3], ['table', 9, 7, 0], ['banquette', 0, 5, 1], ['banquette', 1, 4, 0], ['tapis', 1, 5, 0], ['mida', 2, 6, 0], ['tv', 4, 4, 0], ['lanterne', 0, 4, 0], ['lanterne', 7, 4, 0], ['jarre', 7, 8, 0], ['plante', 6, 8, 0]],
+  };
+  const furn = FURNS[milieu].map(([type, x, z, r], i) => ({ id: i + 1, type, x, z, r }));
+  const deco = { populaire: ['chaux', 'aucun'], moyen: ['chaux', 'vert'], aise: ['sable', 'bleu'] }[milieu];
+  return { edges, floors, furn, wall: deco[0], wainscot: deco[1], nextId: furn.length + 1 };
 }
 
 // Taille au sol d'un meuble selon sa rotation (0 à 3, quart de tour).

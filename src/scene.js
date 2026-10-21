@@ -1,7 +1,7 @@
 // Affichage 3D : caméra, lumière du jour, quartier, appartement, personnages, aperçus du mode construction.
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { W, D, X0, X1, Z1, FURN, WALL_COLORS, NPCS, PASSANTS } from './data.js';
+import { W, D, X0, X1, Z1, FURN, WALL_COLORS, NPCS, PASSANTS, ANIMAUX } from './data.js';
 import * as T from './textures.js';
 import * as M from './models.js';
 import { parseEdge, furnCenter, footprint } from './world.js';
@@ -9,7 +9,7 @@ import { parseEdge, furnCenter, footprint } from './world.js';
 let renderer, scene, camera, controls, sun, hemi, amb, floorPlane, street;
 const homeG = new THREE.Group(), helpers = new THREE.Group();
 let segs = [], furnGroups = new Map(), lampLights = [], streetLights = [], ch = null, look = null;
-const npcs = new Map();
+const npcs = new Map(), animaux = new Map();
 let wallMode = 'coupes', clock = 0, savedCam = null, userMovedAt = -10, follow = false;
 const wallMat = new THREE.MeshStandardMaterial({ color: '#f1ece2', roughness: 0.9 });
 const sky = { day: new THREE.Color('#a8d8f0'), dusk: new THREE.Color('#f2a65a'), night: new THREE.Color('#0f1830') };
@@ -63,6 +63,11 @@ export function initScene(canvas) {
   scene.add(floorPlane);
   for (const def of NPCS) addNpc(def.id, def.look);
   PASSANTS.forEach((look, i) => addNpc('p' + i, look));
+  for (const def of ANIMAUX) {
+    const a = M.makeAnimal(def);
+    a.root.traverse(o => { if (o.isMesh) o.castShadow = true; });
+    scene.add(a.root); animaux.set(def.id, a);
+  }
   addEventListener('resize', resize);
   resize();
 }
@@ -200,6 +205,12 @@ export function updateFrame(dt, v) {
       n.root.position.set(nv.x, 0, nv.z); n.root.rotation.y = nv.yaw;
       M.pose(n, nv.pose, clock + nv.x, nv.walkPhase);
     }
+    for (const av of v.animaux || []) {
+      const a = animaux.get(av.id);
+      if (!a) continue;
+      a.root.position.set(av.x, 0, av.z); a.root.rotation.y = av.yaw;
+      M.poseAnimal(a, av.pose, clock + av.x, av.walkPhase);
+    }
     daylight(v.t);
     // Dehors, la caméra suit le personnage (sauf juste après un geste du joueur).
     if (follow && v.visible && v.outside && clock - userMovedAt > 2.5) {
@@ -258,12 +269,16 @@ export function pick(px, py, opts = {}) {
   ray.setFromCamera(ndc, camera);
   if (!chairMeshes) { chairMeshes = []; street.traverse(o => { if (o.isMesh && (o.userData.chair != null || o.userData.hanout)) chairMeshes.push(o); }); }
   const objs = [...furnGroups.values(), ...segs.map(s => s.g), ...chairMeshes, floorPlane];
-  if (!opts.build) for (const n of npcs.values()) if (n.root.visible) objs.unshift(n.root);
+  if (!opts.build) {
+    for (const n of npcs.values()) if (n.root.visible) objs.unshift(n.root);
+    for (const a of animaux.values()) objs.unshift(a.root);
+  }
   if (ch && ch.root.visible) objs.unshift(ch.root);
   for (const h of ray.intersectObjects(objs, true)) {
     const u = h.object.userData;
     if (u.char) return { type: 'char' };
     if (u.npc) return { type: 'npc', id: u.npc };
+    if (u.animal) return { type: 'animal', id: u.animal };
     if (u.chair != null) return { type: 'chair', id: u.chair };
     if (u.hanout && !opts.build) return { type: 'hanout' };
     if (u.fid != null) {

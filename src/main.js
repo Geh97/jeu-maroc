@@ -2,7 +2,7 @@
 import { SPEEDS } from './data.js';
 import {
   G, hooks, newGame, load, save, wipe, advance, view, enqueue, enqueueWork, cancelAll, isHome,
-  availableActions, doorActions, chairActions, npcActions,
+  availableActions, doorActions, chairActions, npcActions, animalActions,
 } from './sim.js';
 import { defaultHome, entrance, doorstep } from './world.js';
 import * as S from './scene.js';
@@ -13,7 +13,8 @@ const canvas = document.getElementById('c');
 S.initScene(canvas);
 S.setTypeLookup(id => (G.s && G.s.home.furn.find(f => f.id === id) || { type: 'plante' }).type);
 hooks.toast = UI.toast;
-window.jeu = { G, advance, enqueue, hooks, debugCam: S.debugCam }; // pour tester depuis la console du navigateur
+hooks.askWork = UI.askWork;
+window.jeu = { G, advance, enqueue, hooks, debugCam: S.debugCam, npcActions, animalActions, newGame, start }; // pour tester depuis la console du navigateur
 
 const walls = ['coupes', 'bas', 'hauts'];
 let wallIdx = 0, preview = null;
@@ -49,14 +50,17 @@ function start() {
 function creation() {
   UI.showHud(false);
   S.setFollow(false);
-  const home = defaultHome();
-  S.rebuildHome(home);
   const look = UI.randomLook();
-  S.setCharLook(look);
-  preview = { visible: true, x: 4.5, z: 6.2, yaw: 0, pose: { base: 'stand' }, walkPhase: 0, t: 11 * 60, active: null, npcs: [] };
+  let shown = null;
+  const refresh = l => {
+    S.setCharLook(l);
+    if (shown !== l.milieu) { shown = l.milieu; S.rebuildHome(defaultHome(l.milieu)); }
+  };
+  refresh(look);
+  preview = { visible: true, x: 4.5, z: 6.2, yaw: 0, pose: { base: 'stand' }, walkPhase: 0, t: 11 * 60, active: null, npcs: [], animaux: [] };
   S.updateFrame(0, preview);
   S.focusChar(true);
-  UI.openCreation(look, l => S.setCharLook(l), l => {
+  UI.openCreation(look, refresh, l => {
     S.focusChar(false);
     newGame({ ...l, traits: [...l.traits] });
     start();
@@ -125,7 +129,9 @@ function onTap(x, y, type) {
     UI.showPop(x, y, chairActions(h.id), it => enqueue({ kind: 'cafe', chair: it.chair, opt: it.opt }));
   } else if (h.type === 'npc') {
     if (!G.npcs.some(n => n.id === h.id)) { UI.toast('Un passant pressé.'); return; }
-    UI.showPop(x, y, npcActions(h.id), it => enqueue({ kind: 'talk', npc: it.npc, mode: it.mode }));
+    UI.showPop(x, y, npcActions(h.id), it => enqueue({ kind: 'talk', npc: it.npc, mode: it.mode, boulot: it.boulot, plat: it.plat }));
+  } else if (h.type === 'animal') {
+    UI.showPop(x, y, animalActions(h.id), it => (it.act === 'adopter' ? UI.openAdopt(h.id) : enqueue({ kind: 'animal', id: h.id, act: it.act })));
   } else if (h.type === 'char') {
     const busy = G.cur || G.queue.length;
     UI.showPop(x, y, {

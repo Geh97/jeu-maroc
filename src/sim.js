@@ -1,7 +1,8 @@
-// La simulation : temps, besoins, actions, quartier, voisins, sorties, travail, argent, sauvegarde.
+// La simulation : temps, besoins, actions, quartier, voisins, animaux, argent, sauvegarde.
 import {
-  SAVE_KEY, START_MONEY, LOYER, FACTURE, WALK, FURN, ACT, RECETTES, QUAL, QUAL_MORAL,
-  MARCHE, LIEUX, JOB, RUE, CAFE, HANOUT, NPCS, PASSANTS, SALUTS, X0, X1, D, matchEnCours, relLabel,
+  SAVE_KEY, WALK, FURN, ACT, RECETTES, QUAL, QUAL_MORAL,
+  MARCHE, LIEUX, RUE, CAFE, HANOUT, NPCS, PASSANTS, SALUTS, X0, X1, D, matchEnCours, relLabel,
+  MILIEUX, POCHE, EPARGNE_TAUX, DARET, BOULOTS, VENTE, VENTE_MAX, ACHETEURS, ANIMAUX, ADOPT_SEUIL,
 } from './data.js';
 import * as Wd from './world.js';
 
@@ -9,11 +10,11 @@ export const G = {
   s: null,          // état sauvegardé
   cur: null,        // action en cours
   queue: [],        // actions en attente
-  npcs: [], passants: [], chairs: [],
+  npcs: [], passants: [], animaux: [], chairs: [],
   speed: 1, mode: 'live', modal: false,
-  yaw: 0, walkPhase: 0, idle: 0, amb: 0, alerts: {}, pendingWork: false, qid: 1,
+  yaw: 0, walkPhase: 0, idle: 0, amb: 0, alerts: {}, pendingWork: false, workAsk: false, qid: 1,
 };
-export const hooks = { toast: () => {} };
+export const hooks = { toast: () => {}, askWork: () => {} };
 const toast = (m, k) => hooks.toast(m, k);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const rand = (a, b) => a + Math.random() * (b - a);
@@ -35,36 +36,52 @@ export const fmtDur = m => (m < 60 ? m + ' min' : Math.floor(m / 60) + ' h' + (m
 export const cafeOuvert = t => hour(t) >= CAFE.ouvre && hour(t) < CAFE.ferme;
 export const hanoutOuvert = t => hour(t) >= HANOUT.ouvre && hour(t) < HANOUT.ferme;
 export const hanoutCost = b => HANOUT.articles.reduce((t, m) => t + (b[m.id] || 0) * m.prix, 0);
+export const milieu = () => MILIEUX[G.s.milieu];
+export const jobOf = () => milieu().jobs[G.s.job.level];
+export const revenu = k => milieu().revenus.includes(k);
 
 // ---------- Partie ----------
 export function newGame(look) {
-  const home = Wd.defaultHome(), ent = Wd.entrance(home);
+  const m = MILIEUX[look.milieu] ? look.milieu : 'moyen';
+  const home = Wd.defaultHome(m), ent = Wd.entrance(home);
   G.s = {
-    v: 2, char: look, t: 7 * 60, money: START_MONEY,
+    v: 3, char: look, milieu: m, t: 7 * 60, money: MILIEUX[m].argent,
     needs: { faim: 70, energie: 80, hygiene: 75, social: 55, moral: 65 },
     skills: { cuisine: 0 },
-    inv: { the: 2, msemen: 1, tajine: 0, snack: 2 },
+    inv: { the: 2, msemen: 1, tajine: 0, snack: 2, patee: 0 },
     plats: [],
-    job: { level: 0, perf: 40, day: -1, week: 0 },
-    rel: {},
-    home, pos: center(ent), away: null, lastBill: 0, autonomy: true,
+    job: { level: 0, perf: 40, day: -1, week: 0, absences: 0 },
+    rel: {}, ventes: { day: -1 }, boulots: { day: -1 }, daret: null, epargne: 0, autoWork: false,
+    animaux: {}, home, pos: center(ent), away: null, lastBill: 0, autonomy: true,
   };
+  for (const a of ANIMAUX) G.s.animaux[a.id] = { confiance: 0, adopte: false, nom: '', faim: 70, fled: 0 };
   resetRuntime();
   save();
 }
 function resetRuntime() {
-  G.cur = null; G.queue = []; G.idle = 0; G.alerts = {}; G.pendingWork = false;
-  G.yaw = Math.PI; G.amb = Wd.ambiance(G.s.home);
+  const s = G.s;
+  G.cur = null; G.queue = []; G.idle = 0; G.alerts = {}; G.pendingWork = false; G.workAsk = false;
+  G.yaw = Math.PI; G.amb = Wd.ambiance(s.home);
   G.chairs = CAFE.chaises.map(() => null);
   G.npcs = NPCS.map(def => ({ id: def.id, def, visible: false, x: 0, z: 0, yaw: 0, state: 'home', path: [], walkPhase: 0, nextAt: 0, chair: -1, goal: null, talkUntil: 0, greetedAt: -9999, talks: 0, talkDay: -1 }));
   G.passants = PASSANTS.map((look, i) => ({ id: 'p' + i, look, visible: false, x: 0, z: 0, yaw: 0, path: [], walkPhase: 0, nextAt: rand(0, 40) }));
+  G.animaux = ANIMAUX.map(def => {
+    const home = s.animaux[def.id].adopte, c = home ? center({ x: 6, z: 7 }) : center(def.coin);
+    return { id: def.id, def, x: c.x, z: c.z, yaw: 0, state: 'idle', path: [], walkPhase: 0, nextAt: 0, hold: 0 };
+  });
   npcGrid = null;
 }
 export function load() {
   try {
     const s = JSON.parse(localStorage.getItem(SAVE_KEY));
-    if (!s || !(s.v === 1 || s.v === 2)) return false;
-    if (s.v === 1) { s.v = 2; s.needs.social = 60; s.rel = {}; }
+    if (!s || !(s.v >= 1 && s.v <= 3)) return false;
+    if (s.v === 1) { s.needs.social = 60; s.rel = {}; }
+    if (s.v < 3) {
+      s.milieu = 'moyen'; s.ventes = { day: -1 }; s.boulots = { day: -1 }; s.daret = null; s.epargne = 0; s.autoWork = true;
+      s.job.absences = 0; s.inv.patee = 0; s.animaux = {};
+      for (const a of ANIMAUX) s.animaux[a.id] = { confiance: 0, adopte: false, nom: '', faim: 70, fled: 0 };
+      s.v = 3;
+    }
     G.s = s; resetRuntime(); return true;
   } catch { return false; }
 }
@@ -91,7 +108,9 @@ export const isHome = () => Wd.inHome(Math.floor(G.s.pos.x), Math.floor(G.s.pos.
 // ---------- Ce qu'on peut faire ----------
 const getF = id => G.s.home.furn.find(f => f.id === id);
 const getN = id => G.npcs.find(n => n.id === id);
+const getA = id => G.animaux.find(a => a.id === id);
 const findPlat = key => { const [r, q] = key.split(':'); return G.s.plats.find(p => p.r === r && p.q === +q); };
+const boulotOf = id => BOULOTS.find(b => b.id === id);
 
 export function itemLabel(it) {
   if (it.kind === 'goto') return 'Aller ici';
@@ -103,7 +122,13 @@ export function itemLabel(it) {
   }
   if (it.kind === 'cafe') return 'Café : ' + CAFE.options.find(o => o.id === it.opt).nom.toLowerCase();
   if (it.kind === 'hanout') return 'Courses au hanout';
-  if (it.kind === 'talk') return (it.mode === 'saluer' ? 'Saluer ' : 'Discuter avec ') + getN(it.npc).def.nom;
+  if (it.kind === 'animal') return ANIMAL_ACTS[it.act].label + ' : ' + animalName(it.id);
+  if (it.kind === 'talk') {
+    const n = getN(it.npc).def.nom;
+    if (it.mode === 'boulot') return boulotOf(it.boulot).nom;
+    if (it.mode === 'vendre') return 'Vendre à ' + n;
+    return (it.mode === 'saluer' ? 'Saluer ' : 'Discuter avec ') + n;
+  }
   if (it.act === 'cuisiner') return 'Préparer : ' + RECETTES[it.param].nom;
   if (it.act === 'manger') return 'Manger : ' + RECETTES[it.param.split(':')[0]].nom;
   if (it.act === 'boire') return 'Boire un verre de thé';
@@ -190,16 +215,53 @@ export function chairActions(i) {
   const voisin = G.npcs.find(n => n.chair >= 0 && CAFE.chaises[n.chair].table === c.table);
   return { title: CAFE.nom, items, info: voisin ? `${voisin.def.nom} est à cette table.` : 'Une chaise libre en terrasse.' };
 }
+const sellable = () => G.s.plats.filter(p => VENTE[p.r] && VENTE[p.r][p.q] > 0);
 export function npcActions(id) {
-  const n = getN(id), s = G.s, rel = s.rel[id] || 0;
+  const n = getN(id), s = G.s, rel = s.rel[id] || 0, d = dayIdx(s.t);
   const items = [
-    { act: 'talk', npc: id, mode: 'saluer', label: 'Saluer', sub: 'Un bonjour en passant' },
-    { act: 'talk', npc: id, mode: 'discuter', label: 'Discuter (15 min)', sub: rel >= 20 ? 'Prendre des nouvelles' : 'Faire connaissance' },
+    { kind: 'talk', npc: id, mode: 'saluer', label: 'Saluer', sub: 'Un bonjour en passant' },
+    { kind: 'talk', npc: id, mode: 'discuter', label: 'Discuter (15 min)', sub: rel >= 20 ? 'Prendre des nouvelles' : 'Faire connaissance' },
   ];
+  if (revenu('boulots') || revenu('cours')) {
+    for (const b of BOULOTS.filter(b => b.npc === id && b.milieux.includes(s.milieu))) {
+      const done = s.boulots.day === d && s.boulots[b.id];
+      let why = null;
+      if (rel < b.rel) why = `Il faut mieux se connaître (amitié ${b.rel}).`;
+      else if (done) why = 'Déjà fait aujourd\'hui.';
+      else if (b.match && !matchEnCours(dow(s.t), hour(s.t))) why = 'Seulement pendant un match.';
+      items.push({ kind: 'talk', npc: id, mode: 'boulot', boulot: b.id, label: b.nom, sub: `${fmtDur(b.dur)} · ${fmtDH(b.paie)}${b.pourboire ? ' + pourboires' : ''}`, disabled: !!why, why });
+    }
+  }
+  if (revenu('vente') && ACHETEURS.includes(id)) {
+    const sold = s.ventes.day === d ? s.ventes[id] || 0 : 0, left = VENTE_MAX - sold;
+    for (const p of sellable()) {
+      const n = Math.min(p.n, left), prix = VENTE[p.r][p.q];
+      items.push({ kind: 'talk', npc: id, mode: 'vendre', plat: p.r + ':' + p.q, label: `Vendre : ${RECETTES[p.r].nom.toLowerCase()} (${QUAL[p.q]})`, sub: `${n} part${n > 1 ? 's' : ''} à ${prix} DH = ${fmtDH(n * prix)}`, disabled: left <= 0, why: "Il en a assez acheté pour aujourd'hui." });
+    }
+  }
   return { title: n.def.nom, items, info: `${relLabelOf(rel)} · ${n.def.desc}` };
 }
 const relLabelOf = v => relLabel(v) + (v > 0 ? ` (${Math.round(v)})` : '');
 export const basketCost = b => MARCHE.reduce((t, m) => t + (b[m.id] || 0) * m.prix, 0);
+
+// ---------- Animaux : actions ----------
+const ANIMAL_ACTS = {
+  nourrir: { label: 'Donner à manger', dur: 4 },
+  caresser: { label: 'Caresser', dur: 3 },
+  jouer: { label: 'Jouer (20 min)', dur: 20 },
+  adopter: { label: 'Adopter', dur: 0 },
+};
+export const animalName = id => { const a = G.s.animaux[id]; return a.adopte && a.nom ? a.nom : ANIMAUX.find(x => x.id === id).nom.toLowerCase(); };
+export function animalActions(id) {
+  const s = G.s, a = s.animaux[id], def = ANIMAUX.find(x => x.id === id), items = [];
+  const conf = Math.round(a.confiance);
+  items.push({ kind: 'animal', id, act: 'nourrir', label: ANIMAL_ACTS.nourrir.label, sub: s.inv.patee > 0 ? `${s.inv.patee} portion${s.inv.patee > 1 ? 's' : ''} de restes` : '', disabled: !(s.inv.patee > 0), why: 'Achète des restes de poulet au hanout ou au marché.' });
+  items.push({ kind: 'animal', id, act: 'caresser', label: ANIMAL_ACTS.caresser.label, sub: a.adopte || conf >= 20 ? '' : 'Il risque de s\'enfuir' });
+  if (a.adopte) items.push({ kind: 'animal', id, act: 'jouer', label: ANIMAL_ACTS.jouer.label });
+  else items.push({ kind: 'animal', id, act: 'adopter', label: 'Adopter et ramener à la maison', sub: conf >= ADOPT_SEUIL ? 'Il te suit partout maintenant' : `Confiance ${conf} / ${ADOPT_SEUIL}`, disabled: conf < ADOPT_SEUIL, why: 'Nourris-le et caresse-le plusieurs jours.' });
+  const info = a.adopte ? `${a.nom} · faim ${Math.round(a.faim)} / 100` : `${def.desc} Confiance : ${conf} / 100.`;
+  return { title: a.adopte ? a.nom : def.nom, items, info };
+}
 
 // ---------- File d'actions ----------
 export function enqueue(it, front = false) {
@@ -259,6 +321,13 @@ function startItem(it) {
     const app = Wd.approachCells(home, cells, blocked);
     if (!app.length || !go(app)) return fail(it, `${n.def.nom} est hors d'atteinte.`);
     n.hold = s.t + 12; // le voisin attend qu'on arrive
+    return;
+  }
+  if (it.kind === 'animal') {
+    const a = getA(it.id);
+    const app = Wd.approachCells(home, [tileOf(a)], blocked);
+    if (!app.length || !go(app)) return fail(it, `${animalName(it.id)} est hors d'atteinte.`);
+    a.hold = s.t + 20;
     return;
   }
   if (it.act === 'evanoui') {
@@ -352,6 +421,19 @@ function arrive(c) {
     c.stage = 'do'; c.t = 0; G.yaw = c.spot.yaw;
     return;
   }
+  if (it.kind === 'animal') {
+    const a = getA(it.id), d = Math.hypot(a.x - s.pos.x, a.z - s.pos.z);
+    if (d > 2.2) {
+      if ((it.tries = (it.tries || 0) + 1) < 3) { G.cur = null; G.queue.unshift(it); return; }
+      return fail(it, `${animalName(it.id)} s'est éloigné.`);
+    }
+    if (it.act === 'nourrir' && !(s.inv.patee > 0)) return fail(it, 'Plus rien à lui donner.');
+    a.hold = s.t + 30; a.path = []; a.state = 'idle'; a.yaw = yawTo(a.x, a.z, s.pos.x, s.pos.z);
+    c.dur = ANIMAL_ACTS[it.act].dur || 1;
+    c.spot = { x: s.pos.x, z: s.pos.z, yaw: yawTo(s.pos.x, s.pos.z, a.x, a.z), pose: 'stand', anim: 'pet', h: 0 };
+    c.stage = 'do'; c.t = 0; G.yaw = c.spot.yaw;
+    return;
+  }
   if (it.kind === 'talk') {
     const n = getN(it.npc), d = Math.hypot(n.x - s.pos.x, n.z - s.pos.z);
     if (!n.visible || n.state === 'talk') return fail(it, `${n.def.nom} n'est plus disponible.`);
@@ -359,9 +441,10 @@ function arrive(c) {
       if ((it.tries = (it.tries || 0) + 1) < 3) { G.cur = null; G.queue.unshift(it); return; }
       return fail(it, `${n.def.nom} est déjà parti(e).`);
     }
+    if (it.mode === 'boulot') { G.cur = null; startBoulot(it, n); return; }
     n.state = 'talk'; n.path = [];
     n.yaw = yawTo(n.x, n.z, s.pos.x, s.pos.z);
-    c.dur = it.mode === 'saluer' ? 2 : 15;
+    c.dur = it.mode === 'saluer' ? 2 : it.mode === 'vendre' ? 3 : 15;
     n.talkUntil = s.t + c.dur;
     c.spot = { x: s.pos.x, z: s.pos.z, yaw: yawTo(s.pos.x, s.pos.z, n.x, n.z), pose: 'stand', anim: 'talk', h: 0 };
     c.stage = 'do'; c.t = 0; G.yaw = c.spot.yaw;
@@ -407,9 +490,11 @@ function finish(c) {
     }
     return;
   }
+  if (it.kind === 'animal') return finishAnimal(it);
   if (it.kind === 'talk') {
     const n = getN(it.npc);
     if (n.state === 'talk') { n.state = 'idle'; n.nextAt = s.t + 2; }
+    if (it.mode === 'vendre') return sell(it, n);
     const d = dayIdx(s.t);
     if (n.talkDay !== d) { n.talkDay = d; n.talks = 0; }
     const k = 1 / (1 + n.talks * 0.6);
@@ -419,6 +504,7 @@ function finish(c) {
     s.needs.social = clamp(s.needs.social + soc, 0, 100);
     s.needs.moral = clamp(s.needs.moral + mor, 0, 100);
     toast(`${n.def.nom} : « ${it.mode === 'saluer' ? pick(SALUTS) : pick(n.def.lignes)} »`);
+    if (it.mode === 'discuter' && revenu('daret') && !s.daret && n.id === 'khadija' && (s.rel.khadija || 0) >= 20) toast('Lalla Khadija te propose d\'entrer dans la daret du quartier (voir ta fiche).', 'good');
     return;
   }
   if (it.act === 'cuisiner') {
@@ -442,6 +528,114 @@ function addRel(n, v) {
   const s = G.s, before = s.rel[n.id] || 0, after = clamp(before + v, 0, 100);
   s.rel[n.id] = after;
   for (const seuil of [20, 50, 80]) if (before < seuil && after >= seuil) toast(`${n.def.nom} : ${relLabel(after)}.`, 'good');
+}
+
+// ---------- Gagner de l'argent autrement ----------
+function sell(it, n) {
+  const s = G.s, p = findPlat(it.plat), d = dayIdx(s.t);
+  if (!p) return toast('Il ne reste plus rien à vendre.');
+  if (s.ventes.day !== d) s.ventes = { day: d };
+  const left = VENTE_MAX - (s.ventes[n.id] || 0);
+  if (left <= 0) return toast(`${n.def.nom} en a assez acheté pour aujourd'hui.`);
+  const k = Math.min(p.n, left), prix = VENTE[p.r][p.q], total = k * prix;
+  p.n -= k;
+  if (!p.n) s.plats.splice(s.plats.indexOf(p), 1);
+  s.ventes[n.id] = (s.ventes[n.id] || 0) + k;
+  s.money += total;
+  addRel(n, 1);
+  toast(`${n.def.nom} t'achète ${k} part${k > 1 ? 's' : ''} : +${fmtDH(total)}.`, 'good');
+}
+function startBoulot(it, n) {
+  const s = G.s, b = boulotOf(it.boulot), d = dayIdx(s.t);
+  if (s.boulots.day !== d) s.boulots = { day: d };
+  if (s.boulots[b.id]) return toast('Déjà fait aujourd\'hui.');
+  if (b.match && !matchEnCours(dow(s.t), hour(s.t))) return toast('Le match n\'a pas lieu maintenant.');
+  s.boulots[b.id] = true;
+  const extra = {};
+  for (const k in b.eff) extra[k] = b.eff[k] / b.dur * 60;
+  s.away = { lieu: 'boulot', boulot: b.id, phases: [{ until: s.t + b.dur, label: b.ici, extra }], start: s.t, back: { ...s.pos }, backYaw: G.yaw };
+  G.cur = null; G.queue = [];
+  toast(`${n.def.nom} : « Merci, à tout à l'heure ! »`);
+}
+export function joinDaret() {
+  const s = G.s;
+  if (!revenu('daret') || s.daret) return;
+  s.daret = { tour: 0, pos: 2 + Math.floor(Math.random() * 4) };
+  toast(`Tu entres dans la ${DARET.nom} : ${fmtDH(DARET.part)} chaque lundi, et la cagnotte (${fmtDH(DARET.part * DARET.membres)}) quand c'est ton tour.`, 'good');
+  save();
+}
+export function epargne(montant) {
+  const s = G.s;
+  if (!revenu('epargne')) return;
+  if (montant > 0 && !spend(montant)) return;
+  if (montant < 0) { s.money += s.epargne; s.epargne = 0; toast('Épargne retirée.'); save(); return; }
+  s.epargne += montant;
+  toast(`${fmtDH(montant)} placés. Intérêts : ${EPARGNE_TAUX * 100} % par semaine.`);
+  save();
+}
+
+// ---------- Animaux ----------
+function finishAnimal(it) {
+  const s = G.s, a = s.animaux[it.id], def = ANIMAUX.find(x => x.id === it.id), live = getA(it.id);
+  const name = animalName(it.id);
+  if (it.act === 'nourrir') {
+    s.inv.patee--;
+    a.confiance = clamp(a.confiance + (def.espece === 'chat' ? 12 : 15), 0, 100);
+    a.faim = clamp(a.faim + 50, 0, 100);
+    s.needs.moral = clamp(s.needs.moral + 4, 0, 100);
+    toast(a.adopte ? `${a.nom} a bien mangé.` : `Le ${name} mange avec appétit. Confiance : ${Math.round(a.confiance)}.`);
+  } else if (it.act === 'caresser') {
+    if (!a.adopte && a.confiance < 20) {
+      a.confiance = clamp(a.confiance - 2, 0, 100);
+      live.state = 'idle'; live.hold = 0; live.nextAt = s.t;
+      toast(`Le ${name} s'enfuit. Il faut d'abord l'apprivoiser en le nourrissant.`, 'bad');
+      return;
+    }
+    a.confiance = clamp(a.confiance + 6, 0, 100);
+    s.needs.moral = clamp(s.needs.moral + 5, 0, 100);
+    toast(a.adopte ? `${a.nom} ronronne de bonheur.` : `Le ${name} se laisse caresser. Confiance : ${Math.round(a.confiance)}.`);
+  } else if (it.act === 'jouer') {
+    s.needs.moral = clamp(s.needs.moral + 10, 0, 100);
+    s.needs.social = clamp(s.needs.social + 6, 0, 100);
+    toast(`Un bon moment avec ${a.nom}.`);
+  } else if (it.act === 'adopter') {
+    if (a.confiance < ADOPT_SEUIL) return toast('Il ne te fait pas encore assez confiance.');
+    a.adopte = true; a.nom = it.nom || def.nom;
+    const c = center(Wd.doorstep(s.home));
+    live.x = c.x; live.z = c.z; live.path = []; live.state = 'idle'; live.nextAt = s.t; live.hold = 0;
+    s.needs.moral = clamp(s.needs.moral + 15, 0, 100);
+    toast(`${a.nom} fait désormais partie de la maison !`, 'good');
+  }
+  save();
+}
+function stepAnimaux(m) {
+  const s = G.s, h = hour(s.t);
+  for (const a of G.animaux) {
+    const st = s.animaux[a.id];
+    if (st.adopte) {
+      st.faim = clamp(st.faim - 3 * m / 60, 0, 100);
+      if (st.faim < 25 && !G.alerts['an-' + a.id]) { G.alerts['an-' + a.id] = true; toast(`${st.nom} a faim.`, 'bad'); }
+      if (st.faim > 40) G.alerts['an-' + a.id] = false;
+    }
+    if (s.t < a.hold) { if (a.state === 'walk') { a.state = 'idle'; a.path = []; } continue; } // il attend qu'on arrive
+    if (a.state === 'walk') { if (walkAlong(a, m, a.def.vitesse)) { a.state = 'idle'; a.nextAt = s.t + rand(5, 25); } continue; }
+    if (s.t < a.nextAt) continue;
+    const night = h >= 23 || h < 7;
+    let target;
+    if (st.adopte) {
+      const free = [];
+      const g = Wd.blockedGrid(s.home);
+      for (let z = 0; z < D; z++) for (let x = 0; x < 12; x++) if (!g[Wd.idx(x, z)]) free.push({ x, z });
+      const tapis = s.home.furn.find(f => f.type === 'tapis');
+      target = night && tapis ? { x: tapis.x, z: tapis.z } : pick(free);
+    } else {
+      target = night ? a.def.coin : pick(Wd.sidewalkCells());
+    }
+    if (!target) { a.nextAt = s.t + 10; continue; }
+    const path = Wd.findPath(s.home, Math.floor(a.x), Math.floor(a.z), [target], st.adopte ? Wd.blockedGrid(s.home) : grid());
+    if (!path || path.length < 2) { a.nextAt = s.t + rand(10, 30); continue; }
+    a.path = path.slice(1).map(center); a.state = 'walk';
+  }
 }
 
 // ---------- Sorties hors du quartier ----------
@@ -478,7 +672,7 @@ export function awayPhase() {
 }
 export function comeBack() {
   const s = G.s, a = s.away;
-  if (!a || a.lieu === 'travail' || a.lieu === 'marche') return;
+  if (!a || a.lieu === 'travail' || a.lieu === 'marche' || a.lieu === 'boulot') return;
   a.phases = [{ until: s.t + LIEUX[a.lieu].trajet, label: 'Sur le chemin du retour' }];
 }
 function stepAway(m) {
@@ -490,6 +684,16 @@ function stepAway(m) {
 function returnHome() {
   const s = G.s, a = s.away;
   s.away = null;
+  if (a.lieu === 'boulot') {
+    const b = boulotOf(a.boulot), tip = b.pourboire ? Math.round(rand(0, b.pourboire)) : 0;
+    s.money += b.paie + tip;
+    s.pos = { ...a.back }; G.yaw = a.backYaw || 0;
+    toast(`${b.nom} : +${fmtDH(b.paie)}${tip ? ` et ${fmtDH(tip)} de pourboires` : ''}.`, 'good');
+    const n = getN(b.npc);
+    if (n) addRel(n, 3);
+    save();
+    return;
+  }
   s.pos = center(RUE.coin);
   G.yaw = Math.PI / 2;
   if (a.lieu === 'marche') {
@@ -498,9 +702,10 @@ function returnHome() {
   } else toast(`${nm()} est de retour dans le quartier.`);
   save();
   const d = dayIdx(s.t);
-  if (G.pendingWork && dow(s.t) <= 4 && hm(s.t).h < 12 && s.job.day !== d) goWork();
-  else enqueue({ kind: 'goto', ...Wd.entrance(s.home), auto: true, label: 'Rentrer à la maison' });
-  G.pendingWork = false;
+  if (dow(s.t) <= 4 && hm(s.t).h < 12 && s.job.day !== d && (G.pendingWork || G.workAsk)) {
+    if (s.autoWork) goWork(); else hooks.askWork();
+  } else enqueue({ kind: 'goto', ...Wd.entrance(s.home), auto: true, label: 'Rentrer à la maison' });
+  G.pendingWork = false; G.workAsk = false;
 }
 
 // ---------- Travail, loyer, salaire ----------
@@ -509,7 +714,8 @@ function goWork() {
   enqueue({ kind: 'out', lieu: 'travail', auto: true }, true);
   toast("C'est l'heure : départ au travail.");
 }
-export function enqueueWork() { enqueue({ kind: 'out', lieu: 'travail' }); }
+export function enqueueWork() { cancelAll(); enqueue({ kind: 'out', lieu: 'travail' }); }
+export function skipWork() { toast(`${nm()} ne va pas travailler aujourd'hui.`); }
 function finishWork() {
   const s = G.s, a = s.away, n = a.startNeeds, J = s.job;
   a.done = true;
@@ -517,31 +723,44 @@ function finishWork() {
   J.day = dayIdx(s.t); J.week++;
   J.perf = clamp(J.perf + gain, 0, 100);
   let msg = `Journée de travail terminée. Performance ${gain >= 0 ? '+' : ''}${gain}${a.late ? ' (retard)' : ''}.`;
-  if (J.perf >= 100 && J.level < JOB.length - 1) {
+  if (J.perf >= 100 && J.level < milieu().jobs.length - 1) {
     J.level++; J.perf = 30;
-    toast(`Promotion ! ${nm()} devient ${JOB[J.level].titre}. Salaire : ${fmtDH(JOB[J.level].salaire)} par semaine.`, 'good');
+    toast(`Promotion ! ${nm()} devient ${jobOf().titre}. Salaire : ${fmtDH(jobOf().salaire)} par semaine.`, 'good');
   } else toast(msg, gain < 0 ? 'bad' : '');
 }
 function minuteEvent(T) {
-  const s = G.s, d = dayIdx(T), w = d % 7, mm = T % 1440;
+  const s = G.s, d = dayIdx(T), w = d % 7, mm = T % 1440, M = milieu();
   if (w === 0 && mm === 6 * 60 && d > 0 && s.lastBill !== d) {
     s.lastBill = d;
-    s.money -= LOYER + FACTURE;
-    toast(`Loyer de la semaine (${fmtDH(LOYER)}) et facture d'eau et d'électricité (${fmtDH(FACTURE)}) payés.`);
+    s.money -= M.loyer + M.facture;
+    toast(M.loyer ? `Loyer de la semaine (${fmtDH(M.loyer)}) et facture d'eau et d'électricité (${fmtDH(M.facture)}) payés.` : `Facture d'eau et d'électricité payée (${fmtDH(M.facture)}).`);
+    if (s.daret) {
+      s.money -= DARET.part; s.daret.tour++;
+      if (s.daret.tour === s.daret.pos) { s.money += DARET.part * DARET.membres; toast(`C'est ton tour de daret : +${fmtDH(DARET.part * DARET.membres)} !`, 'good'); }
+      else toast(`Daret : ${fmtDH(DARET.part)} versés. Ton tour dans ${(s.daret.pos - s.daret.tour + DARET.membres) % DARET.membres || DARET.membres} semaine(s).`);
+      if (s.daret.tour >= DARET.membres) s.daret = { tour: 0, pos: 2 + Math.floor(Math.random() * 4) };
+    }
+    if (s.epargne > 0) { const i = Math.round(s.epargne * EPARGNE_TAUX); s.epargne += i; toast(`Épargne : +${fmtDH(i)} d'intérêts.`); }
+    s.job.absences = 0;
     if (s.money < 0) toast('Attention : ton compte est à découvert.', 'bad');
   }
   if (w <= 4 && mm === 8 * 60 + 20 && s.job.day !== d) {
-    if (!s.away) goWork(); else if (s.away.lieu !== 'travail') G.pendingWork = true;
+    if (s.away) { if (s.autoWork) G.pendingWork = true; else G.workAsk = true; }
+    else if (s.autoWork) goWork(); else hooks.askWork();
   }
   if (w <= 4 && mm === 12 * 60 && s.job.day !== d && !(s.away && s.away.lieu === 'travail')) {
-    s.job.day = d; s.job.perf = Math.max(0, s.job.perf - 15); G.pendingWork = false;
+    s.job.day = d; s.job.perf = Math.max(0, s.job.perf - 15); s.job.absences++; G.pendingWork = false; G.workAsk = false;
     toast("Absence au travail aujourd'hui. Ton chef n'est pas content (performance -15).", 'bad');
   }
   if (w === 4 && mm === 18 * 60) {
-    const J = s.job, pay = Math.round(JOB[J.level].salaire * J.week / 5);
+    const J = s.job, pay = Math.round(jobOf().salaire * J.week / 5);
     if (pay) { s.money += pay; toast(`Salaire de la semaine : +${fmtDH(pay)} (${J.week} jour${J.week > 1 ? 's' : ''} travaillé${J.week > 1 ? 's' : ''}).`, 'good'); }
     else toast('Pas de salaire cette semaine : aucun jour travaillé.', 'bad');
     J.week = 0;
+  }
+  if (w === 6 && mm === 10 * 60 && revenu('poche')) {
+    if (s.job.absences === 0) { s.money += POCHE; toast(`Tes parents t'envoient ton argent de poche : +${fmtDH(POCHE)}.`, 'good'); }
+    else toast('Tes parents ont su que tu avais séché le travail : pas d\'argent de poche cette semaine.', 'bad');
   }
   if (mm % 60 === 0) save();
   greetings();
@@ -570,6 +789,8 @@ function applyNeeds(m, extra) {
     if (A && A.rates) for (const k in A.rates) r[k] += A.rates[k] * (k === 'moral' && c.it.act === 'douche' && has('soigne') ? 1.5 : 1);
     if (c.gain && isFinite(c.dur)) for (const k in c.gain) r[k] += c.gain[k] / c.dur * 60;
   }
+  // Un animal adopté tient compagnie, sauf s'il a faim.
+  for (const a of ANIMAUX) { const st = s.animaux[a.id]; if (st.adopte) r.moral += st.faim > 25 ? 1 : -2; }
   for (const k of ['faim', 'energie', 'hygiene']) if (n[k] < 25) r.moral -= 4;
   if (n.social < 20) r.moral -= 3;
   if (n.faim <= 0) r.moral -= 6;
@@ -611,7 +832,7 @@ function decide() {
   if ((n.energie < 20 || ((h >= 23 || h < 6) && n.energie < 70)) && tryAct(['lit', 'lit1'], 'dormir')) return;
   if (n.faim < 35) {
     const p = s.plats.filter(p => p.r !== 'the').sort((a, b) => b.q - a.q)[0];
-    if (p && tryAct(['table', 'mida', 'banquette', 'frigo'], 'manger', p.r + ':' + p.q)) return;
+    if (p && tryAct(['table', 'mida', 'banquette', 'pouf', 'frigo'], 'manger', p.r + ':' + p.q)) return;
     if (s.inv.snack > 0 && tryAct(['frigo'], 'casse')) return;
     const r = ['msemen', 'tajine'].find(r => s.inv[r] > 0);
     if (r && tryAct(['cuisiniere'], 'cuisiner', r)) return;
@@ -714,6 +935,7 @@ function step(m) {
   s.t += m;
   for (let k = Math.floor(t0) + 1; k <= Math.floor(s.t); k++) minuteEvent(k);
   stepNpcs(m);
+  stepAnimaux(m);
   if (s.away) { stepAway(m); return; }
   if (!G.cur && G.queue.length) startItem(G.queue.shift());
   const c = G.cur;
@@ -734,7 +956,7 @@ function step(m) {
 
 // Ce que la 3D doit afficher.
 export function view() {
-  const s = G.s, c = G.cur;
+  const s = G.s, c = G.cur, h = hour(s.t);
   let x = s.pos.x, z = s.pos.z, yaw = G.yaw, pose = { base: 'stand' }, active = null;
   if (c && c.stage === 'walk') pose = { base: 'walk' };
   if (c && c.stage === 'do' && c.spot) {
@@ -746,7 +968,11 @@ export function view() {
     id: n.id, visible: n.visible, x: n.x, z: n.z, yaw: n.yaw, walkPhase: n.walkPhase,
     pose: n.state === 'walk' ? { base: 'walk' } : n.state === 'sit' ? { base: 'sit', h: 0.45, anim: 'eat' } : n.state === 'talk' ? { base: 'stand', anim: 'talk' } : { base: 'stand' },
   })).concat(G.passants.map(p => ({ id: p.id, visible: p.visible, x: p.x, z: p.z, yaw: p.yaw, walkPhase: p.walkPhase, pose: { base: 'walk' } })));
-  return { visible: !s.away, x, z, yaw, pose, walkPhase: G.walkPhase, t: s.t, active, outside: !Wd.inHome(Math.floor(x), Math.floor(z)), npcs };
+  const animaux = G.animaux.map(a => ({
+    id: a.id, x: a.x, z: a.z, yaw: a.yaw, walkPhase: a.walkPhase,
+    pose: a.state === 'walk' ? 'walk' : (h >= 23 || h < 7) && s.t >= a.hold ? 'lie' : 'idle',
+  }));
+  return { visible: !s.away, x, z, yaw, pose, walkPhase: G.walkPhase, t: s.t, active, outside: !Wd.inHome(Math.floor(x), Math.floor(z)), npcs, animaux };
 }
 export function progress() {
   const c = G.cur;
