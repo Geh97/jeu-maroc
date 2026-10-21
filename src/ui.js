@@ -1,10 +1,10 @@
 // Interface : barre du haut, besoins, file d'actions, menus et fenêtres.
 import {
   JOURS, NEEDS, NEED_ICONS, SKINS, HAIRS, HAIR_COLORS, SCARF_COLORS, OUTFITS, OUTFIT_COLORS, TRAITS,
-  LIEUX, MARCHE, RECETTES, QUAL, JOB, LOYER, FACTURE, NPCS, CAFE, relLabel, asset,
+  LIEUX, MARCHE, RECETTES, QUAL, JOB, LOYER, FACTURE, NPCS, CAFE, HANOUT, relLabel, asset,
 } from './data.js';
 import {
-  G, dow, dayIdx, fmtTime, fmtDH, fmtDur, enqueue, cancel, comeBack, awayPhase, basketCost, progress,
+  G, dow, dayIdx, fmtTime, fmtDH, fmtDur, enqueue, cancel, comeBack, awayPhase, basketCost, progress, hanoutOuvert, hanoutCost,
 } from './sim.js';
 import { ambiance } from './world.js';
 
@@ -196,7 +196,7 @@ export function welcome() {
     <ul class="tips">
       <li>Touche un meuble pour voir ce que ${n} peut y faire, le sol pour se déplacer.</li>
       <li>Touche la porte d'entrée verte pour sortir dans la rue, ou partir au hammam, au marché, au travail.</li>
-      <li>Dehors, touche une chaise de la terrasse pour s'asseoir au café, ou un voisin pour le saluer et discuter. Les voisins ont leurs habitudes : on les croise à certaines heures.</li>
+      <li>Dehors, touche une chaise de la terrasse pour s'asseoir au café, le hanout pour acheter à manger, ou un voisin pour le saluer et discuter. Les voisins ont leurs habitudes : on les croise à certaines heures.</li>
       <li>Garde un œil sur les besoins en bas de l'écran. La vie sociale se remplit au café et en discutant.</li>
       <li>Le travail : du lundi au vendredi de 9 h à 17 h. ${n} part tout(e) seul(e) à 8 h 20.</li>
       <li>Le loyer (${fmtDH(LOYER)}) et la facture d'eau et d'électricité (${fmtDH(FACTURE)}) tombent chaque lundi, le salaire chaque vendredi soir.</li>
@@ -221,18 +221,32 @@ export function openLieu(lieu) {
 }
 
 function openMarche() {
+  openCourses({
+    titre: 'Marché du quartier', img: 'illu-marche', articles: MARCHE, cost: basketCost, verbe: 'Partir faire les courses',
+    intro: `Choisis tes courses : ${esc(G.s.char.name)} y va à pied depuis le coin de la rue et les range au frigo en rentrant.`,
+    go: basket => enqueue({ kind: 'out', lieu: 'marche', basket }),
+  });
+}
+export function openHanout() {
+  if (!hanoutOuvert(G.s.t)) { toast(`Le hanout est fermé. Il ouvre à ${HANOUT.ouvre} h.`); return; }
+  openCourses({
+    titre: HANOUT.nom, img: 'illu-marche', articles: HANOUT.articles, cost: hanoutCost, verbe: 'Aller acheter',
+    intro: `L'épicerie du coin, ouverte de ${HANOUT.ouvre} h à ${HANOUT.ferme} h. Un peu plus cher qu'au marché, mais c'est à deux pas.`,
+    go: basket => enqueue({ kind: 'hanout', basket }),
+  });
+}
+function openCourses(o) {
   const basket = {};
-  const sheet = openModal(`${closeBtn}${banner('illu-marche')}<h2>Marché du quartier</h2>
-    <p>Choisis tes courses : ${esc(G.s.char.name)} y va à pied depuis le coin de la rue et les range au frigo en rentrant.</p>
-    <div class="list">${MARCHE.map(m => `<div class="opt line"><span><b>${esc(m.nom)}</b><small>${esc(m.detail)} · ${fmtDH(m.prix)}</small></span>
+  const sheet = openModal(`${closeBtn}${banner(o.img)}<h2>${esc(o.titre)}</h2><p>${o.intro}</p>
+    <div class="list">${o.articles.map(m => `<div class="opt line"><span><b>${esc(m.nom)}</b><small>${esc(m.detail)} · ${fmtDH(m.prix)}</small></span>
       <div class="qty"><button data-m="${m.id}" data-d="-1" aria-label="Moins">−</button><b id="q-${m.id}">0</b><button data-m="${m.id}" data-d="1" aria-label="Plus">+</button></div></div>`).join('')}</div>
-    <div class="actions"><button class="btn primary" id="buy" disabled>Partir faire les courses</button></div>`);
+    <div class="actions"><button class="btn primary" id="buy" disabled>${o.verbe}</button></div>`);
   bindClose(sheet);
   const sync = () => {
-    for (const m of MARCHE) sheet.querySelector('#q-' + m.id).textContent = basket[m.id] || 0;
-    const t = basketCost(basket), b = sheet.querySelector('#buy');
+    for (const m of o.articles) sheet.querySelector('#q-' + m.id).textContent = basket[m.id] || 0;
+    const t = o.cost(basket), b = sheet.querySelector('#buy');
     b.disabled = !t || t > G.s.money;
-    b.textContent = t ? `Partir faire les courses (${fmtDH(t)})` : 'Partir faire les courses';
+    b.textContent = t ? `${o.verbe} (${fmtDH(t)})` : o.verbe;
   };
   sheet.addEventListener('click', e => {
     const b = e.target.closest('[data-m]');
@@ -242,7 +256,7 @@ function openMarche() {
   });
   sheet.querySelector('#buy').onclick = () => {
     for (const k in basket) if (!basket[k]) delete basket[k];
-    closeModal(); enqueue({ kind: 'out', lieu: 'marche', basket });
+    closeModal(); o.go(basket);
   };
 }
 

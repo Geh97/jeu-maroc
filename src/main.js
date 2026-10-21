@@ -115,9 +115,12 @@ function onTap(x, y, type) {
   } else if (h.type === 'door') {
     UI.showPop(x, y, doorActions(), it => {
       if (it.act === 'travail') enqueueWork();
+      else if (it.act === 'hanout') UI.openHanout();
       else if (it.act === 'rue') { const t = isHome() ? doorstep(G.s.home) : entrance(G.s.home); enqueue({ kind: 'goto', x: t.x, z: t.z, label: it.label }); }
       else UI.openLieu(it.param);
     });
+  } else if (h.type === 'hanout') {
+    UI.openHanout();
   } else if (h.type === 'chair') {
     UI.showPop(x, y, chairActions(h.id), it => enqueue({ kind: 'cafe', chair: it.chair, opt: it.opt }));
   } else if (h.type === 'npc') {

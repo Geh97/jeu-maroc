@@ -44,6 +44,17 @@ export const CAFE = {
 };
 export const matchEnCours = (jour, h) => (jour >= 5 ? h >= 16 && h < 21 : h >= 20 && h < 23);
 
+// Le hanout (épicerie du coin) : un peu plus cher que le marché, mais à deux pas.
+export const HANOUT = {
+  nom: 'Hanout de Ba Lahcen', ouvre: 7, ferme: 22, porte: { x: RUE.hanout.porte, z: D }, devant: { x: RUE.hanout.porte, z: D + 1 },
+  articles: [
+    { id: 'the', nom: 'Thé vert, menthe et sucre', detail: 'Pour une théière (3 verres)', prix: 15 },
+    { id: 'msemen', nom: 'Farine, semoule et beurre', detail: 'Pour une fournée de msemen (4 parts)', prix: 22 },
+    { id: 'tajine', nom: 'Poulet, légumes et olives', detail: 'Pour un tajine (4 parts)', prix: 90 },
+    { id: 'snack', nom: 'Pain, fromage et olives', detail: 'Un casse-croûte, sans cuisiner', prix: 24 },
+  ],
+};
+
 // Création du personnage
 export const SKINS = ['#f3d2b3', '#e6b994', '#d19e78', '#b07a55', '#8a5a3c', '#5e3b26'];
 export const HAIRS = { courte: 'Courte', longue: 'Longue', attachee: 'Attachée', foulard: 'Foulard', rasee: 'Rasée' };
@@ -92,6 +103,12 @@ export const NPCS = [
     look: { skin: '#8a5a3c', hair: 'courte', hairColor: '#1d1714', outfit: 'jean', outfitColor: '#7a2e3a' },
     porte: { x: 2, z: D + 13 }, sorties: [[12, 14.2], [19, 21.5]], cafe: 0.35, poste: { x: 8, z: D + 2 },
     lignes: ['Je t\'emmène quelque part ? Je rigole, je suis en pause.', 'La circulation à Casa, je ne te raconte pas.', "Le compteur, je le mets toujours, moi.", 'Un jour je m\'achète un grand taxi.'],
+  },
+  {
+    id: 'lahcen', nom: 'Ba Lahcen', desc: "L'épicier. Son hanout est ouvert de 7 h à 22 h, et il fait crédit aux habitués.",
+    look: { skin: '#8a5a3c', hair: 'rasee', hairColor: '#9a958f', outfit: 'djellaba', outfitColor: '#f2ede3' },
+    porte: { x: RUE.hanout.porte, z: D }, sorties: [[7, 22]], boutique: true,
+    lignes: ['Il me reste du pain chaud, tu en veux ?', 'Tu paieras la prochaine fois, je te connais.', 'La menthe est arrivée ce matin, elle sent bon.', 'Dis bonjour à ta mère de ma part.'],
   },
   {
     id: 'hamid', nom: 'Hamid', desc: 'Serveur du café depuis quinze ans. Il connaît la commande de chacun.',

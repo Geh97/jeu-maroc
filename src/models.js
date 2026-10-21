@@ -328,13 +328,16 @@ function building(g, x, z, w, d, h, face, seed, y0 = 0) {
   return b;
 }
 // Porte d'immeuble ou de boutique dans une façade regardant +z, centrée sur la case x.
-function facadeDoor(g, x, z, color, wide = 1) {
-  const m = mat(color, { roughness: 0.6 });
-  box(g, wide, 2.2, 0.08, m, x + 0.5, 1.1, z + 0.02);
+function facadeDoor(g, x, z, color, wide = 1, tag) {
+  const m = mat(color, { roughness: 0.6 }), d = new THREE.Group();
+  g.add(d);
+  box(d, wide, 2.2, 0.08, m, x + 0.5, 1.1, z + 0.02);
   const top = new THREE.Mesh(new THREE.CylinderGeometry(wide / 2, wide / 2, 0.08, 18, 1, false, 0, Math.PI), m);
-  top.rotation.x = Math.PI / 2; top.rotation.z = 0; top.position.set(x + 0.5, 2.2, z + 0.02); add(g, top);
-  box(g, wide + 0.3, 0.12, 0.14, mat('#d9d2c2'), x + 0.5, 2.2 + wide / 2 + 0.06, z + 0.05);
-  sph(g, 0.035, BRASS(), x + 0.5 + wide * 0.3, 1.05, z + 0.08);
+  top.rotation.x = Math.PI / 2; top.rotation.z = 0; top.position.set(x + 0.5, 2.2, z + 0.02); add(d, top);
+  box(d, wide + 0.3, 0.12, 0.14, mat('#d9d2c2'), x + 0.5, 2.2 + wide / 2 + 0.06, z + 0.05);
+  sph(d, 0.035, BRASS(), x + 0.5 + wide * 0.3, 1.05, z + 0.08);
+  if (tag) d.traverse(o => { o.userData[tag] = true; });
+  return d;
 }
 function lampPost(g, x, z) {
   const iron = mat('#2a2f36', { metalness: 0.4, roughness: 0.5 });
@@ -383,8 +386,10 @@ function awning(g, x0, x1, z, depth, y, tex) {
   g.userData.awnings.push({ a, poles });
 }
 function crate(g, x, z, fruit) {
-  box(g, 0.8, 0.3, 0.6, mat('#b8905c'), x + 0.5, 0.15, z + 0.5);
-  for (let i = 0; i < 12; i++) sph(g, 0.07, mat(fruit), x + 0.2 + (i % 4) * 0.2, 0.33 + Math.floor(i / 4) * 0.02, z + 0.25 + Math.floor(i / 4) * 0.2);
+  const c = new THREE.Group(); g.add(c);
+  box(c, 0.8, 0.3, 0.6, mat('#b8905c'), x + 0.5, 0.15, z + 0.5);
+  for (let i = 0; i < 12; i++) sph(c, 0.07, mat(fruit), x + 0.2 + (i % 4) * 0.2, 0.33 + Math.floor(i / 4) * 0.02, z + 0.25 + Math.floor(i / 4) * 0.2);
+  c.traverse(o => { o.userData.hanout = true; });
 }
 
 export function makeStreet() {
@@ -416,9 +421,11 @@ export function makeStreet() {
   // Le hanout (épicerie) à gauche : store bleu, porte, caisses de fruits.
   const H = RUE.hanout;
   awning(g, H.x0 + 4, H.x1, D, 1.3, 2.75, T.rayures('#2f4f7a', '#f2ede3'));
-  facadeDoor(g, H.porte, D, '#2f4f7a', 1.2);
-  box(g, 2.2, 1.3, 0.06, mat('#3a3d44', { roughness: 0.3 }), H.porte - 1.6, 1.6, D + 0.03);
-  for (let i = 0; i < 6; i++) box(g, 0.25, 0.4, 0.05, mat(['#d9a43a', '#c8102e', '#2e6b57', '#f2ede3', '#e0a526', '#7a2e3a'][i]), H.porte - 2.5 + i * 0.35, 1.3 + (i % 2) * 0.5, D + 0.05);
+  facadeDoor(g, H.porte, D, '#2f4f7a', 1.2, 'hanout');
+  const vitrine = new THREE.Group(); g.add(vitrine);
+  box(vitrine, 2.2, 1.3, 0.06, mat('#3a3d44', { roughness: 0.3 }), H.porte - 1.6, 1.6, D + 0.03);
+  for (let i = 0; i < 6; i++) box(vitrine, 0.25, 0.4, 0.05, mat(['#d9a43a', '#c8102e', '#2e6b57', '#f2ede3', '#e0a526', '#7a2e3a'][i]), H.porte - 2.5 + i * 0.35, 1.3 + (i % 2) * 0.5, D + 0.05);
+  vitrine.traverse(o => { o.userData.hanout = true; });
   crate(g, H.caisses[0].x, H.caisses[0].z, '#e8641a');
   crate(g, H.caisses[1].x, H.caisses[1].z, '#c8102e');
   facadeDoor(g, RUE.portes[0].x, D, '#5a3423');

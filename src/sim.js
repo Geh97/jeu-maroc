@@ -1,7 +1,7 @@
 // La simulation : temps, besoins, actions, quartier, voisins, sorties, travail, argent, sauvegarde.
 import {
   SAVE_KEY, START_MONEY, LOYER, FACTURE, WALK, FURN, ACT, RECETTES, QUAL, QUAL_MORAL,
-  MARCHE, LIEUX, JOB, RUE, CAFE, NPCS, PASSANTS, SALUTS, X0, X1, D, matchEnCours, relLabel,
+  MARCHE, LIEUX, JOB, RUE, CAFE, HANOUT, NPCS, PASSANTS, SALUTS, X0, X1, D, matchEnCours, relLabel,
 } from './data.js';
 import * as Wd from './world.js';
 
@@ -33,6 +33,8 @@ export const fmtTime = t => { const { h, m } = hm(t); return String(h).padStart(
 export const fmtDH = n => Math.round(n).toLocaleString('fr-FR').replace(/ /g, ' ') + ' DH';
 export const fmtDur = m => (m < 60 ? m + ' min' : Math.floor(m / 60) + ' h' + (m % 60 ? ' ' + (m % 60) : ''));
 export const cafeOuvert = t => hour(t) >= CAFE.ouvre && hour(t) < CAFE.ferme;
+export const hanoutOuvert = t => hour(t) >= HANOUT.ouvre && hour(t) < HANOUT.ferme;
+export const hanoutCost = b => HANOUT.articles.reduce((t, m) => t + (b[m.id] || 0) * m.prix, 0);
 
 // ---------- Partie ----------
 export function newGame(look) {
@@ -100,6 +102,7 @@ export function itemLabel(it) {
     return o ? o.nom : 'Courses au marché';
   }
   if (it.kind === 'cafe') return 'Café : ' + CAFE.options.find(o => o.id === it.opt).nom.toLowerCase();
+  if (it.kind === 'hanout') return 'Courses au hanout';
   if (it.kind === 'talk') return (it.mode === 'saluer' ? 'Saluer ' : 'Discuter avec ') + getN(it.npc).def.nom;
   if (it.act === 'cuisiner') return 'Préparer : ' + RECETTES[it.param].nom;
   if (it.act === 'manger') return 'Manger : ' + RECETTES[it.param.split(':')[0]].nom;
@@ -169,6 +172,7 @@ export function doorActions() {
     title: "Porte d'entrée",
     items: [
       { act: 'rue', label: isHome() ? 'Sortir dans la rue' : 'Rentrer à la maison', sub: isHome() ? 'Le café est juste à droite' : '' },
+      { act: 'hanout', label: 'Courses au hanout', sub: hanoutOuvert(G.s.t) ? 'À côté, un peu plus cher' : `Fermé (ouvre à ${HANOUT.ouvre} h)`, disabled: !hanoutOuvert(G.s.t) },
       { act: 'lieu', param: 'hammam', label: 'Aller au hammam', sub: 'À deux rues, 8 min' },
       { act: 'lieu', param: 'marche', label: 'Faire les courses au marché', sub: 'À deux rues, 8 min' },
       { act: 'travail', label: 'Partir au travail', sub: w || 'Tram : 25 min', disabled: !!w, why: w },
@@ -232,6 +236,12 @@ function startItem(it) {
   };
   if (it.kind === 'goto') { if (!go([{ x: it.x, z: it.z }])) fail(it, "Impossible d'aller là."); return; }
   if (it.kind === 'out') { if (!go([RUE.coin])) fail(it, "Impossible d'atteindre le coin de la rue."); return; }
+  if (it.kind === 'hanout') {
+    if (!hanoutOuvert(s.t)) return fail(it, 'Le hanout est fermé.');
+    if (!go([HANOUT.devant])) return fail(it, "Impossible d'atteindre le hanout.");
+    G.cur.spot = { x: HANOUT.devant.x + 0.5, z: HANOUT.devant.z + 0.5, yaw: Math.PI, pose: 'stand', anim: 'talk', h: 0 };
+    return;
+  }
   if (it.kind === 'cafe') {
     const c = CAFE.chaises[it.chair];
     if (G.chairs[it.chair] && G.chairs[it.chair] !== 'player') return fail(it, 'La chaise vient d\'être prise.');
@@ -323,6 +333,14 @@ function arrive(c) {
   const s = G.s, it = c.it;
   if (it.kind === 'goto') { G.cur = null; return; }
   if (it.kind === 'out') { depart(it); return; }
+  if (it.kind === 'hanout') {
+    const cost = hanoutCost(it.basket), n = Object.values(it.basket).reduce((a, b) => a + b, 0);
+    if (!hanoutOuvert(s.t)) return fail(it, 'Le hanout vient de fermer.');
+    if (cost > s.money) return fail(it, "Pas assez d'argent pour ça.");
+    s.money -= cost;
+    c.dur = 3 + n * 1.5; c.stage = 'do'; c.t = 0; G.yaw = c.spot.yaw;
+    return;
+  }
   if (it.kind === 'cafe') {
     const opt = CAFE.options.find(o => o.id === it.opt);
     if (G.chairs[it.chair]) return fail(it, 'La chaise vient d\'être prise.');
@@ -371,6 +389,13 @@ function arrive(c) {
 function finish(c) {
   const s = G.s, it = c.it;
   G.cur = null;
+  if (it.kind === 'hanout') {
+    for (const k in it.basket) s.inv[k] = (s.inv[k] || 0) + it.basket[k];
+    const l = getN('lahcen');
+    if (l && l.visible) { addRel(l, 1.5); toast(`Ba Lahcen : « ${pick(l.def.lignes)} »`); }
+    toast(it.auto ? `${nm()} a acheté de quoi manger au hanout.` : 'Courses faites. Tout est au frigo.');
+    return;
+  }
   if (it.kind === 'cafe') {
     G.chairs[it.chair] = null;
     const table = CAFE.chaises[it.chair].table;
@@ -590,6 +615,7 @@ function decide() {
     if (s.inv.snack > 0 && tryAct(['frigo'], 'casse')) return;
     const r = ['msemen', 'tajine'].find(r => s.inv[r] > 0);
     if (r && tryAct(['cuisiniere'], 'cuisiner', r)) return;
+    if (hanoutOuvert(s.t) && s.money >= 46) { enqueue({ kind: 'hanout', basket: { snack: 1, msemen: 1 }, auto: true }); return; }
   }
   if (n.hygiene < 30 && tryAct(['douche'], 'douche')) return;
   if (n.social < 35 && h >= 8 && h < 22 && cafeOuvert(s.t) && s.money >= 10) {
@@ -621,6 +647,10 @@ function choose(n) {
     if (r < 0.6) return goTo(n, [CAFE.poste], 'post');
     return goTo(n, [{ x: 13 + Math.floor(Math.random() * 9), z: D + 1 }], 'stroll');
   }
+  if (def.boutique) {
+    if (r < 0.75) return goTo(n, [HANOUT.porte], 'post');
+    return goTo(n, [{ x: RUE.hanout.x0 + 4 + Math.floor(Math.random() * 6), z: D + 1 }], 'stroll');
+  }
   if (def.poste && r < 0.5) return goTo(n, [def.poste], 'stroll');
   if (r < def.cafe && cafeOuvert(s.t)) {
     const free = CAFE.chaises.map((c, i) => i).filter(i => !G.chairs[i]);
@@ -643,7 +673,7 @@ function npcArrive(n) {
     return;
   }
   n.state = 'idle'; n.nextAt = s.t + rand(3, 15);
-  if (n.goal === 'post') n.yaw = Math.PI;
+  if (n.goal === 'post') { n.yaw = 0; if (n.def.boutique) n.nextAt = s.t + rand(15, 40); }
 }
 function stepNpcs(m) {
   const s = G.s, h = hour(s.t);
