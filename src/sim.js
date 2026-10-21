@@ -8,6 +8,7 @@ import {
 } from './data.js';
 const GOUTS_ALL = { ...GOUTS, ...GOUTS_ANFA }, BOULOTS_ALL = [...BOULOTS, ...BOULOTS_ANFA];
 import * as Wd from './world.js';
+import { initSocial, socialMinute, remarque, rep, remiseHanout, creditPossible, evite } from './social.js';
 
 export const G = {
   s: null,          // état sauvegardé
@@ -20,6 +21,8 @@ export const G = {
 export const hooks = { toast: () => {}, askWork: () => {}, workEvent: () => {}, sortieEvent: () => {}, lookChanged: () => {}, quartierChanged: () => {} };
 const toast = (m, k) => hooks.toast(m, k);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+export const clampv = clamp;
+export const ambiance = home => Wd.ambiance(home);
 const rand = (a, b) => a + Math.random() * (b - a);
 const pick = a => a[Math.floor(Math.random() * a.length)];
 const has = t => G.s.char.traits.includes(t);
@@ -38,7 +41,7 @@ export const fmtDH = n => Math.round(n).toLocaleString('fr-FR').replace(/ /g, 
 export const fmtDur = m => (m < 60 ? m + ' min' : Math.floor(m / 60) + ' h' + (m % 60 ? ' ' + (m % 60) : ''));
 export const cafeOuvert = t => hour(t) >= CAFE.ouvre && hour(t) < CAFE.ferme;
 export const hanoutOuvert = t => hour(t) >= HANOUT.ouvre && hour(t) < HANOUT.ferme;
-export const hanoutCost = b => HANOUT.articles.reduce((t, m) => t + (b[m.id] || 0) * prix(m.prix), 0);
+export const hanoutCost = b => Math.round(HANOUT.articles.reduce((t, m) => t + (b[m.id] || 0) * prix(m.prix), 0) * remiseHanout());
 export const milieu = () => MILIEUX[G.s.milieu];
 export const jobOf = () => milieu().jobs[G.s.job.level];
 export const revenu = k => milieu().revenus.includes(k);
@@ -64,8 +67,9 @@ export function newGame(look) {
     job: { level: 0, perf: 40, day: -1, week: 0, absences: 0, competence: 0, collegues: 50 },
     rel: {}, ventes: { day: -1 }, boulots: { day: -1 }, daret: null, epargne: 0, autoWork: false,
     animaux: {}, stock: {}, home, pos: center(ent), away: null, lastBill: 0, autonomy: true,
-    quartier: 'populaire', chezMoi: 'populaire', visites: { populaire: true }, vehicule: null,
+    quartier: 'populaire', chezMoi: 'populaire', visites: { populaire: true }, vehicule: null, pratique: look.pratique || 'occasionnel',
   };
+  initSocial(G.s);
   for (const a of ANIMAUX) G.s.animaux[a.id] = { confiance: 0, adopte: false, nom: '', faim: 70, fled: 0 };
   resetRuntime();
   save();
@@ -98,6 +102,7 @@ export function load() {
     if (s.job.competence == null) { s.job.competence = 0; s.job.collegues = 50; }
     if (!s.stock) s.stock = {};
     if (!s.quartier) { s.quartier = 'populaire'; s.chezMoi = 'populaire'; s.visites = { populaire: true }; s.vehicule = null; }
+    initSocial(s);
     G.s = s; resetRuntime(); return true;
   } catch { return false; }
 }
@@ -124,6 +129,8 @@ export const isHome = () => Wd.inHome(Math.floor(G.s.pos.x), Math.floor(G.s.pos.
 // ---------- Ce qu'on peut faire ----------
 const getF = id => G.s.home.furn.find(f => f.id === id);
 const getN = id => G.npcs.find(n => n.id === id);
+export const getNpc = getN;
+export const relOf = id => G.s.rel[id] || 0;
 const getA = id => G.animaux.find(a => a.id === id);
 const findPlat = key => { const [r, q] = key.split(':'); return G.s.plats.find(p => p.r === r && p.q === +q); };
 const boulotOf = id => BOULOTS_ALL.find(b => b.id === id);
@@ -245,9 +252,10 @@ export function npcActions(id) {
     { kind: 'talk', npc: id, mode: 'saluer', label: 'Saluer', sub: 'Un bonjour en passant' },
   ];
   sujetsOf(n);
+  const fuit = evite() && s.quartier === 'populaire';
   for (const sj of SUJETS) {
     const done = n.sujets[sj.id];
-    items.push({ kind: 'talk', npc: id, mode: 'sujet', sujet: sj.id, label: sj.label, sub: done ? 'Déjà fait aujourd\'hui' : `${fmtDur(sj.dur)}`, disabled: rel < sj.rel || !!done, why: rel < sj.rel ? `Il faut mieux se connaître (amitié ${sj.rel}).` : 'Déjà fait aujourd\'hui.' });
+    items.push({ kind: 'talk', npc: id, mode: 'sujet', sujet: sj.id, label: sj.label, sub: done ? 'Déjà fait aujourd\'hui' : `${fmtDur(sj.dur)}`, disabled: rel < sj.rel || !!done || fuit, why: fuit ? 'Il t\'évite ces temps-ci. Ta réputation est au plus bas.' : rel < sj.rel ? `Il faut mieux se connaître (amitié ${sj.rel}).` : 'Déjà fait aujourd\'hui.' });
   }
   const plat = sellable().find(p => p.r !== 'the');
   items.push({ kind: 'talk', npc: id, mode: 'offrir', plat: plat && plat.r + ':' + plat.q, label: 'Offrir un plat fait maison', sub: plat ? `${RECETTES[plat.r].nom} (${QUAL[plat.q]})` : '', disabled: !plat, why: 'Il faut avoir cuisiné quelque chose de réussi.' });
@@ -453,8 +461,10 @@ function arrive(c) {
   if (it.kind === 'hanout') {
     const cost = hanoutCost(it.basket), n = Object.values(it.basket).reduce((a, b) => a + b, 0);
     if (!hanoutOuvert(s.t)) return fail(it, 'La boutique vient de fermer.');
-    if (cost > s.money) return fail(it, "Pas assez d'argent pour ça.");
-    s.money -= cost;
+    if (cost > s.money) {
+      if (!creditPossible()) return fail(it, "Pas assez d'argent pour ça.");
+      s.dette += cost; toast(`Ba Lahcen : « Tu me paieras la semaine prochaine, je te connais. » (dette : ${fmtDH(s.dette)})`);
+    } else s.money -= cost;
     c.dur = 3 + n * 1.5; c.stage = 'do'; c.t = 0; G.yaw = c.spot.yaw;
     return;
   }
@@ -620,8 +630,10 @@ function addRel(n, v) {
   if (v > 0) v *= Q().regard[s.milieu] || 1; // le regard des autres selon le milieu et le quartier
   const after = clamp(before + v, 0, 100);
   s.rel[n.id] = after;
+  if (v > 0 && s.quartier === 'populaire') s.reputation = clamp(s.reputation + v * 0.12, 0, 100);
   for (const seuil of [20, 50, 80]) if (before < seuil && after >= seuil) toast(`${n.def.nom} : ${relLabel(after)}.`, 'good');
 }
+export function addRelRaw(n, v) { const s = G.s; s.rel[n.id] = clamp((s.rel[n.id] || 0) + v, 0, 100); }
 
 // ---------- Gagner de l'argent autrement ----------
 function sell(it, n) {
@@ -955,6 +967,7 @@ function returnHome() {
     save();
     return;
   }
+  if (a.lieu === 'boulot' && !a.boulot) { s.pos = { ...a.back }; G.yaw = a.backYaw || 0; save(); return; }
   if (a.lieu === 'boulot') {
     const b = boulotOf(a.boulot), tip = b.pourboire ? Math.round(rand(0, b.pourboire)) : 0;
     s.money += b.paie + tip;
@@ -1026,6 +1039,7 @@ function minuteEvent(T) {
   if (w <= 4 && mm === 12 * 60 && s.job.day !== d && !(s.away && s.away.lieu === 'travail')) {
     s.job.day = d; s.job.perf = Math.max(0, s.job.perf - 15); s.job.absences++; G.pendingWork = false; G.workAsk = false;
     toast("Absence au travail aujourd'hui. Ton chef n'est pas content (performance -15).", 'bad');
+    if (s.quartier === 'populaire') rep(-2);
   }
   if (w === 4 && mm === 18 * 60) {
     const J = s.job, pay = Math.round(jobOf().salaire * J.week / 5);
@@ -1038,6 +1052,8 @@ function minuteEvent(T) {
     else toast('Tes parents ont su que tu avais séché le travail : pas d\'argent de poche cette semaine.', 'bad');
   }
   if (mm % 60 === 0) save();
+  if (mm === 18 * 60 + 30) remarque();
+  socialMinute(T);
   greetings();
 }
 // Les voisins qu'on connaît font signe quand on se croise.

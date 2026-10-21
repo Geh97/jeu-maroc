@@ -9,6 +9,7 @@ import {
   milieu, jobOf, revenu, joinDaret, epargne, enqueueWork, skipWork, animalName, sortieCost, Q, prix, homeHere, loyerHebdo, vehicule, demenager, acheterVehicule, quartierCost, npcDefs,
 } from './sim.js';
 import { ambiance } from './world.js';
+import { PRATIQUES, socialInfo } from './social.js';
 
 export const $ = id => document.getElementById(id);
 export const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -139,7 +140,7 @@ export function randomLook() {
   const tr = Object.keys(TRAITS).sort(() => Math.random() - 0.5).slice(0, 2);
   return {
     name: pickR(NAMES), skin: pickR(SKINS), hair, hairColor: pickR(HAIR_COLORS), scarfColor: pickR(SCARF_COLORS),
-    outfit: pickR(Object.keys(OUTFITS)), outfitColor: pickR(OUTFIT_COLORS), traits: tr, milieu: pickR(MILIEU_IDS),
+    outfit: pickR(Object.keys(OUTFITS)), outfitColor: pickR(OUTFIT_COLORS), traits: tr, milieu: pickR(MILIEU_IDS), pratique: pickR(Object.keys(PRATIQUES)),
   };
 }
 export function openCreation(look, onChange, onDone) {
@@ -160,6 +161,9 @@ export function openCreation(look, onChange, onDone) {
     <div class="row"><span>Milieu</span>
       <div class="chips icons">${MILIEU_IDS.map(v => `<button data-k="milieu" data-v="${v}">${img('milieu-' + v)}${esc(MILIEUX[v].nom)}</button>`).join('')}</div>
       <p class="hint" id="milieuDesc"></p></div>
+    <div class="row"><span>Pratique religieuse</span>
+      <div class="chips">${Object.entries(PRATIQUES).map(([v, n]) => `<button data-k="pratique" data-v="${v}">${esc(n)}</button>`).join('')}</div>
+      <p class="hint">La mosquée est dans le décor pour tout le monde. Ce choix décide si ton personnage y va le vendredi, et les voisins le remarquent.</p></div>
     <div class="actions"><button class="btn" id="cRand">Au hasard</button><button class="btn primary" id="cGo">Emménager</button></div>
   `, { cls: 'side', seeThrough: true });
   const sync = () => {
@@ -277,7 +281,9 @@ export function openFiche(tab = 'moi') {
   const plats = s.plats.length ? s.plats.map(p => `${RECETTES[p.r].nom} (${QUAL[p.q]}) : ${p.n}`).join('<br>') : 'Aucun';
   const animaux = ANIMAUX.filter(a => s.animaux[a.id].adopte).map(a => `${img('animal-' + a.id, 'mini')} ${esc(s.animaux[a.id].nom)} (${a.espece}) · faim ${Math.round(s.animaux[a.id].faim)} / 100`).join('<br>');
   const moi = `
-    <div class="stat ico">${img('milieu-' + s.milieu)}<div><span>Milieu</span><b>${esc(M.nom)}</b><small>${M.loyer ? `Loyer ${fmtDH(M.loyer)} + factures ${fmtDH(M.facture)}` : `Sans loyer, factures ${fmtDH(M.facture)}`} par semaine</small></div></div>
+    <div class="stat ico">${img('milieu-' + s.milieu)}<div><span>Milieu</span><b>${esc(M.nom)}</b><small>${M.loyer ? `Loyer ${fmtDH(M.loyer)} + factures ${fmtDH(M.facture)}` : `Sans loyer, factures ${fmtDH(M.facture)}`} par semaine · ${esc(socialInfo().pratique)}</small></div></div>
+    <div class="stat"><span>Réputation dans le quartier</span><b>${esc(socialInfo().repLabel)}</b><div class="bar"><i style="width:${s.reputation}%;background:var(--safran)"></i></div><small>Elle monte avec les amitiés, les coups de main et les dettes payées ; elle baisse avec les absences, les factures impayées et les mots de travers. Bien vu(e), le hanout fait crédit ; respecté(e), il fait une remise.${s.dette ? ` Dette au hanout : ${fmtDH(s.dette)}.` : ''}</small></div>
+    <div class="stat"><span>Ta famille</span><b>${esc(socialInfo().famLabel)}</b><div class="bar"><i style="width:${s.famille}%;background:var(--terre)"></i></div><small>Les appels du dimanche, le repas de famille${s.milieu === 'aise' ? ' du dimanche midi' : s.milieu === 'populaire' ? ' du vendredi soir' : ', un vendredi sur deux'}, et les coups de main demandés entretiennent le lien.</small></div>
     <div class="stat"><span>Argent</span><b>${fmtDH(s.money)}</b>${s.epargne ? `<small>Épargne : ${fmtDH(s.epargne)}</small>` : ''}</div>
     <div class="stat"><span>Travail</span><b>${esc(job.titre)}</b><small>${fmtDH(job.salaire)} par semaine · ${J.week} jour${J.week > 1 ? 's' : ''} travaillé${J.week > 1 ? 's' : ''} cette semaine</small>
       <div class="bar"><i style="width:${J.perf}%"></i></div><small>Performance (ce qu'en pense le chef) : ${Math.round(J.perf)} / 100. Promotion à 100, si l'équipe te soutient.</small>
@@ -364,8 +370,9 @@ export function askWork() {
 }
 
 // Un événement avec un choix (au travail, en sortie) : les conséquences tombent tout de suite.
-export function choiceEvent(titre, img, ev, cb) {
-  const sheet = openModal(`${img ? banner(img) : ''}<h2>${esc(titre)}</h2><p>${esc(ev.texte)}</p>
+export function choiceEvent(titre, image, ev, cb) {
+  const portrait = image && image.startsWith('portrait-');
+  const sheet = openModal(`${image && !portrait ? banner(image) : ''}<h2>${portrait ? img(image, 'avatar') : ''}${esc(titre)}</h2><p>${esc(ev.texte)}</p>
     <div class="list">${ev.choix.map((c, i) => `<button class="opt" data-i="${i}"><span><b>${esc(c.label)}</b></span></button>`).join('')}</div>`);
   sheet.querySelectorAll('[data-i]').forEach(b => { b.onclick = () => { closeModal(); cb(+b.dataset.i); }; });
 }
