@@ -15,7 +15,7 @@ S.setTypeLookup(id => (G.s && G.s.home.furn.find(f => f.id === id) || { type: 'p
 hooks.toast = UI.toast;
 hooks.askWork = UI.askWork;
 hooks.workEvent = UI.workEvent;
-window.jeu = { G, advance, enqueue, hooks, debugCam: S.debugCam, npcActions, animalActions, newGame, start, rebuild: () => S.rebuildHome(G.s.home) }; // pour tester depuis la console du navigateur
+window.jeu = { G, advance, enqueue, hooks, debugCam: S.debugCam, npcActions, animalActions, newGame, start, rebuild: () => S.rebuildHome(G.s.home), setCam: S.setCam, setFollow: S.setFollow }; // pour tester depuis la console du navigateur
 
 const walls = ['coupes', 'bas', 'hauts'];
 let wallIdx = 0, preview = null;

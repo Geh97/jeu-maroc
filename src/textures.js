@@ -92,6 +92,31 @@ export function rayures(a, b) {
     for (let x = 0; x < s; x += 32) { g.fillStyle = a; g.fillRect(x, 0, 16, s); g.fillStyle = b; g.fillRect(x + 16, 0, 16, s); }
   });
 }
+// Moucharabieh : claustra de bois ajouré devant une fenêtre (transparent entre les lattes).
+export function moucharabieh() {
+  return make('mouch', 128, (g, s) => {
+    g.clearRect(0, 0, s, s);
+    g.strokeStyle = '#5a3423'; g.lineWidth = 5;
+    const k = s / 4;
+    for (let i = -4; i <= 8; i++) {
+      g.beginPath(); g.moveTo(i * k, 0); g.lineTo(i * k + s, s); g.stroke();
+      g.beginPath(); g.moveTo(i * k, s); g.lineTo(i * k + s, 0); g.stroke();
+    }
+    g.lineWidth = 8; g.strokeRect(0, 0, s, s);
+  });
+}
+// Dallage de trottoir en pierre beige.
+export function dallage() {
+  return make('dallage', 128, (g, s) => {
+    const r = rng(21);
+    for (let i = 0; i < 2; i++) for (let j = 0; j < 2; j++) {
+      const v = 214 + Math.floor(r() * 14);
+      g.fillStyle = `rgb(${v},${v - 10},${v - 34})`; g.fillRect(i * s / 2, j * s / 2, s / 2, s / 2);
+    }
+    g.strokeStyle = '#b8a888'; g.lineWidth = 3;
+    g.strokeRect(0, 0, s, s); g.beginPath(); g.moveTo(s / 2, 0); g.lineTo(s / 2, s); g.moveTo(0, s / 2); g.lineTo(s, s / 2); g.stroke();
+  });
+}
 export function asphalte() {
   return make('asphalte', 128, (g, s) => {
     const r = rng(13);

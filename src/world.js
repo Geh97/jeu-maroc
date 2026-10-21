@@ -1,5 +1,5 @@
 // Le quartier : grille, murs de l'appartement (sur les bords des cases), meubles, obstacles, chemins.
-import { W, D, X0, X1, Z0, Z1, FURN, FLOORS, RUE, CAFE } from './data.js';
+import { W, D, X0, X1, Z0, Z1, FURN, FLOORS, RUE, CAFE, PLACE } from './data.js';
 
 export const GW = X1 - X0, GD = Z1 - Z0;
 export const idx = (x, z) => (z - Z0) * GW + (x - X0);
@@ -65,11 +65,17 @@ let outdoor = null;
 export function outdoorGrid() {
   if (outdoor) return outdoor;
   const g = new Uint8Array(GW * GD);
-  for (let z = Z0; z < Z1; z++) for (let x = X0; x < X1; x++) if (z < D && !inHome(x, z)) g[idx(x, z)] = 1;
+  const inPlace = (x, z) => x >= PLACE.x0 && x < PLACE.x1 && z >= PLACE.z0 && z < PLACE.z1;
+  for (let z = Z0; z < Z1; z++) for (let x = X0; x < X1; x++) {
+    if (z < D && !inHome(x, z)) g[idx(x, z)] = 1;                       // notre pâté de maisons
+    if (z >= RUE.trottoirLoin[1] && !inPlace(x, z)) g[idx(x, z)] = 1;   // les immeubles d'en face
+  }
   const mark = c => { if (inWorld(c.x, c.z)) g[idx(c.x, c.z)] = 1; };
-  RUE.lampes.forEach(mark); RUE.palmiers.forEach(mark); RUE.taxi.cells.forEach(mark); RUE.hanout.caisses.forEach(mark);
+  RUE.lampes.forEach(mark); RUE.palmiers.forEach(mark); RUE.taxi.cells.forEach(mark); RUE.hanout.caisses.forEach(mark); RUE.charrette.cells.forEach(mark);
   mark(RUE.banc); mark({ x: RUE.banc.x + 1, z: RUE.banc.z });
   CAFE.tables.forEach(mark); CAFE.chaises.forEach(mark); CAFE.poteaux.forEach(mark);
+  PLACE.fontaine.cells.forEach(mark); PLACE.orangers.forEach(mark);
+  for (const b of PLACE.bancs) { mark(b); mark({ x: b.x + 1, z: b.z }); }
   return (outdoor = g);
 }
 // Grille des cases bloquées. noHome : l'appartement entier est interdit (pour les voisins).
@@ -223,9 +229,10 @@ export function ambiance(home) {
   return Math.round(Math.min(30, a));
 }
 
-// Cases libres du trottoir (pour les promenades des voisins).
+// Cases libres du trottoir et de la placette (pour les promenades des voisins).
 export function sidewalkCells() {
   const g = outdoorGrid(), out = [];
   for (const [a, b] of [RUE.trottoir, RUE.trottoirLoin]) for (let z = a; z < b; z++) for (let x = X0 + 1; x < X1 - 1; x++) if (!g[idx(x, z)]) out.push({ x, z });
+  for (let z = PLACE.z0; z < PLACE.z1; z++) for (let x = PLACE.x0; x < PLACE.x1; x++) if (!g[idx(x, z)]) out.push({ x, z });
   return out;
 }

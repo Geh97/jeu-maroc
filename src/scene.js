@@ -4,6 +4,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { W, D, X0, X1, Z1, FURN, WALL_COLORS, NPCS, PASSANTS, ANIMAUX } from './data.js';
 import * as T from './textures.js';
 import * as M from './models.js';
+import { makeStreet } from './street.js';
 import { parseEdge, furnCenter, footprint } from './world.js';
 
 let renderer, scene, camera, controls, sun, hemi, amb, floorPlane, street;
@@ -46,7 +47,7 @@ export function initScene(canvas) {
   sun.target.position.set(W / 2, 0, D / 2 + 4);
   amb = new THREE.AmbientLight('#ffd49a', 0);
   wallMat.map = T.tadelakt();
-  street = M.makeStreet();
+  street = makeStreet();
   scene.add(hemi, sun, sun.target, amb, homeG, helpers, street);
   for (let i = 0; i < 4; i++) {
     const l = new THREE.PointLight('#ffb35c', 0, 6, 2);
@@ -178,6 +179,7 @@ export function focusChar(on) {
 export function setWallMode(m) { wallMode = m; }
 export const setFollow = on => { follow = on; };
 export const debugCam = () => ({ cam: camera.position.toArray(), target: controls.target.toArray() });
+export const setCam = (x, y, z, tx, ty, tz) => { camera.position.set(x, y, z); controls.target.set(tx, ty, tz); userMovedAt = clock; controls.update(); };
 
 // ---------- Image par image ----------
 const tmpV = new THREE.Vector3();

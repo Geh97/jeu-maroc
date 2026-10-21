@@ -7,19 +7,31 @@ export const WALK = 1.8;    // cases parcourues par minute de jeu
 export const SPEEDS = [0, 1, 3, 10]; // minutes de jeu par seconde réelle
 
 // Le quartier : l'appartement est à l'origine, la rue passe devant (z croissant).
-export const X0 = -20, X1 = 32, Z0 = 0, Z1 = D + 14;
+export const X0 = -20, X1 = 32, Z0 = 0, Z1 = D + 19;
 export const RUE = {
   trottoir: [D, D + 3], route: [D + 3, D + 11], trottoirLoin: [D + 11, D + 14],
   coin: { x: X0 + 2, z: D + 1 },          // coin de la rue : on y disparaît pour les sorties
-  lampes: [{ x: -10, z: D + 2 }, { x: 3, z: D + 2 }, { x: 26, z: D + 2 }, { x: -4, z: D + 11 }, { x: 14, z: D + 11 }, { x: 30, z: D + 11 }],
+  lampes: [{ x: -10, z: D + 2 }, { x: 3, z: D + 2 }, { x: 26, z: D + 2 }, { x: -4, z: D + 11 }, { x: 22, z: D + 11 }, { x: 30, z: D + 11 }],
   palmiers: [{ x: -3, z: D + 2 }, { x: 23, z: D + 2 }, { x: -8, z: D + 12 }, { x: 20, z: D + 12 }],
   taxi: { x: 8, z: D + 4.5, cells: [] },
-  banc: { x: 6, z: D + 12 },
-  hanout: { x0: -11, x1: -1, porte: -4, caisses: [{ x: -6, z: D }, { x: -5, z: D }] },
-  portes: [{ x: -8, z: D }, { x: 27, z: D }, { x: -12, z: D + 13 }, { x: 2, z: D + 13 }, { x: 16, z: D + 13 }, { x: 30, z: D + 13 }],
+  banc: { x: 24, z: D + 12 },
+  hanout: { x0: -7, x1: -1, porte: -4, caisses: [{ x: -6, z: D }, { x: -5, z: D }] },
+  four: { x0: -16, x1: -10, porte: -13 },            // le four du quartier (boulangerie traditionnelle)
+  mahlaba: { x0: 25, x1: 31, porte: 27 },             // la laiterie
+  charrette: { x: -15, z: D + 1, cells: [{ x: -15, z: D + 1 }, { x: -14, z: D + 1 }] },
+  portes: [{ x: -8, z: D }, { x: 27, z: D }, { x: -12, z: D + 13 }, { x: -4, z: D + 13 }, { x: 22, z: D + 13 }, { x: 30, z: D + 13 }],
   traversee: { x0: 10, x1: 12 },
 };
 for (let x = 6; x <= 9; x++) for (let z = D + 3; z <= D + 5; z++) RUE.taxi.cells.push({ x, z });
+// La placette en face : fontaine en zellige, orangers, bancs, et la mosquée du quartier au fond.
+export const PLACE = {
+  x0: 2, x1: 18, z0: D + 11, z1: D + 19,
+  fontaine: { x: 10, z: D + 15, cells: [] },
+  orangers: [{ x: 3, z: D + 12 }, { x: 16, z: D + 12 }, { x: 3, z: D + 17 }, { x: 16, z: D + 17 }],
+  bancs: [{ x: 6, z: D + 18, r: 2 }, { x: 12, z: D + 18, r: 2 }],
+  mosquee: { x0: 2, x1: 18, z: D + 19, porte: 10 },
+};
+for (let x = 8; x <= 11; x++) for (let z = D + 13; z <= D + 16; z++) PLACE.fontaine.cells.push({ x, z });
 
 // Le café du quartier : une terrasse devant la façade, à droite de l'appartement.
 export const CAFE = {
