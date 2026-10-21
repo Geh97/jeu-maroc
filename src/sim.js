@@ -3,6 +3,7 @@ import {
   SAVE_KEY, WALK, FURN, ACT, RECETTES, QUAL, QUAL_MORAL,
   MARCHE, LIEUX, RUE, CAFE, HANOUT, NPCS, PASSANTS, SALUTS, X0, X1, D, matchEnCours, relLabel,
   MILIEUX, POCHE, EPARGNE_TAUX, DARET, BOULOTS, VENTE, VENTE_MAX, ACHETEURS, ANIMAUX, ADOPT_SEUIL,
+  SUJETS, GOUTS, REPONSES, EVENEMENTS, PLATS_SUCRES,
 } from './data.js';
 import * as Wd from './world.js';
 
@@ -14,7 +15,7 @@ export const G = {
   speed: 1, mode: 'live', modal: false,
   yaw: 0, walkPhase: 0, idle: 0, amb: 0, alerts: {}, pendingWork: false, workAsk: false, qid: 1,
 };
-export const hooks = { toast: () => {}, askWork: () => {} };
+export const hooks = { toast: () => {}, askWork: () => {}, workEvent: () => {} };
 const toast = (m, k) => hooks.toast(m, k);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const rand = (a, b) => a + Math.random() * (b - a);
@@ -50,7 +51,7 @@ export function newGame(look) {
     skills: { cuisine: 0 },
     inv: { the: 2, msemen: 1, tajine: 0, snack: 2, patee: 0 },
     plats: [],
-    job: { level: 0, perf: 40, day: -1, week: 0, absences: 0 },
+    job: { level: 0, perf: 40, day: -1, week: 0, absences: 0, competence: 0, collegues: 50 },
     rel: {}, ventes: { day: -1 }, boulots: { day: -1 }, daret: null, epargne: 0, autoWork: false,
     animaux: {}, home, pos: center(ent), away: null, lastBill: 0, autonomy: true,
   };
@@ -63,7 +64,7 @@ function resetRuntime() {
   G.cur = null; G.queue = []; G.idle = 0; G.alerts = {}; G.pendingWork = false; G.workAsk = false;
   G.yaw = Math.PI; G.amb = Wd.ambiance(s.home);
   G.chairs = CAFE.chaises.map(() => null);
-  G.npcs = NPCS.map(def => ({ id: def.id, def, visible: false, x: 0, z: 0, yaw: 0, state: 'home', path: [], walkPhase: 0, nextAt: 0, chair: -1, goal: null, talkUntil: 0, greetedAt: -9999, talks: 0, talkDay: -1 }));
+  G.npcs = NPCS.map(def => ({ id: def.id, def, visible: false, x: 0, z: 0, yaw: 0, state: 'home', path: [], walkPhase: 0, nextAt: 0, chair: -1, goal: null, talkUntil: 0, greetedAt: -9999, talks: 0, talkDay: -1, sujets: {}, sujetsDay: -1 }));
   G.passants = PASSANTS.map((look, i) => ({ id: 'p' + i, look, visible: false, x: 0, z: 0, yaw: 0, path: [], walkPhase: 0, nextAt: rand(0, 40) }));
   G.animaux = ANIMAUX.map(def => {
     const home = s.animaux[def.id].adopte, c = home ? center({ x: 6, z: 7 }) : center(def.coin);
@@ -82,6 +83,7 @@ export function load() {
       for (const a of ANIMAUX) s.animaux[a.id] = { confiance: 0, adopte: false, nom: '', faim: 70, fled: 0 };
       s.v = 3;
     }
+    if (s.job.competence == null) { s.job.competence = 0; s.job.collegues = 50; }
     G.s = s; resetRuntime(); return true;
   } catch { return false; }
 }
@@ -127,6 +129,9 @@ export function itemLabel(it) {
     const n = getN(it.npc).def.nom;
     if (it.mode === 'boulot') return boulotOf(it.boulot).nom;
     if (it.mode === 'vendre') return 'Vendre à ' + n;
+    if (it.mode === 'sujet') return SUJETS.find(s => s.id === it.sujet).label + ' : ' + n;
+    if (it.mode === 'inviter') return 'Inviter ' + n + ' au café';
+    if (it.mode === 'offrir') return 'Offrir un plat à ' + n;
     return (it.mode === 'saluer' ? 'Saluer ' : 'Discuter avec ') + n;
   }
   if (it.act === 'cuisiner') return 'Préparer : ' + RECETTES[it.param].nom;
@@ -151,13 +156,14 @@ export function availableActions(fid) {
   for (const a of def.actions) {
     if (a === 'cuisiner') {
       const lvl = Math.floor(s.skills.cuisine);
-      info = `Cuisine : niveau ${lvl}`;
+      info = `Cuisine : niveau ${lvl}. Les recettes difficiles ratent souvent au début.`;
       for (const r in RECETTES) {
         const R = RECETTES[r], n = s.inv[r] || 0;
+        const hard = R.d > lvl + 2;
         items.push({
           act: 'cuisiner', param: r, label: 'Préparer : ' + R.nom,
-          sub: n ? `${fmtDur(R.dur)} · ${n} lot${n > 1 ? 's' : ''} d'ingrédients` : '',
-          disabled: !n, why: "Il manque les ingrédients : passe au marché.",
+          sub: n ? `${fmtDur(R.dur)} · difficulté ${R.d}${hard ? ' (trop dur pour l\'instant)' : ''}${R.vendredi ? ' · le vendredi, moral en plus' : ''} · ${n} lot${n > 1 ? 's' : ''}` : `Difficulté ${R.d} · ingrédients au marché`,
+          disabled: !n, why: "Il manque les ingrédients : passe au marché ou au hanout.",
         });
       }
     } else if (a === 'manger') {
@@ -176,8 +182,8 @@ export function availableActions(fid) {
     } else items.push({ act: a, label: ACT[a].label });
   }
   if (f.type === 'frigo') {
-    const inv = ['the', 'msemen', 'tajine'].map(r => `${RECETTES[r].nom.split(' ')[0].toLowerCase()} ${s.inv[r] || 0}`).join(' · ');
-    info = `Ingrédients au frais : ${inv}`;
+    const inv = Object.keys(RECETTES).filter(r => s.inv[r] > 0).map(r => `${RECETTES[r].nom.split(' ')[0].toLowerCase()} ${s.inv[r]}`).join(' · ');
+    info = `Ingrédients au frais : ${inv || 'rien'}`;
     if (!s.plats.length) info += '. Aucun plat prêt : cuisine à la cuisinière.';
   }
   if (!def.actions.length) info = def.beaute ? `Embellit la maison (ambiance +${def.beaute}).` : 'Rien à faire ici.';
@@ -209,10 +215,10 @@ export function chairActions(i) {
   if (occ && occ !== 'player') return { title: CAFE.nom, items: [], info: `${getN(occ).def.nom} est assis(e) ici.` };
   if (!cafeOuvert(s.t)) return { title: CAFE.nom, items: [], info: `Le café est fermé. Il ouvre à ${CAFE.ouvre} h.` };
   const h = hour(s.t), match = matchEnCours(dow(s.t), h);
-  const items = CAFE.options.filter(o => !o.jusqua || h < o.jusqua).filter(o => !o.match || match).map(o => ({
-    act: 'cafe', chair: i, opt: o.id, label: o.nom, sub: `${fmtDH(o.prix)} · ${fmtDur(o.dur)}`, disabled: o.prix > s.money, why: "Pas assez d'argent.",
-  }));
   const voisin = G.npcs.find(n => n.chair >= 0 && CAFE.chaises[n.chair].table === c.table);
+  const items = CAFE.options.filter(o => (!o.jusqua || h < o.jusqua) && (!o.de || h >= o.de)).filter(o => !o.match || match).filter(o => !o.voisin || voisin).map(o => ({
+    act: 'cafe', chair: i, opt: o.id, label: o.nom + (o.voisin ? ` : ${voisin.def.nom}` : ''), sub: `${fmtDH(o.prix)} · ${fmtDur(o.dur)}`, disabled: o.prix > s.money, why: "Pas assez d'argent.",
+  }));
   return { title: CAFE.nom, items, info: voisin ? `${voisin.def.nom} est à cette table.` : 'Une chaise libre en terrasse.' };
 }
 const sellable = () => G.s.plats.filter(p => VENTE[p.r] && VENTE[p.r][p.q] > 0);
@@ -220,8 +226,19 @@ export function npcActions(id) {
   const n = getN(id), s = G.s, rel = s.rel[id] || 0, d = dayIdx(s.t);
   const items = [
     { kind: 'talk', npc: id, mode: 'saluer', label: 'Saluer', sub: 'Un bonjour en passant' },
-    { kind: 'talk', npc: id, mode: 'discuter', label: 'Discuter (15 min)', sub: rel >= 20 ? 'Prendre des nouvelles' : 'Faire connaissance' },
   ];
+  sujetsOf(n);
+  for (const sj of SUJETS) {
+    const done = n.sujets[sj.id];
+    items.push({ kind: 'talk', npc: id, mode: 'sujet', sujet: sj.id, label: sj.label, sub: done ? 'Déjà fait aujourd\'hui' : `${fmtDur(sj.dur)}`, disabled: rel < sj.rel || !!done, why: rel < sj.rel ? `Il faut mieux se connaître (amitié ${sj.rel}).` : 'Déjà fait aujourd\'hui.' });
+  }
+  const plat = sellable().find(p => p.r !== 'the');
+  items.push({ kind: 'talk', npc: id, mode: 'offrir', plat: plat && plat.r + ':' + plat.q, label: 'Offrir un plat fait maison', sub: plat ? `${RECETTES[plat.r].nom} (${QUAL[plat.q]})` : '', disabled: !plat, why: 'Il faut avoir cuisiné quelque chose de réussi.' });
+  if (!n.def.serveur && !n.def.boutique) {
+    const libre = CAFE.tables.map((t, ti) => CAFE.chaises.filter((c, ci) => c.table === ti && !G.chairs[ci]).length >= 2).some(Boolean);
+    const why = !cafeOuvert(s.t) ? 'Le café est fermé.' : n.chair >= 0 ? 'Il est déjà attablé.' : !libre ? 'Pas deux chaises libres à la même table.' : s.money < 20 ? "Pas assez d'argent (20 DH pour deux thés)." : rel < 10 ? 'Il faut mieux se connaître (amitié 10).' : null;
+    items.push({ kind: 'talk', npc: id, mode: 'inviter', label: 'Inviter à prendre un thé au café', sub: '20 DH pour deux · 45 min', disabled: !!why, why });
+  }
   if (revenu('boulots') || revenu('cours')) {
     for (const b of BOULOTS.filter(b => b.npc === id && b.milieux.includes(s.milieu))) {
       const done = s.boulots.day === d && s.boulots[b.id];
@@ -242,6 +259,12 @@ export function npcActions(id) {
   return { title: n.def.nom, items, info: `${relLabelOf(rel)} · ${n.def.desc}`, img: 'portrait-' + id };
 }
 const relLabelOf = v => relLabel(v) + (v > 0 ? ` (${Math.round(v)})` : '');
+// Les sujets déjà abordés avec ce voisin aujourd'hui.
+function sujetsOf(n) {
+  const d = dayIdx(G.s.t);
+  if (n.sujetsDay !== d) { n.sujetsDay = d; n.sujets = {}; }
+  return n.sujets;
+}
 export const basketCost = b => MARCHE.reduce((t, m) => t + (b[m.id] || 0) * m.prix, 0);
 
 // ---------- Animaux : actions ----------
@@ -349,12 +372,12 @@ function startItem(it) {
 function planSpot(f, act, blocked) {
   const home = G.s.home, def = FURN[f.type], A = ACT[act], c = Wd.furnCenter(f);
   const onIt = act === 'dormir' || act === 'sieste' || act === 'douche' || (def.assise && ['detente', 'manger', 'boire'].includes(act));
-  const seatNear = act === 'tele' || (f.type === 'mida' && (act === 'manger' || act === 'boire'));
+  const seatNear = act === 'tele' || act.startsWith('lire') || (f.type === 'mida' && (act === 'manger' || act === 'boire'));
   if (onIt) return onSpot(f, act, blocked, c);
   if (seatNear) {
     const seats = home.furn.filter(o => FURN[o.type].assise)
       .map(o => { const oc = Wd.furnCenter(o); return { o, d: Math.hypot(oc.x - c.x, oc.z - c.z) }; })
-      .filter(x => x.d <= 3.6).sort((a, b) => a.d - b.d);
+      .filter(x => x.d <= (act.startsWith('lire') ? 8 : 3.6)).sort((a, b) => a.d - b.d);
     for (const { o } of seats) { const p = onSpot(o, act, blocked, c); if (p) return p; }
   }
   const app = Wd.approachTiles(home, f, blocked);
@@ -442,9 +465,10 @@ function arrive(c) {
       return fail(it, `${n.def.nom} est déjà parti(e).`);
     }
     if (it.mode === 'boulot') { G.cur = null; startBoulot(it, n); return; }
+    if (it.mode === 'inviter') { G.cur = null; invite(it, n); return; }
     n.state = 'talk'; n.path = [];
     n.yaw = yawTo(n.x, n.z, s.pos.x, s.pos.z);
-    c.dur = it.mode === 'saluer' ? 2 : it.mode === 'vendre' ? 3 : 15;
+    c.dur = it.mode === 'saluer' ? 2 : it.mode === 'vendre' || it.mode === 'offrir' ? 3 : it.mode === 'sujet' ? SUJETS.find(x => x.id === it.sujet).dur : 15;
     n.talkUntil = s.t + c.dur;
     c.spot = { x: s.pos.x, z: s.pos.z, yaw: yawTo(s.pos.x, s.pos.z, n.x, n.z), pose: 'stand', anim: 'talk', h: 0 };
     c.stage = 'do'; c.t = 0; G.yaw = c.spot.yaw;
@@ -484,10 +508,11 @@ function finish(c) {
     const table = CAFE.chaises[it.chair].table;
     const voisin = G.npcs.find(n => n.chair >= 0 && CAFE.chaises[n.chair].table === table);
     if (voisin) {
-      addRel(voisin, 5);
+      const opt = CAFE.options.find(o => o.id === it.opt);
+      addRel(voisin, 5 + (opt.voisin ? 6 : 0) + (it.invite ? 8 : 0));
       s.needs.social = clamp(s.needs.social + 6, 0, 100);
-      toast(`${voisin.def.nom} : « ${pick(voisin.def.lignes)} »`);
-    }
+      toast(`${voisin.def.nom} : « ${it.invite ? 'Merci pour le thé, c\'est la prochaine fois pour moi.' : pick(voisin.def.lignes)} »`);
+    } else if (it.invite) toast('Ton invité n\'est pas venu s\'asseoir.');
     return;
   }
   if (it.kind === 'animal') return finishAnimal(it);
@@ -495,6 +520,8 @@ function finish(c) {
     const n = getN(it.npc);
     if (n.state === 'talk') { n.state = 'idle'; n.nextAt = s.t + 2; }
     if (it.mode === 'vendre') return sell(it, n);
+    if (it.mode === 'offrir') return offer(it, n);
+    if (it.mode === 'sujet') return topic(it, n);
     const d = dayIdx(s.t);
     if (n.talkDay !== d) { n.talkDay = d; n.talks = 0; }
     const k = 1 / (1 + n.talks * 0.6);
@@ -519,10 +546,49 @@ function finish(c) {
     if (Math.floor(s.skills.cuisine) > before) toast(`Cuisine : niveau ${Math.floor(s.skills.cuisine)}. Les plats réussiront plus souvent.`, 'good');
   }
   if (c.food) {
-    const R = RECETTES[c.food.r];
-    s.needs.moral = clamp(s.needs.moral + R.moral + QUAL_MORAL[c.food.q] + (has('gourmand') && c.food.q > 0 ? 5 : 0), 0, 100);
+    const R = RECETTES[c.food.r], vendredi = R.vendredi && dow(s.t) === 4;
+    s.needs.moral = clamp(s.needs.moral + R.moral + QUAL_MORAL[c.food.q] + (has('gourmand') && c.food.q > 0 ? 5 : 0) + (vendredi ? 8 : 0), 0, 100);
+    if (vendredi) toast('Le couscous du vendredi, comme il se doit.', 'good');
   }
   if (it.act === 'casse') s.needs.moral = clamp(s.needs.moral + 2, 0, 100);
+  const A = it.act && ACT[it.act];
+  if (A && A.cuisine) { s.skills.cuisine = Math.min(10, s.skills.cuisine + A.cuisine); toast(`Un chapitre de plus. Cuisine : ${s.skills.cuisine.toFixed(1)}.`); }
+  if (A && A.competence) { s.job.competence = Math.min(10, s.job.competence + A.competence); toast(`Tu progresses dans ton métier. Compétence : ${s.job.competence.toFixed(1)}.`); }
+}
+
+// Discussion sur un sujet : la réaction dépend des goûts du voisin.
+function topic(it, n) {
+  const s = G.s, g = (GOUTS[n.id] || {})[it.sujet] || 0, faits = sujetsOf(n), k = faits[it.sujet] ? 0.3 : 1;
+  faits[it.sujet] = true;
+  const gain = [-3, 5, 10][g + 1] * k, soc = [4, 12, 18][g + 1] * k, mor = [-4, 4, 8][g + 1] * (has('sociable') ? 1.4 : 1) * k;
+  addRel(n, gain);
+  s.needs.social = clamp(s.needs.social + soc, 0, 100);
+  s.needs.moral = clamp(s.needs.moral + mor, 0, 100);
+  toast(`${n.def.nom} : « ${pick(REPONSES[it.sujet][1 - g])} »`);
+  if (g < 0) toast(`${n.def.nom} n'aime pas ce sujet.`, 'bad');
+}
+function offer(it, n) {
+  const s = G.s, p = it.plat && findPlat(it.plat);
+  if (!p) return toast('Plus rien à offrir.');
+  p.n--;
+  if (!p.n) s.plats.splice(s.plats.indexOf(p), 1);
+  const R = RECETTES[p.r];
+  addRel(n, p.q === 2 ? 12 : 7);
+  s.needs.social = clamp(s.needs.social + 8, 0, 100);
+  toast(`${n.def.nom} : « ${p.q === 2 ? `${R.nom.split(' ')[0]} fait maison, et délicieux ! Tu me gâtes.` : 'C\'est gentil, merci. Je goûterai ce soir.'} »`);
+}
+// Inviter un voisin au café : chacun va s'asseoir à la même table.
+function invite(it, n) {
+  const s = G.s;
+  const ti = CAFE.tables.findIndex((t, i) => CAFE.chaises.filter((c, ci) => c.table === i && !G.chairs[ci]).length >= 2);
+  if (ti < 0 || !cafeOuvert(s.t) || n.chair >= 0 || s.money < 20) return toast('Ça ne va pas être possible maintenant.');
+  const [a, b] = CAFE.chaises.map((c, ci) => ci).filter(ci => CAFE.chaises[ci].table === ti && !G.chairs[ci]);
+  s.money -= 10;
+  G.chairs[a] = n.id; n.state = 'idle';
+  goTo(n, Wd.approachCells(s.home, [CAFE.chaises[a]], grid()), 'cafe', a);
+  n.hold = s.t + 75; // il reste le temps du thé, même si c'est l'heure de rentrer
+  toast(`${n.def.nom} : « Avec plaisir ! »`);
+  enqueue({ kind: 'cafe', chair: b, opt: 'the', invite: n.id, label: 'Thé au café avec ' + n.def.nom }, true);
 }
 function addRel(n, v) {
   const s = G.s, before = s.rel[n.id] || 0, after = clamp(before + v, 0, 100);
@@ -678,8 +744,37 @@ export function comeBack() {
 function stepAway(m) {
   const s = G.s, a = s.away, p = awayPhase();
   applyNeeds(m, p.extra);
+  if (a.lieu === 'travail' && !a.evt && s.t >= a.phases[0].until + 120) {
+    a.evt = true;
+    const pool = EVENEMENTS.filter(e => !e.milieux || e.milieux.includes(s.milieu)).filter(e => e.id !== s.job.lastEvt);
+    const ev = pick(pool);
+    s.job.lastEvt = ev.id;
+    hooks.workEvent(ev, i => workChoice(ev, i));
+  }
   if (a.lieu === 'travail' && !a.done && s.t >= a.phases[1].until) finishWork();
   if (s.t >= a.phases[a.phases.length - 1].until) returnHome();
+}
+// Le choix fait au travail s'applique tout de suite. Retourne la phrase de conclusion.
+function workChoice(ev, i) {
+  const s = G.s, J = s.job, ch = ev.choix[i], a = s.away;
+  let eff = ch.eff, suite = ch.suite;
+  if (ch.cond) {
+    const ok = ch.cond === 'perf70' ? J.perf >= 70 : Math.random() < (+ch.cond.replace('chance', '') / 100);
+    eff = ok ? ch.ok : ch.ko; suite = ok ? ch.suiteOk : ch.suiteKo;
+  }
+  for (const k in eff) {
+    const v = eff[k];
+    if (k === 'perf') J.perf = clamp(J.perf + v, 0, 100);
+    else if (k === 'collegues') J.collegues = clamp(J.collegues + v, 0, 100);
+    else if (k === 'competence') J.competence = Math.min(10, J.competence + v);
+    else if (k === 'money') s.money += v;
+    else if (k === 'heures' && a) { a.phases[1].until += 60 * v; a.phases[2].until += 60 * v; }
+    else if (s.needs[k] != null) s.needs[k] = clamp(s.needs[k] + v, 0, 100);
+  }
+  const bilan = Object.entries(eff).filter(([k]) => ['perf', 'collegues', 'competence', 'money'].includes(k)).map(([k, v]) => `${{ perf: 'performance', collegues: 'collègues', competence: 'compétence', money: 'argent' }[k]} ${v > 0 ? '+' : ''}${k === 'competence' ? v.toFixed(1) : v}`).join(', ');
+  toast(suite + (bilan ? ` (${bilan})` : ''), eff.perf < 0 || eff.money < 0 ? '' : 'good');
+  save();
+  return suite;
 }
 function returnHome() {
   const s = G.s, a = s.away;
@@ -719,13 +814,15 @@ export function skipWork() { toast(`${nm()} ne va pas travailler aujourd'hui.`);
 function finishWork() {
   const s = G.s, a = s.away, n = a.startNeeds, J = s.job;
   a.done = true;
-  let gain = (n.moral >= 60 ? 10 : n.moral >= 35 ? 5 : -3) + (n.energie >= 40 ? 4 : -4) + (has('travailleur') ? 4 : 0) - (a.late ? 5 : 0);
+  let gain = (n.moral >= 60 ? 8 : n.moral >= 35 ? 4 : -3) + (n.energie >= 40 ? 3 : -4) + (has('travailleur') ? 3 : 0) - (a.late ? 5 : 0) + Math.round(J.competence * 0.6);
   J.day = dayIdx(s.t); J.week++;
   J.perf = clamp(J.perf + gain, 0, 100);
+  J.competence = Math.min(10, J.competence + 0.05);
+  J.collegues = clamp(J.collegues + (J.collegues < 50 ? 0.5 : -0.3), 0, 100);
   let msg = `Journée de travail terminée. Performance ${gain >= 0 ? '+' : ''}${gain}${a.late ? ' (retard)' : ''}.`;
   if (J.perf >= 100 && J.level < milieu().jobs.length - 1) {
-    J.level++; J.perf = 30;
-    toast(`Promotion ! ${nm()} devient ${jobOf().titre}. Salaire : ${fmtDH(jobOf().salaire)} par semaine.`, 'good');
+    if (J.collegues < 30) { J.perf = 90; toast('Le chef pensait te promouvoir, mais l\'équipe ne te soutient pas. Soigne tes collègues.', 'bad'); }
+    else { J.level++; J.perf = 30; toast(`Promotion ! ${nm()} devient ${jobOf().titre}. Salaire : ${fmtDH(jobOf().salaire)} par semaine.`, 'good'); }
   } else toast(msg, gain < 0 ? 'bad' : '');
 }
 function minuteEvent(T) {
@@ -834,7 +931,8 @@ function decide() {
     const p = s.plats.filter(p => p.r !== 'the').sort((a, b) => b.q - a.q)[0];
     if (p && tryAct(['table', 'mida', 'banquette', 'pouf', 'frigo'], 'manger', p.r + ':' + p.q)) return;
     if (s.inv.snack > 0 && tryAct(['frigo'], 'casse')) return;
-    const r = ['msemen', 'tajine'].find(r => s.inv[r] > 0);
+    const lvl = s.skills.cuisine;
+    const r = ['couscous', 'rfissa', 'tajine', 'harira', 'loubia', 'msemen'].find(r => s.inv[r] > 0 && RECETTES[r].d <= lvl + 2);
     if (r && tryAct(['cuisiniere'], 'cuisiner', r)) return;
     if (hanoutOuvert(s.t) && s.money >= 46) { enqueue({ kind: 'hanout', basket: { snack: 1, msemen: 1 }, auto: true }); return; }
   }
@@ -843,7 +941,7 @@ function decide() {
     const i = G.chairs.findIndex(c => !c);
     if (i >= 0) { enqueue({ kind: 'cafe', chair: i, opt: 'the', auto: true }); return; }
   }
-  if (n.moral < 45 && (tryAct(['tv'], 'tele') || tryAct(['banquette', 'pouf'], 'detente'))) return;
+  if (n.moral < 45 && (tryAct(['tv'], 'tele') || tryAct(['biblio'], 'lire') || tryAct(['banquette', 'pouf'], 'detente'))) return;
   if (!isHome() && h >= 22 && tryAct(['lit', 'lit1'], 'dormir')) return;
 }
 
@@ -890,7 +988,7 @@ function npcArrive(n) {
     const i = n.chairGoal, c = CAFE.chaises[i];
     if (G.chairs[i] !== n.id) { n.state = 'idle'; n.nextAt = s.t + 2; return; }
     n.chair = i; n.x = c.x + 0.5; n.z = c.z + 0.5; n.yaw = c.r * Math.PI / 2;
-    n.state = 'sit'; n.nextAt = s.t + rand(30, 90);
+    n.state = 'sit'; n.nextAt = Math.max(s.t + rand(30, 90), n.hold || 0);
     return;
   }
   n.state = 'idle'; n.nextAt = s.t + rand(3, 15);
@@ -900,7 +998,7 @@ function stepNpcs(m) {
   const s = G.s, h = hour(s.t);
   for (const n of G.npcs) {
     if (n.state === 'talk') { if (s.t >= n.talkUntil && !(G.cur && G.cur.it.kind === 'talk' && G.cur.it.npc === n.id)) { n.state = 'idle'; n.nextAt = s.t + 2; } continue; }
-    const out = dehors(n, h);
+    const out = dehors(n, h) || s.t < (n.hold || 0); // invité ou en pleine discussion : il reste
     if (!out) {
       if (n.state === 'home') continue;
       if (n.goal !== 'home') {

@@ -43,7 +43,7 @@ export function render() {
     else hint = 'Choisis un meuble à acheter, ou touche un meuble de la maison pour le déplacer ou le vendre.';
     items = `<div class="chips cats">${Object.entries(CATS).map(([k, n]) => `<button data-cat="${k}" class="${B.cat === k ? 'on' : ''}">${n}</button>`).join('')}</div>
       <div class="cards">${Object.entries(FURN).filter(([, f]) => f.cat === B.cat).map(([k, f]) =>
-        `<button class="card-i thumb ${B.item === k ? 'on' : ''}" data-item="${k}"><img src="${asset(f.img)}" alt="" draggable="false"><b>${esc(f.nom)}</b><small>${fmtDH(f.prix)}${f.beaute ? ` · ambiance +${f.beaute}` : ''}</small></button>`).join('')}</div>`;
+        `<button class="card-i ${f.img ? 'thumb' : ''} ${B.item === k ? 'on' : ''}" data-item="${k}">${f.img ? `<img src="${asset(f.img)}" alt="" draggable="false">` : ''}<b>${esc(f.nom)}</b><small>${fmtDH(f.prix)}${f.beaute ? ` · ambiance +${f.beaute}` : ''}</small></button>`).join('')}</div>`;
     if (B.item || B.moving) {
       if (B.ghost) acts += '<button class="btn primary" data-a="place">Poser ici</button>';
       acts += '<button class="btn" data-a="rot">Tourner</button><button class="btn" data-a="cancel">Annuler</button>';

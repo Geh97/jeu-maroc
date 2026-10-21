@@ -142,6 +142,21 @@ const BUILD = {
     const band = new THREE.Mesh(new THREE.TorusGeometry(0.295, 0.012, 6, 32), mat('#3b2418'));
     band.rotation.x = Math.PI / 2; band.position.y = 0.45; g.add(band);
   },
+  biblio(g) {
+    const wood = mat('#7a4a2c');
+    box(g, 1.9, 2, 0.36, wood, 0, 1, 0);
+    box(g, 1.8, 1.9, 0.02, mat('#4a2c18'), 0, 1, -0.16);
+    const cols = ['#7a2e3a', '#2f4f7a', '#2e6b57', '#c99a3a', '#e8e1d3', '#5b3d6e', '#b5562e', '#3a3a3a'];
+    for (let s = 0; s < 4; s++) {
+      box(g, 1.8, 0.04, 0.34, wood, 0, 0.42 + s * 0.46, 0);
+      let x = -0.82;
+      for (let i = 0; i < 9 && x < 0.8; i++) {
+        const w = 0.09 + ((s * 7 + i * 3) % 4) * 0.03, h = 0.26 + ((s + i) % 3) * 0.05;
+        box(g, w, h, 0.26, mat(cols[(s * 3 + i) % cols.length]), x + w / 2, 0.44 + s * 0.46 + h / 2, -0.02);
+        x += w + 0.015;
+      }
+    }
+  },
   plante(g) {
     cyl(g, 0.2, 0.15, 0.36, mat('#b5562e'), 0, 0.18, 0);
     cyl(g, 0.18, 0.18, 0.02, mat('#4a3324'), 0, 0.35, 0);
@@ -303,6 +318,7 @@ export function pose(ch, p, t, walkPhase) {
   if (p.anim === 'cook') { armL.rotation.x = -0.9 + Math.sin(t * 5) * 0.15; armR.rotation.x = -0.9 - Math.sin(t * 5) * 0.15; }
   if (p.anim === 'eat') armR.rotation.x = -1.2 + Math.max(0, Math.sin(t * 3)) * 0.7;
   if (p.anim === 'talk') { armR.rotation.x = -0.7 + Math.sin(t * 4) * 0.3; armR.rotation.z = -0.3; inner.rotation.x = Math.sin(t * 2.5) * 0.02; }
+  if (p.anim === 'read') { armL.rotation.x = armR.rotation.x = -1.3; armL.rotation.z = 0.45; armR.rotation.z = -0.45; inner.rotation.x = 0.12 + Math.sin(t * 1.5) * 0.01; }
   if (p.anim === 'pet') { inner.rotation.x = 0.35; armR.rotation.x = -1.1 + Math.sin(t * 4) * 0.2; armL.rotation.x = -0.6; }
   if (p.anim === 'shower') { armL.rotation.x = armR.rotation.x = -2.6 + Math.sin(t * 4) * 0.2; inner.position.y = p.h || 0; }
 }

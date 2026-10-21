@@ -14,7 +14,8 @@ S.initScene(canvas);
 S.setTypeLookup(id => (G.s && G.s.home.furn.find(f => f.id === id) || { type: 'plante' }).type);
 hooks.toast = UI.toast;
 hooks.askWork = UI.askWork;
-window.jeu = { G, advance, enqueue, hooks, debugCam: S.debugCam, npcActions, animalActions, newGame, start }; // pour tester depuis la console du navigateur
+hooks.workEvent = UI.workEvent;
+window.jeu = { G, advance, enqueue, hooks, debugCam: S.debugCam, npcActions, animalActions, newGame, start, rebuild: () => S.rebuildHome(G.s.home) }; // pour tester depuis la console du navigateur
 
 const walls = ['coupes', 'bas', 'hauts'];
 let wallIdx = 0, preview = null;
@@ -129,7 +130,7 @@ function onTap(x, y, type) {
     UI.showPop(x, y, chairActions(h.id), it => enqueue({ kind: 'cafe', chair: it.chair, opt: it.opt }));
   } else if (h.type === 'npc') {
     if (!G.npcs.some(n => n.id === h.id)) { UI.toast('Un passant pressé.'); return; }
-    UI.showPop(x, y, npcActions(h.id), it => enqueue({ kind: 'talk', npc: it.npc, mode: it.mode, boulot: it.boulot, plat: it.plat }));
+    UI.showPop(x, y, npcActions(h.id), it => enqueue({ kind: 'talk', npc: it.npc, mode: it.mode, boulot: it.boulot, plat: it.plat, sujet: it.sujet }));
   } else if (h.type === 'animal') {
     UI.showPop(x, y, animalActions(h.id), it => (it.act === 'adopter' ? UI.openAdopt(h.id) : enqueue({ kind: 'animal', id: h.id, act: it.act })));
   } else if (h.type === 'char') {

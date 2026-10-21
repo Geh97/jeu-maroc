@@ -203,7 +203,8 @@ export function welcome() {
     <p><b>${esc(M.nom)}.</b> ${esc(M.desc)} Les façons de gagner de l'argent sont dans ta fiche (touche ton portrait).</p>
     <ul class="tips">
       <li>Un chien et un chat errants traînent dans la rue. Nourris-les (restes de poulet au hanout) et caresse-les plusieurs jours : quand ils te font confiance, tu peux les adopter.</li>
-      <li>Chaque matin de semaine, on te demande si tu vas au travail. Sécher a des conséquences.</li>
+      <li>Chaque matin de semaine, on te demande si tu vas au travail. Sécher a des conséquences. Au bureau, un événement par jour te demande un choix : il joue sur le chef, les collègues, ton moral ou ton portefeuille.</li>
+      <li>Avec les voisins : salue, choisis un sujet (chacun a ses goûts), offre un plat fait maison ou invite au café.</li>
       <li>Touche un meuble pour voir ce que ${n} peut y faire, le sol pour se déplacer.</li>
       <li>Touche la porte d'entrée verte pour sortir dans la rue, ou partir au hammam, au marché, au travail.</li>
       <li>Dehors, touche une chaise de la terrasse pour s'asseoir au café, le hanout pour acheter à manger, ou un voisin pour le saluer et discuter. Les voisins ont leurs habitudes : on les croise à certaines heures.</li>
@@ -279,7 +280,9 @@ export function openFiche(tab = 'moi') {
     <div class="stat ico">${img('milieu-' + s.milieu)}<div><span>Milieu</span><b>${esc(M.nom)}</b><small>${M.loyer ? `Loyer ${fmtDH(M.loyer)} + factures ${fmtDH(M.facture)}` : `Sans loyer, factures ${fmtDH(M.facture)}`} par semaine</small></div></div>
     <div class="stat"><span>Argent</span><b>${fmtDH(s.money)}</b>${s.epargne ? `<small>Épargne : ${fmtDH(s.epargne)}</small>` : ''}</div>
     <div class="stat"><span>Travail</span><b>${esc(job.titre)}</b><small>${fmtDH(job.salaire)} par semaine · ${J.week} jour${J.week > 1 ? 's' : ''} travaillé${J.week > 1 ? 's' : ''} cette semaine</small>
-      <div class="bar"><i style="width:${J.perf}%"></i></div><small>Performance : ${Math.round(J.perf)} / 100 (promotion à 100)</small></div>
+      <div class="bar"><i style="width:${J.perf}%"></i></div><small>Performance (ce qu'en pense le chef) : ${Math.round(J.perf)} / 100. Promotion à 100, si l'équipe te soutient.</small>
+      <div class="bar"><i style="width:${J.collegues}%;background:var(--safran)"></i></div><small>Ambiance avec les collègues : ${Math.round(J.collegues)} / 100</small>
+      <small>Compétence : ${J.competence.toFixed(1)} / 10. Elle monte avec les jours travaillés, les formations et les livres de métier, et accélère la performance.</small></div>
     <div class="stat"><span>Cuisine</span><b>Niveau ${lvl}</b><div class="bar"><i style="width:${lvl >= 10 ? 100 : (sk - lvl) * 100}%"></i></div></div>
     <div class="stat"><span>Ambiance de la maison</span><b>${ambiance(s.home)} / 30</b><small>Plus elle est belle, mieux on s'y sent.</small></div>
     <div class="stat"><span>Ingrédients au frais</span><small>Thé : ${s.inv.the || 0} · Msemen : ${s.inv.msemen || 0} · Tajine : ${s.inv.tajine || 0} · Casse-croûte : ${s.inv.snack || 0} · Restes pour animaux : ${s.inv.patee || 0}</small></div>
@@ -347,6 +350,13 @@ export function askWork() {
   const auto = () => { if (sheet.querySelector('#autoWork').checked) s.autoWork = true; };
   sheet.querySelector('#wYes').onclick = () => { auto(); closeModal(); enqueueWork(); };
   sheet.querySelector('#wNo').onclick = () => { auto(); closeModal(); skipWork(); };
+}
+
+// Un événement au travail : on choisit, et les conséquences tombent tout de suite.
+export function workEvent(ev, cb) {
+  const sheet = openModal(`${banner('illu-travail')}<h2>Au travail</h2><p>${esc(ev.texte)}</p>
+    <div class="list">${ev.choix.map((c, i) => `<button class="opt" data-i="${i}"><span><b>${esc(c.label)}</b></span></button>`).join('')}</div>`);
+  sheet.querySelectorAll('[data-i]').forEach(b => { b.onclick = () => { closeModal(); cb(+b.dataset.i); }; });
 }
 
 // Adopter un animal : lui donner un nom.
