@@ -10,10 +10,11 @@ import {
 } from './sim.js';
 import { ambiance } from './world.js';
 import { PRATIQUES, socialInfo } from './social.js';
+import { travailInfo, chercherPoste, entretien, ouvrirAffaire, fermerAffaire, AFFAIRES, salaire } from './travail.js';
 
 export const $ = id => document.getElementById(id);
 export const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const img = (name, cls = '') => `<img src="${asset(name)}" alt="" class="${cls}" draggable="false">`;
+const img = (name, cls = '') => `<img src="${asset(name)}" alt="" class="${cls}" draggable="false" onerror="this.style.display='none'">`;
 
 // ---------- Messages ----------
 export function toast(msg, kind = '') {
@@ -285,7 +286,7 @@ export function openFiche(tab = 'moi') {
     <div class="stat"><span>Réputation dans le quartier</span><b>${esc(socialInfo().repLabel)}</b><div class="bar"><i style="width:${s.reputation}%;background:var(--safran)"></i></div><small>Elle monte avec les amitiés, les coups de main et les dettes payées ; elle baisse avec les absences, les factures impayées et les mots de travers. Bien vu(e), le hanout fait crédit ; respecté(e), il fait une remise.${s.dette ? ` Dette au hanout : ${fmtDH(s.dette)}.` : ''}</small></div>
     <div class="stat"><span>Ta famille</span><b>${esc(socialInfo().famLabel)}</b><div class="bar"><i style="width:${s.famille}%;background:var(--terre)"></i></div><small>Les appels du dimanche, le repas de famille${s.milieu === 'aise' ? ' du dimanche midi' : s.milieu === 'populaire' ? ' du vendredi soir' : ', un vendredi sur deux'}, et les coups de main demandés entretiennent le lien.</small></div>
     <div class="stat"><span>Argent</span><b>${fmtDH(s.money)}</b>${s.epargne ? `<small>Épargne : ${fmtDH(s.epargne)}</small>` : ''}</div>
-    <div class="stat"><span>Travail</span><b>${esc(job.titre)}</b><small>${fmtDH(job.salaire)} par semaine · ${J.week} jour${J.week > 1 ? 's' : ''} travaillé${J.week > 1 ? 's' : ''} cette semaine</small>
+    <div class="stat"><span>Travail</span><b>${J.chomage ? 'Sans emploi' : travailInfo().affaire ? esc(travailInfo().affaire.nom) + ' (ton affaire)' : esc(job.titre)}</b><small>${J.chomage ? 'Cherche un poste depuis l\'onglet Argent.' : travailInfo().affaire ? `Clientèle ${Math.round(travailInfo().etat.clientele)} / 100` : `${fmtDH(salaire())} par semaine · ${J.week} jour${J.week > 1 ? 's' : ''} travaillé${J.week > 1 ? 's' : ''} cette semaine`}</small>
       <div class="bar"><i style="width:${J.perf}%"></i></div><small>Performance (ce qu'en pense le chef) : ${Math.round(J.perf)} / 100. Promotion à 100, si l'équipe te soutient.</small>
       <div class="bar"><i style="width:${J.collegues}%;background:var(--safran)"></i></div><small>Ambiance avec les collègues : ${Math.round(J.collegues)} / 100</small>
       <small>Compétence : ${J.competence.toFixed(1)} / 10. Elle monte avec les jours travaillés, les formations et les livres de métier, et accélère la performance.</small></div>
@@ -313,14 +314,26 @@ export function openFiche(tab = 'moi') {
   if (daretBtn) daretBtn.onclick = () => { joinDaret(); openFiche('argent'); };
   sheet.querySelectorAll('[data-ep]').forEach(b => { b.onclick = () => { epargne(+b.dataset.ep); openFiche('argent'); }; });
   sheet.querySelectorAll('[data-dem]').forEach(b => { b.onclick = () => { closeModal(); demenager(b.dataset.dem); }; });
+  sheet.querySelectorAll('[data-chercher]').forEach(b => { b.onclick = () => { chercherPoste(); openFiche('argent'); }; });
+  sheet.querySelectorAll('[data-entretien]').forEach(b => { b.onclick = () => { closeModal(); entretien(+b.dataset.entretien); }; });
+  sheet.querySelectorAll('[data-affaire]').forEach(b => { b.onclick = () => { closeModal(); ouvrirAffaire(b.dataset.affaire); }; });
+  sheet.querySelectorAll('[data-fermer]').forEach(b => { b.onclick = () => { closeModal(); fermerAffaire(); }; });
   sheet.querySelectorAll('[data-veh]').forEach(b => { b.onclick = () => { closeModal(); acheterVehicule(b.dataset.veh); }; });
 }
 // L'onglet Argent : comment ce personnage peut gagner sa vie, selon son milieu.
 function moneyWays() {
   const s = G.s, M = milieu(), job = jobOf();
   const stat = (icon, inner) => `<div class="stat ico">${img(icon)}<div>${inner}</div></div>`;
+  const T = travailInfo();
+  const equipe = [T.chef, ...T.collegues].map(c => `${img('portrait-' + c.id, 'mini')} ${esc(c.nom)} (${Math.round(s.rel[c.id] || 0)})`).join(' · ');
+  let carriere;
+  if (T.affaire) carriere = `<b>${esc(T.affaire.nom)}</b><small>Ton affaire. Clientèle ${Math.round(T.etat.clientele)} / 100 (plafonnée par ta réputation). Recette le vendredi, loyer du local ${fmtDH(T.affaire.loyer)} par semaine. <button class="btn small" data-fermer>Fermer et revendre (40 %)</button></small>`;
+  else if (T.chomage) carriere = `<b>Sans emploi</b><small>Pas de salaire. Les annonces proposent moins qu'avant, mais il faut bien repartir. <button class="btn small primary" data-chercher>Chercher un poste</button></small>`;
+  else carriere = `<b>${fmtDH(T.salaire)} par semaine</b><small>${esc(job.titre)}${T.employeur ? ` (${T.employeur}e employeur)` : ''}. Payé le vendredi, au prorata des jours travaillés ; prime de 30 % une semaine complète à 80 de performance ; parfois en retard. Promotion à 100, si l'équipe te soutient. Licenciement si la performance tombe à zéro ou après trop d'absences.<br>${equipe}<br><button class="btn small" data-chercher>Voir les annonces (une fois par semaine)</button></small>`;
+  if (T.offres.length) carriere += `<div class="list">${T.offres.map(o => `<div class="opt line"><span><b>${esc(o.employeur)}</b><small>${fmtDH(o.salaire)} par semaine · ${o.source === 'reseau' ? 'par le réseau' : 'annonce'}</small></span><button class="btn small primary" data-entretien="${o.id}">Entretien</button></div>`).join('')}</div>`;
   let h = banner(revenu('boulots') ? 'illu-boulots' : revenu('daret') ? 'illu-daret' : 'illu-travail') + `<p class="hint">${esc(M.nom)} : ${esc(M.desc)}</p>` +
-    stat('icone-salaire', `<span>Salaire</span><b>${fmtDH(job.salaire)} par semaine</b><small>${esc(job.titre)}. Payé le vendredi soir, au prorata des jours travaillés. Promotion quand la performance atteint 100.</small>`);
+    stat('icone-salaire', `<span>Carrière</span>${carriere}`);
+  if (!T.affaire) h += stat('icone-boulot', `<span>Monter son affaire</span><small>Quitter le salariat pour son propre commerce. Capital à sortir, loyer du local, et des journées à tenir.</small><div class="list">${AFFAIRES[s.milieu].map(a => `<div class="opt line"><span><b>${esc(a.nom)}</b><small>${esc(a.desc)} Capital ${fmtDH(a.capital)}, loyer ${fmtDH(a.loyer)} par semaine.</small></span><button class="btn small" data-affaire="${a.id}" ${s.money < a.capital ? 'disabled' : ''}>Ouvrir</button></div>`).join('')}</div>`);
   if (revenu('boulots') || revenu('cours')) {
     const list = BOULOTS.filter(b => b.milieux.includes(s.milieu)).map(b => {
       const n = NPCS.find(x => x.id === b.npc), rel = s.rel[b.npc] || 0;
@@ -359,7 +372,14 @@ function moneyWays() {
 
 // Le matin : aller au travail ou non.
 export function askWork() {
-  const s = G.s;
+  const s = G.s, T = travailInfo();
+  if (T.affaire) {
+    const sh = openModal(`<h2>${esc(T.affaire.nom)}</h2><p>Il est 8 h 20. Tu ouvres aujourd'hui ? Chaque jour ouvert fidélise la clientèle (${Math.round(T.etat.clientele)} / 100), chaque jour fermé la fait fuir.</p>
+      <div class="actions"><button class="btn" id="wNo">Fermé aujourd'hui</button><button class="btn primary" id="wYes">Ouvrir</button></div>`);
+    sh.querySelector('#wYes').onclick = () => { closeModal(); enqueueWork(); };
+    sh.querySelector('#wNo').onclick = () => { closeModal(); toast('Rideau baissé aujourd\'hui.'); };
+    return;
+  }
   const sheet = openModal(`<h2>C'est l'heure du travail</h2>
     <p>Il est 8 h 20. ${esc(s.char.name)} doit être au bureau à 9 h (25 minutes de tram).${revenu('poche') ? ' Tes parents coupent l\'argent de poche si tu sèches.' : ' Sécher coûte 15 points de performance et une journée de salaire.'}</p>
     <label class="check"><input type="checkbox" id="autoWork"> Ne plus demander : partir automatiquement</label>

@@ -9,6 +9,7 @@ import {
 const GOUTS_ALL = { ...GOUTS, ...GOUTS_ANFA }, BOULOTS_ALL = [...BOULOTS, ...BOULOTS_ANFA];
 import * as Wd from './world.js';
 import { initSocial, socialMinute, remarque, rep, remiseHanout, creditPossible, evite } from './social.js';
+import { initTravail, collegueDefs, personnaliser, effetCollegue, paie, extraNoir, finExtraNoir, potDepart, journeeAffaire, evenementAffaire, jourAffaire, hausseLoyer } from './travail.js';
 
 export const G = {
   s: null,          // état sauvegardé
@@ -49,9 +50,9 @@ export const revenu = k => milieu().revenus.includes(k);
 export const Q = () => QUARTIERS[G.s.quartier];
 export const homeHere = () => G.s.quartier === G.s.chezMoi;
 export const prix = p => Math.round(p * Q().coeff);
-export const npcDefs = (q = G.s.quartier) => (q === 'anfa' ? NPCS_ANFA : NPCS);
+export const npcDefs = (q = G.s.quartier) => (q === 'anfa' ? NPCS_ANFA : NPCS).concat(q === G.s.chezMoi ? collegueDefs(G.s.milieu) : []);
 // Le loyer hebdomadaire : celui du milieu dans le quartier d'origine, sinon celui du quartier.
-export const loyerHebdo = (q = G.s.chezMoi) => (q === 'populaire' ? milieu().loyer : Math.max(700, milieu().loyer) * QUARTIERS[q].loyer);
+export const loyerHebdo = (q = G.s.chezMoi) => Math.round((q === 'populaire' ? milieu().loyer : Math.max(700, milieu().loyer) * QUARTIERS[q].loyer) * (G.s.loyerMult || 1));
 export const vehicule = () => (G.s.vehicule ? VEHICULES[G.s.vehicule] : null);
 
 // ---------- Partie ----------
@@ -70,6 +71,7 @@ export function newGame(look) {
     quartier: 'populaire', chezMoi: 'populaire', visites: { populaire: true }, vehicule: null, pratique: look.pratique || 'occasionnel',
   };
   initSocial(G.s);
+  initTravail(G.s);
   for (const a of ANIMAUX) G.s.animaux[a.id] = { confiance: 0, adopte: false, nom: '', faim: 70, fled: 0 };
   resetRuntime();
   save();
@@ -103,6 +105,7 @@ export function load() {
     if (!s.stock) s.stock = {};
     if (!s.quartier) { s.quartier = 'populaire'; s.chezMoi = 'populaire'; s.visites = { populaire: true }; s.vehicule = null; }
     initSocial(s);
+    initTravail(s);
     G.s = s; resetRuntime(); return true;
   } catch { return false; }
 }
@@ -922,11 +925,14 @@ function stepAway(m) {
   const s = G.s, a = s.away, p = awayPhase();
   applyNeeds(m, p.extra);
   if (a.lieu === 'sortie') stepSortie(m);
+  if (a.lieu === 'affaire' && !a.evt && a.phases[1].evtAt && s.t >= a.phases[1].evtAt) { a.evt = true; evenementAffaire(); }
   if (a.lieu === 'travail' && !a.evt && s.t >= a.phases[0].until + 120) {
     a.evt = true;
-    const pool = EVENEMENTS.filter(e => !e.milieux || e.milieux.includes(s.milieu)).filter(e => e.id !== s.job.lastEvt);
-    const ev = pick(pool);
-    s.job.lastEvt = ev.id;
+    const recents = s.job.recents || [];
+    const pool = EVENEMENTS.filter(e => !e.milieux || e.milieux.includes(s.milieu)).filter(e => !recents.includes(e.id));
+    const ev = { ...pick(pool.length ? pool : EVENEMENTS) };
+    s.job.recents = [ev.id, ...recents].slice(0, 4);
+    ev.texte = personnaliser(ev.texte);
     hooks.workEvent(ev, i => workChoice(ev, i));
   }
   if (a.lieu === 'travail' && !a.done && s.t >= a.phases[1].until) finishWork();
@@ -946,7 +952,7 @@ function workChoice(ev, i) {
   for (const k in eff) {
     const v = eff[k];
     if (k === 'perf') J.perf = clamp(J.perf + v, 0, 100);
-    else if (k === 'collegues') J.collegues = clamp(J.collegues + v, 0, 100);
+    else if (k === 'collegues') { J.collegues = clamp(J.collegues + v, 0, 100); effetCollegue(v); }
     else if (k === 'competence') J.competence = Math.min(10, J.competence + v);
     else if (k === 'money') s.money += v;
     else if (k === 'heures' && a) { a.phases[1].until += 60 * v; a.phases[2].until += 60 * v; }
@@ -967,7 +973,7 @@ function returnHome() {
     save();
     return;
   }
-  if (a.lieu === 'boulot' && !a.boulot) { s.pos = { ...a.back }; G.yaw = a.backYaw || 0; save(); return; }
+  if ((a.lieu === 'boulot' && !a.boulot) || a.lieu === 'affaire') { if (a.back) { s.pos = { ...a.back }; G.yaw = a.backYaw || 0; } if (a.noir) finExtraNoir(a); save(); return; }
   if (a.lieu === 'boulot') {
     const b = boulotOf(a.boulot), tip = b.pourboire ? Math.round(rand(0, b.pourboire)) : 0;
     s.money += b.paie + tip;
@@ -998,7 +1004,7 @@ function goWork() {
   enqueue({ kind: 'out', lieu: 'travail', auto: true }, true);
   toast("C'est l'heure : départ au travail.");
 }
-export function enqueueWork() { cancelAll(); enqueue({ kind: 'out', lieu: 'travail' }); }
+export function enqueueWork() { if (G.s.affaire) return journeeAffaire(); cancelAll(); enqueue({ kind: 'out', lieu: 'travail' }); }
 export function skipWork() { toast(`${nm()} ne va pas travailler aujourd'hui.`); }
 function finishWork() {
   const s = G.s, a = s.away, n = a.startNeeds, J = s.job;
@@ -1011,7 +1017,7 @@ function finishWork() {
   let msg = `Journée de travail terminée. Performance ${gain >= 0 ? '+' : ''}${gain}${a.late ? ' (retard)' : ''}.`;
   if (J.perf >= 100 && J.level < milieu().jobs.length - 1) {
     if (J.collegues < 30) { J.perf = 90; toast('Le chef pensait te promouvoir, mais l\'équipe ne te soutient pas. Soigne tes collègues.', 'bad'); }
-    else { J.level++; J.perf = 30; toast(`Promotion ! ${nm()} devient ${jobOf().titre}. Salaire : ${fmtDH(jobOf().salaire)} par semaine.`, 'good'); }
+    else { J.level++; J.perf = 30; toast(`Promotion ! ${nm()} devient ${jobOf().titre}. Salaire : ${fmtDH(Math.round(jobOf().salaire * (J.mult || 1)))} par semaine.`, 'good'); }
   } else toast(msg, gain < 0 ? 'bad' : '');
 }
 function minuteEvent(T) {
@@ -1032,21 +1038,21 @@ function minuteEvent(T) {
     s.job.absences = 0;
     if (s.money < 0) toast('Attention : ton compte est à découvert.', 'bad');
   }
-  if (w <= 4 && mm === 8 * 60 + 20 && s.job.day !== d) {
-    if (s.away) { if (s.autoWork) G.pendingWork = true; else G.workAsk = true; }
+  if (mm === 1) { jourAffaire(d); hausseLoyer(d); }
+  const actif = !s.job.chomage;
+  if (w <= 4 && mm === 8 * 60 + 20 && s.job.day !== d && actif) {
+    if (s.affaire) { if (!s.away) hooks.askWork(); }
+    else if (s.away) { if (s.autoWork) G.pendingWork = true; else G.workAsk = true; }
     else if (s.autoWork) goWork(); else hooks.askWork();
   }
-  if (w <= 4 && mm === 12 * 60 && s.job.day !== d && !(s.away && s.away.lieu === 'travail')) {
+  if (w <= 4 && mm === 12 * 60 && s.job.day !== d && actif && !s.affaire && !(s.away && s.away.lieu === 'travail')) {
     s.job.day = d; s.job.perf = Math.max(0, s.job.perf - 15); s.job.absences++; G.pendingWork = false; G.workAsk = false;
     toast("Absence au travail aujourd'hui. Ton chef n'est pas content (performance -15).", 'bad');
     if (s.quartier === 'populaire') rep(-2);
   }
-  if (w === 4 && mm === 18 * 60) {
-    const J = s.job, pay = Math.round(jobOf().salaire * J.week / 5);
-    if (pay) { s.money += pay; toast(`Salaire de la semaine : +${fmtDH(pay)} (${J.week} jour${J.week > 1 ? 's' : ''} travaillé${J.week > 1 ? 's' : ''}).`, 'good'); }
-    else toast('Pas de salaire cette semaine : aucun jour travaillé.', 'bad');
-    J.week = 0;
-  }
+  if (w === 4 && mm === 18 * 60) paie();
+  if (w === 4 && mm === 18 * 60 + 40) potDepart();
+  if (w === 5 && mm === 10 * 60) extraNoir();
   if (w === 6 && mm === 10 * 60 && revenu('poche')) {
     if (s.job.absences === 0) { s.money += POCHE; toast(`Tes parents t'envoient ton argent de poche : +${fmtDH(POCHE)}.`, 'good'); }
     else toast('Tes parents ont su que tu avais séché le travail : pas d\'argent de poche cette semaine.', 'bad');
@@ -1147,7 +1153,7 @@ function decide() {
 // ---------- Les voisins ----------
 let npcGrid = null;
 const grid = () => npcGrid || (npcGrid = Wd.blockedGrid(G.s.home, null, true));
-const dehors = (n, h) => n.def.sorties.some(([a, b]) => h >= a && h < b);
+const dehors = (n, h) => (!n.def.jours || n.def.jours.includes(dow(G.s.t))) && n.def.sorties.some(([a, b]) => h >= a && h < b);
 function goTo(n, targets, goal, chair = -1) {
   const path = Wd.findPath(G.s.home, Math.floor(n.x), Math.floor(n.z), targets, grid());
   if (!path) { n.state = 'idle'; n.nextAt = G.s.t + 5; return false; }

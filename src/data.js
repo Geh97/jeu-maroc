@@ -182,16 +182,16 @@ export const REPONSES = {
 // Événements au travail : un par journée, avec un choix. Les effets touchent la performance (chef),
 // l'ambiance avec les collègues, la compétence, le moral, l'énergie, l'argent, et parfois une heure de plus.
 export const EVENEMENTS = [
-  { id: 'heures_sup', texte: 'Ton chef te demande de rester une heure de plus ce soir pour finir un dossier urgent.', choix: [
+  { id: 'heures_sup', texte: '{chef} te demande de rester une heure de plus ce soir pour finir un dossier urgent.', choix: [
     { label: 'Rester', eff: { perf: 8, energie: -10, heures: 1 }, suite: 'Le chef a apprécié. Tu rentres plus tard.' },
     { label: 'Refuser poliment', eff: { perf: -4, moral: 4 }, suite: "Il n'a rien dit, mais il a noté." },
   ] },
-  { id: 'erreur', texte: "Un collègue a fait une erreur qui va se voir. Il te demande de ne rien dire.", choix: [
+  { id: 'erreur', texte: "{collegue} a fait une erreur qui va se voir et te demande de ne rien dire.", choix: [
     { label: 'Le couvrir', eff: { collegues: 12, perf: -3 }, suite: 'Il te doit une faveur. Le chef, lui, a trouvé le travail bâclé.' },
     { label: "L'aider à corriger discrètement", eff: { collegues: 8, perf: 2, energie: -6, competence: 0.1 }, suite: 'Deux heures de plus, mais personne n\'a rien vu.' },
     { label: 'Dire la vérité au chef', eff: { perf: 6, collegues: -10, moral: -3 }, suite: 'Le chef te félicite. Le collègue ne te parle plus.' },
   ] },
-  { id: 'pause', texte: 'Les collègues descendent prendre un café. Tu as du travail en retard.', choix: [
+  { id: 'pause', texte: '{collegue} et les autres descendent prendre un café. Tu as du travail en retard.', choix: [
     { label: 'Y aller avec eux', eff: { social: 12, moral: 6, perf: -3, collegues: 5 }, suite: 'Un bon moment. Le dossier attendra.' },
     { label: 'Rester travailler', eff: { perf: 5, social: -2, collegues: -2 }, suite: 'Le dossier est bouclé. Ils ont parlé de toi, en bas.' },
   ] },
@@ -204,12 +204,12 @@ export const EVENEMENTS = [
     { label: 'Répondre sèchement', eff: { perf: -8, moral: 4, collegues: 3 }, suite: 'Les collègues ont ri. Le chef, non.' },
     { label: 'Appeler le chef', eff: { collegues: -2 }, suite: 'Le chef a réglé ça. Les collègues te trouvent un peu mou.' },
   ] },
-  { id: 'merite', texte: "Le chef attribue à quelqu'un d'autre le mérite de ton travail.", choix: [
+  { id: 'merite', texte: "{chef} attribue à {collegue} le mérite de ton travail.", choix: [
     { label: 'Le faire remarquer calmement', eff: { perf: 3, moral: 2, collegues: -2 }, suite: 'Il a corrigé, un peu gêné.' },
     { label: 'Laisser passer', eff: { moral: -8, perf: 1 }, suite: 'Tu rumines toute la journée.' },
     { label: "S'en plaindre aux collègues", eff: { collegues: 6, moral: 2, perf: -4 }, suite: 'Ça a fini par remonter au chef.' },
   ] },
-  { id: 'prime', texte: 'Un collègue te propose de demander ensemble une prime au chef.', choix: [
+  { id: 'prime', texte: '{collegue} te propose de demander ensemble une prime à {chef}.', choix: [
     { label: 'Y aller ensemble', cond: 'perf70', ok: { money: 300, collegues: 8 }, ko: { perf: -6, collegues: 5 }, suiteOk: 'Avec ta bonne performance, le chef accepte : 300 DH !', suiteKo: 'Le chef le prend mal : « Avec ces résultats ? »' },
     { label: 'Laisser tomber', eff: { collegues: -3 }, suite: 'Il y est allé seul.' },
   ] },

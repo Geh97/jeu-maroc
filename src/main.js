@@ -8,6 +8,7 @@ import { defaultHome, entrance, doorstep } from './world.js';
 import * as S from './scene.js';
 import * as UI from './ui.js';
 import * as BLD from './build.js';
+import * as TR from './travail.js';
 
 const canvas = document.getElementById('c');
 S.initScene(canvas);
@@ -19,7 +20,7 @@ hooks.sortieEvent = UI.sortieEvent;
 hooks.lookChanged = () => S.setCharLook(G.s.char);
 const ctx = () => ({ quartier: G.s.quartier, withHome: homeHere(), vehicule: G.s.vehicule, npcs: npcDefs() });
 hooks.quartierChanged = () => { S.setQuartier(ctx()); UI.updateHud(); };
-window.jeu = { G, advance, enqueue, hooks, debugCam: S.debugCam, npcActions, animalActions, newGame, start, rebuild: () => S.rebuildHome(G.s.home), setCam: S.setCam, setFollow: S.setFollow, demenager, acheterVehicule }; // pour tester depuis la console du navigateur
+window.jeu = { G, advance, enqueue, hooks, debugCam: S.debugCam, npcActions, animalActions, newGame, start, rebuild: () => S.rebuildHome(G.s.home), setCam: S.setCam, setFollow: S.setFollow, demenager, acheterVehicule, travail: TR }; // pour tester depuis la console du navigateur
 
 const walls = ['coupes', 'bas', 'hauts'];
 let wallIdx = 0, preview = null;
