@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#b5562e">
+  <title>Jeu de vie au Maroc (prototype)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700&family=Nunito:wght@500;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <canvas id="c"></canvas>
+
+  <div id="hud" hidden>
+    <header id="top">
+      <div class="pill clock"><b id="day"></b><span id="time"></span></div>
+      <div class="pill speeds" id="speeds">
+        <button data-speed="0" aria-label="Pause"><svg viewBox="0 0 20 20"><rect x="5" y="4" width="3.5" height="12" rx="1"/><rect x="11.5" y="4" width="3.5" height="12" rx="1"/></svg></button>
+        <button data-speed="1" aria-label="Vitesse normale"><svg viewBox="0 0 20 20"><path d="M6 4l10 6-10 6z"/></svg></button>
+        <button data-speed="2" aria-label="Rapide"><svg viewBox="0 0 20 20"><path d="M2 4l8 6-8 6zM10 4l8 6-8 6z"/></svg></button>
+        <button data-speed="3" aria-label="Très rapide"><svg viewBox="0 0 24 20"><path d="M1 4l7 6-7 6zM8 4l7 6-7 6zM15 4l7 6-7 6z"/></svg></button>
+      </div>
+      <div class="grow"></div>
+      <div class="pill money" id="money"></div>
+      <button class="pill btn" id="wallsBtn">Murs coupés</button>
+      <button class="pill btn primary" id="modeBtn">Construire</button>
+      <button class="pill btn icon" id="menuBtn" aria-label="Menu"><svg viewBox="0 0 20 20"><rect x="3" y="4.5" width="14" height="2" rx="1"/><rect x="3" y="9" width="14" height="2" rx="1"/><rect x="3" y="13.5" width="14" height="2" rx="1"/></svg></button>
+    </header>
+    <div id="toasts"></div>
+    <section id="live">
+      <div id="queue"></div>
+      <div id="away" class="card" hidden></div>
+      <div class="card" id="status">
+        <button id="portrait" class="portrait" aria-label="Fiche du personnage"></button>
+        <div class="who"><b id="cname"></b><span id="mood"></span></div>
+        <div id="needs"></div>
+      </div>
+    </section>
+    <section id="build" hidden></section>
+  </div>
+
+  <div id="pop" hidden></div>
+  <div id="modal" hidden><div class="sheet" id="sheet"></div></div>
+
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>
