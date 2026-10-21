@@ -43,7 +43,7 @@ export function render() {
     else hint = 'Choisis un meuble à acheter, ou touche un meuble de la maison pour le déplacer ou le vendre.';
     items = `<div class="chips cats">${Object.entries(CATS).map(([k, n]) => `<button data-cat="${k}" class="${B.cat === k ? 'on' : ''}">${n}</button>`).join('')}</div>
       <div class="cards">${Object.entries(FURN).filter(([, f]) => f.cat === B.cat).map(([k, f]) =>
-        `<button class="card-i ${f.img ? 'thumb' : ''} ${B.item === k ? 'on' : ''}" data-item="${k}">${f.img ? `<img src="${asset(f.img)}" alt="" draggable="false">` : ''}<b>${esc(f.nom)}</b><small>${fmtDH(f.prix)}${f.beaute ? ` · ambiance +${f.beaute}` : ''}</small></button>`).join('')}</div>`;
+        `<button class="card-i ${f.img ? 'thumb' : ''} ${B.item === k ? 'on' : ''}" data-item="${k}">${f.img ? `<img src="${asset(f.img)}" alt="" draggable="false">` : ''}<b>${esc(f.nom)}</b><small>${G.s.stock[k] ? `Dans tes affaires : ${G.s.stock[k]} (gratuit)` : fmtDH(f.prix)}${f.beaute ? ` · ambiance +${f.beaute}` : ''}</small></button>`).join('')}</div>`;
     if (B.item || B.moving) {
       if (B.ghost) acts += '<button class="btn primary" data-a="place">Poser ici</button>';
       acts += '<button class="btn" data-a="rot">Tourner</button><button class="btn" data-a="cancel">Annuler</button>';
@@ -140,10 +140,12 @@ function place(t) {
     Object.assign(getF(B.moving.id), { x: t.x, z: t.z, r: B.rot });
     B.moving = null; B.ghost = null; S.hideGhost();
   } else {
-    if (!spend(FURN[type].prix)) return;
+    const stock = G.s.stock[type] || 0;
+    if (stock) { G.s.stock[type] = stock - 1; toast(`${FURN[type].nom} sorti(e) de tes affaires.`); }
+    else if (!spend(FURN[type].prix)) return;
+    else toast(`${FURN[type].nom} : -${fmtDH(FURN[type].prix)}.`);
     h.furn.push({ id: h.nextId++, type, x: t.x, z: t.z, r: B.rot });
     B.ghost = null; S.hideGhost();
-    toast(`${FURN[type].nom} : -${fmtDH(FURN[type].prix)}.`);
   }
   changed();
 }

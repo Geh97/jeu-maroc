@@ -2,11 +2,11 @@
 import {
   JOURS, NEEDS, NEED_ICONS, SKINS, HAIRS, HAIR_COLORS, SCARF_COLORS, OUTFITS, OUTFIT_COLORS, TRAITS,
   LIEUX, MARCHE, RECETTES, QUAL, NPCS, CAFE, HANOUT, relLabel, asset,
-  MILIEUX, MILIEU_IDS, BOULOTS, VENTE, DARET, POCHE, EPARGNE_TAUX, ANIMAUX,
+  MILIEUX, MILIEU_IDS, BOULOTS, VENTE, DARET, POCHE, EPARGNE_TAUX, ANIMAUX, SORTIES, TAXI,
 } from './data.js';
 import {
   G, dow, dayIdx, fmtTime, fmtDH, fmtDur, enqueue, cancel, comeBack, awayPhase, basketCost, progress, hanoutOuvert, hanoutCost,
-  milieu, jobOf, revenu, joinDaret, epargne, enqueueWork, skipWork, animalName,
+  milieu, jobOf, revenu, joinDaret, epargne, enqueueWork, skipWork, animalName, sortieCost,
 } from './sim.js';
 import { ambiance } from './world.js';
 
@@ -72,11 +72,11 @@ export function updateHud() {
   $('away').hidden = !a;
   $('queue').hidden = !!a;
   if (a) {
-    const p = awayPhase(), L = LIEUX[a.lieu], end = a.phases[a.phases.length - 1].until;
+    const p = awayPhase(), L = LIEUX[a.lieu] || SORTIES[a.dest] || { nom: '' }, end = a.phases[a.phases.length - 1].until;
     const pct = Math.min(100, (s.t - a.start) / (end - a.start) * 100);
     $('away').innerHTML = `<div class="away-t"><b>${esc(p.label === 'En chemin' ? 'En chemin : ' + L.nom.toLowerCase() : p.label)}</b>
       <span>Retour vers ${fmtTime(end)}</span></div><div class="bar"><i style="width:${pct}%"></i></div>
-      ${a.lieu === 'hammam' ? '<button class="btn small" data-back>Rentrer plus tôt</button>' : ''}`;
+      ${a.lieu === 'hammam' || a.lieu === 'sortie' ? '<button class="btn small" data-back>Rentrer plus tôt</button>' : ''}`;
     return;
   }
   const items = (G.cur ? [G.cur.it] : []).concat(G.queue);
@@ -352,11 +352,42 @@ export function askWork() {
   sheet.querySelector('#wNo').onclick = () => { auto(); closeModal(); skipWork(); };
 }
 
-// Un événement au travail : on choisit, et les conséquences tombent tout de suite.
-export function workEvent(ev, cb) {
-  const sheet = openModal(`${banner('illu-travail')}<h2>Au travail</h2><p>${esc(ev.texte)}</p>
+// Un événement avec un choix (au travail, en sortie) : les conséquences tombent tout de suite.
+export function choiceEvent(titre, img, ev, cb) {
+  const sheet = openModal(`${img ? banner(img) : ''}<h2>${esc(titre)}</h2><p>${esc(ev.texte)}</p>
     <div class="list">${ev.choix.map((c, i) => `<button class="opt" data-i="${i}"><span><b>${esc(c.label)}</b></span></button>`).join('')}</div>`);
   sheet.querySelectorAll('[data-i]').forEach(b => { b.onclick = () => { closeModal(); cb(+b.dataset.i); }; });
+}
+export const workEvent = (ev, cb) => choiceEvent('Au travail', 'illu-travail', ev, cb);
+export const sortieEvent = (ev, cb) => choiceEvent(ev.titre, ev.img, ev, cb);
+
+// Sortir en ville : choisir la destination, puis le taxi et l'activité.
+export function openSorties() {
+  const sheet = openModal(`${closeBtn}<h2>Sortir en ville</h2><p>Depuis l'arrêt de taxi au coin de la rue. Chaque sortie prend l'après-midi ou la soirée.</p>
+    <div class="list">${Object.entries(SORTIES).map(([k, d]) => `<button class="opt" data-d="${k}"><span><b>${esc(d.nom)}</b><small>${esc(d.desc)}</small></span></button>`).join('')}</div>`);
+  bindClose(sheet);
+  sheet.querySelectorAll('[data-d]').forEach(b => { b.onclick = () => openSortie(b.dataset.d); });
+}
+function openSortie(dest) {
+  const Sd = SORTIES[dest], s = G.s, choix = { taxi: 'petit', act: Sd.activites[0].id };
+  const effTxt = eff => Object.entries(eff).map(([k, v]) => `${NEEDS[k]} ${v > 0 ? '+' : ''}${v}`).join(' · ');
+  const sheet = openModal(`${closeBtn}${banner(Sd.img)}<h2>${esc(Sd.nom)}</h2><p>${esc(Sd.desc)}</p>
+    <div class="row"><span>Le taxi (aller et retour)</span><div class="chips">${['petit', 'grand'].map(t => `<button data-taxi="${t}">${TAXI[t].nom} · ${fmtDH(Sd.trajet[t].prix * 2)} · ${fmtDur(Sd.trajet[t].dur)}</button>`).join('')}</div><p class="hint" id="taxiDesc"></p></div>
+    <div class="row"><span>Sur place</span><div class="list">${Sd.activites.map(a => `<button class="opt" data-act="${a.id}"><span><b>${esc(a.nom)}</b><small>${fmtDur(a.dur)} · ${a.achat ? 'à marchander' : effTxt(a.eff)}</small></span><em>${a.prix ? fmtDH(a.prix) : 'gratuit'}</em></button>`).join('')}</div></div>
+    <div class="actions"><button class="btn" id="sBack">Retour</button><button class="btn primary" id="sGo">Partir</button></div>`);
+  bindClose(sheet);
+  const sync = () => {
+    sheet.querySelectorAll('[data-taxi]').forEach(b => b.classList.toggle('on', b.dataset.taxi === choix.taxi));
+    sheet.querySelectorAll('[data-act]').forEach(b => b.classList.toggle('sel', b.dataset.act === choix.act));
+    sheet.querySelector('#taxiDesc').textContent = TAXI[choix.taxi].desc;
+    const cost = sortieCost(dest, choix.taxi, choix.act), go = sheet.querySelector('#sGo');
+    go.textContent = `Partir (${fmtDH(cost)})`; go.disabled = cost > s.money;
+  };
+  sheet.querySelectorAll('[data-taxi]').forEach(b => { b.onclick = () => { choix.taxi = b.dataset.taxi; sync(); }; });
+  sheet.querySelectorAll('[data-act]').forEach(b => { b.onclick = () => { choix.act = b.dataset.act; sync(); }; });
+  sheet.querySelector('#sBack').onclick = () => openSorties();
+  sheet.querySelector('#sGo').onclick = () => { closeModal(); enqueue({ kind: 'sortie', dest, taxi: choix.taxi, act: choix.act }); };
+  sync();
 }
 
 // Adopter un animal : lui donner un nom.

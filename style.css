@@ -175,6 +175,7 @@ img.mini { width: 24px; height: 24px; vertical-align: -7px; }
 button.opt:hover:not(:disabled) { box-shadow: inset 0 0 0 2px var(--safran); }
 .opt:disabled { opacity: 0.5; }
 .opt.danger b { color: #b0391f; }
+.opt.sel { box-shadow: inset 0 0 0 3px var(--terre); }
 .qty { display: flex; align-items: center; gap: 8px; }
 .qty button { width: 34px; height: 34px; border-radius: 50%; background: var(--creme-2); font-size: 20px; font-weight: 800; }
 .qty b { min-width: 16px; text-align: center; }

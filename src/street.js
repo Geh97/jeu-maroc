@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 import * as T from './textures.js';
 import { mat, box, cyl, sph, add, BRASS, GLASS, texMat, makeFurniture } from './models.js';
-import { W, D, X0, X1, Z1, RUE, CAFE, PLACE } from './data.js';
+import { W, D, X0, X1, Z1, RUE, CAFE, PLACE, TAXI } from './data.js';
 
 // Palette des façades : crème, sable, ocre clair ; socles terre cuite, tuiles vertes, bois sombre.
 const FACADES = ['#f1e9d8', '#e9d8b8', '#f4ecdf', '#e4cfae'];
@@ -315,6 +315,19 @@ export function makeStreet() {
   for (const [x, z] of [[-1.15, 0.8], [1.15, 0.8], [-1.15, -0.8], [1.15, -0.8]]) {
     const w = cyl(taxi, 0.32, 0.32, 0.22, mat('#1b1b1b'), x, 0.32, z, 16); w.rotation.x = Math.PI / 2;
   }
+  // L'arrêt de taxi au coin de la rue : panneau, et un grand taxi blanc qui attend.
+  const A = TAXI.arret, arret = new THREE.Group(); g.add(arret);
+  cyl(arret, 0.04, 0.05, 2.6, iron(), A.x + 0.5, 1.3, A.z + 0.5, 8);
+  box(arret, 0.9, 0.5, 0.06, mat('#f2ede3'), A.x + 0.5, 2.45, A.z + 0.5);
+  box(arret, 0.9, 0.16, 0.07, mat('#c8102e'), A.x + 0.5, 2.6, A.z + 0.5);
+  box(arret, 0.9, 0.16, 0.07, mat('#2f4f7a'), A.x + 0.5, 2.3, A.z + 0.5);
+  const gt = new THREE.Group(); gt.position.set(A.x + 3.5, 0, D + 4.5); g.add(gt);
+  box(gt, 4.6, 0.65, 1.7, mat('#f2f0e6', { roughness: 0.35 }), 0, 0.55, 0);
+  box(gt, 2.6, 0.6, 1.55, mat('#f2f0e6', { roughness: 0.35 }), -0.3, 1.15, 0);
+  box(gt, 2.5, 0.42, 1.57, mat('#2b3440', { roughness: 0.2 }), -0.3, 1.15, 0);
+  box(gt, 0.6, 0.18, 0.3, mat('#2f4f7a'), -0.3, 1.55, 0);
+  for (const [x, z] of [[-1.5, 0.85], [1.5, 0.85], [-1.5, -0.85], [1.5, -0.85]]) { const w = cyl(gt, 0.33, 0.33, 0.22, mat('#1b1b1b'), x, 0.33, z, 16); w.rotation.x = Math.PI / 2; }
+  arret.traverse(o => { o.userData.taxi = true; }); gt.traverse(o => { o.userData.taxi = true; });
   // Au loin : un grand minaret à la Hassan II.
   const m = new THREE.Group(); m.position.set(X1 + 30, 0, -50); g.add(m);
   box(m, 4, 34, 4, mat('#e3d6bd'), 0, 17, 0);

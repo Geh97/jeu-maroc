@@ -269,7 +269,7 @@ let chairMeshes = null;
 export function pick(px, py, opts = {}) {
   ndc.set(px / innerWidth * 2 - 1, -(py / innerHeight) * 2 + 1);
   ray.setFromCamera(ndc, camera);
-  if (!chairMeshes) { chairMeshes = []; street.traverse(o => { if (o.isMesh && (o.userData.chair != null || o.userData.hanout)) chairMeshes.push(o); }); }
+  if (!chairMeshes) { chairMeshes = []; street.traverse(o => { if (o.isMesh && (o.userData.chair != null || o.userData.hanout || o.userData.taxi)) chairMeshes.push(o); }); }
   const objs = [...furnGroups.values(), ...segs.map(s => s.g), ...chairMeshes, floorPlane];
   if (!opts.build) {
     for (const n of npcs.values()) if (n.root.visible) objs.unshift(n.root);
@@ -283,6 +283,7 @@ export function pick(px, py, opts = {}) {
     if (u.animal) return { type: 'animal', id: u.animal };
     if (u.chair != null) return { type: 'chair', id: u.chair };
     if (u.hanout && !opts.build) return { type: 'hanout' };
+    if (u.taxi && !opts.build) return { type: 'taxi' };
     if (u.fid != null) {
       if (!opts.build && FURN[typeOf(u.fid)].sol) return floorHit(h.point);
       return { type: 'furn', id: u.fid, point: h.point };

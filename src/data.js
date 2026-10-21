@@ -387,6 +387,92 @@ export const PAINT_PRICE = 300;
 export const WAINSCOT_PRICE = 400;
 export const WALL_PRICES = { wall: 80, door: 350, window: 500 };
 
+// L'arrêt de taxi au coin de la rue, et les sorties en ville.
+export const TAXI = {
+  arret: { x: X0 + 3, z: D + 1 },
+  petit: { nom: 'Petit taxi', desc: 'Le rouge, pour toi seul(e). Au compteur, en principe.' },
+  grand: { nom: 'Grand taxi', desc: 'Le blanc, partagé à six. Moins cher, mais il part quand il est plein.', attente: [5, 25] },
+};
+// Chaque sortie : trajets (prix et durée par taxi), activités au choix, et un événement avec un choix pendant la sortie.
+export const SORTIES = {
+  plage: {
+    nom: 'La plage et la corniche', img: 'ecran-accueil', ici: 'À la plage', desc: 'Aïn Diab : la corniche, le sable, les cafés avec vue sur l\'océan.',
+    trajet: { petit: { prix: 35, dur: 25 }, grand: { prix: 10, dur: 35 } },
+    activites: [
+      { id: 'bain', nom: 'Se baigner', prix: 0, dur: 120, eff: { moral: 24, hygiene: 20, energie: -12, social: 6 } },
+      { id: 'balade', nom: 'Marcher sur la corniche', prix: 0, dur: 90, eff: { moral: 18, energie: -6, social: 8 } },
+      { id: 'cafe', nom: 'Un café avec vue sur l\'océan', prix: 30, dur: 90, eff: { moral: 22, social: 10, faim: 6 } },
+      { id: 'foot', nom: 'Un match de foot sur le sable', prix: 0, dur: 120, eff: { moral: 26, social: 22, energie: -22, hygiene: -15 } },
+    ],
+    evenements: [
+      { texte: 'Un groupe de jeunes cherche un joueur pour compléter leur équipe.', choix: [
+        { label: 'Jouer avec eux', eff: { social: 15, moral: 8, energie: -10 }, suite: 'Ils t\'ont adopté(e). Rendez-vous dimanche prochain.' },
+        { label: 'Décliner poliment', eff: { moral: 2 }, suite: 'Tu profites du calme.' },
+      ] },
+      { texte: 'Un vendeur ambulant passe avec des beignets chauds (sfenj).', choix: [
+        { label: 'En prendre trois (10 DH)', eff: { money: -10, faim: 18, moral: 8 }, suite: 'Encore chauds, avec du sucre. Le bonheur.' },
+        { label: 'Non merci', eff: {}, suite: 'Il s\'éloigne en criant « sfenj, sfenj ! ».' },
+      ] },
+      { texte: 'Le soleil tape. Tu n\'as pas de crème solaire.', choix: [
+        { label: 'Acheter un parasol (40 DH)', eff: { money: -40, moral: 4 }, suite: 'À l\'ombre, la vie est belle.' },
+        { label: 'Rester au soleil', eff: { moral: -6, energie: -8 }, suite: 'Coup de soleil. Tu le sentiras ce soir.' },
+      ] },
+    ],
+  },
+  mall: {
+    nom: 'Le mall et le cinéma', img: 'illu-travail', ici: 'Au mall', desc: 'Climatisation, escalators, cinéma, fast-food et vitrines. La sortie des jeunes et des familles.',
+    trajet: { petit: { prix: 40, dur: 30 }, grand: { prix: 12, dur: 45 } },
+    activites: [
+      { id: 'cine', nom: 'Une séance de cinéma', prix: 60, dur: 150, eff: { moral: 28, social: 8, energie: 4 } },
+      { id: 'fastfood', nom: 'Burger et frites', prix: 55, dur: 60, eff: { faim: 55, moral: 10, social: 6 } },
+      { id: 'vitrines', nom: 'Faire les vitrines', prix: 0, dur: 90, eff: { moral: 8, social: 6, energie: -6 } },
+      { id: 'tenue', nom: 'S\'acheter une nouvelle tenue', prix: 350, dur: 90, eff: { moral: 20, social: 6 }, tenue: true },
+    ],
+    evenements: [
+      { texte: 'Tu croises un ancien camarade de classe qui réussit très bien, en apparence.', choix: [
+        { label: 'Prendre un café ensemble', eff: { social: 14, moral: 4, money: -30 }, suite: 'Il a payé la moitié. Il t\'a parlé d\'une opportunité, à voir.' },
+        { label: 'Un bonjour rapide', eff: { social: 4 }, suite: 'Chacun sa route.' },
+        { label: 'Faire semblant de ne pas le voir', eff: { moral: -4 }, suite: 'Tu as fait semblant de regarder une vitrine.' },
+      ] },
+      { texte: 'Soldes : une veste que tu aimes est à moitié prix (200 DH).', choix: [
+        { label: 'L\'acheter', eff: { money: -200, moral: 14 }, suite: 'Elle te va très bien.', tenue: true },
+        { label: 'Résister', eff: { moral: -2 }, suite: 'Tu y repenses encore dans le taxi.' },
+      ] },
+      { texte: 'La file au cinéma est interminable.', choix: [
+        { label: 'Attendre', eff: { energie: -6, moral: -3 }, suite: 'Quarante minutes debout.' },
+        { label: 'Payer le pop-corn pour passer devant (30 DH)', eff: { money: -30, moral: 4 }, suite: 'Le vendeur t\'a fait un clin d\'œil.' },
+      ] },
+    ],
+  },
+  medina: {
+    nom: 'Le souk et la médina', img: 'illu-marche', ici: 'Dans la médina', desc: 'Les ruelles, les artisans, les tissus et les lanternes. Tout se marchande.',
+    trajet: { petit: { prix: 25, dur: 20 }, grand: { prix: 8, dur: 30 } },
+    activites: [
+      { id: 'flaner', nom: 'Flâner dans les ruelles', prix: 0, dur: 120, eff: { moral: 16, social: 8, energie: -10 } },
+      { id: 'tapis', nom: 'Marchander un tapis berbère', prix: 0, dur: 90, eff: { moral: 6, social: 6 }, achat: { type: 'tapis', prix: 1200 } },
+      { id: 'lanterne', nom: 'Marchander une lanterne en fer forgé', prix: 0, dur: 60, eff: { moral: 6, social: 6 }, achat: { type: 'lanterne', prix: 420 } },
+      { id: 'jarre', nom: 'Marchander une grande jarre', prix: 0, dur: 60, eff: { moral: 6, social: 6 }, achat: { type: 'jarre', prix: 480 } },
+      { id: 'the', nom: 'Un thé chez un artisan', prix: 10, dur: 60, eff: { moral: 16, social: 14, faim: 4 } },
+    ],
+    evenements: [
+      { texte: 'Un faux guide insiste pour te montrer « la vraie médina ».', choix: [
+        { label: 'Le suivre', cond: 'chance50', ok: { moral: 10, social: 6 }, ko: { money: -50, moral: -8 }, suiteOk: 'Il connaissait des coins magnifiques.', suiteKo: 'Il t\'a laissé(e) devant la boutique de son cousin, et il a fallu payer.' },
+        { label: 'Refuser fermement', eff: { moral: 2 }, suite: 'Il est parti chercher un touriste.' },
+      ] },
+      { texte: 'Une vieille dame vend du pain chaud devant sa porte.', choix: [
+        { label: 'En acheter (3 DH)', eff: { money: -3, faim: 12, moral: 6 }, suite: 'Elle t\'a souhaité une longue vie.' },
+        { label: 'Passer son chemin', eff: {}, suite: 'L\'odeur te suit jusqu\'au bout de la ruelle.' },
+      ] },
+    ],
+  },
+};
+// Le marchandage : trois façons d'aborder le prix.
+export const MARCHANDAGE = [
+  { label: 'Proposer la moitié', chance: 0.35, ok: 0.6, ko: 0.95, suiteOk: 'Il râle, puis il accepte. Belle affaire.', suiteKo: 'Il fait mine de ranger l\'objet. Tu finis par payer presque le prix fort.' },
+  { label: 'Proposer 70 %', chance: 0.65, ok: 0.75, ko: 0.9, suiteOk: 'Marché conclu, avec un verre de thé.', suiteKo: 'Il tient bon. Petite remise seulement.' },
+  { label: 'Payer sans discuter', chance: 1, ok: 1, ko: 1, suiteOk: 'Il te regarde comme un touriste, mais il est ravi.', suiteKo: '' },
+];
+
 // Images fournies (dossier assets/). crop : bords à rogner (gauche, haut, droite, bas), en fraction.
 export const IMG = {
   'sol-carrelage-beige': { crop: [0.065, 0.012, 0.01, 0.01] },

@@ -15,6 +15,8 @@ S.setTypeLookup(id => (G.s && G.s.home.furn.find(f => f.id === id) || { type: 'p
 hooks.toast = UI.toast;
 hooks.askWork = UI.askWork;
 hooks.workEvent = UI.workEvent;
+hooks.sortieEvent = UI.sortieEvent;
+hooks.lookChanged = () => S.setCharLook(G.s.char);
 window.jeu = { G, advance, enqueue, hooks, debugCam: S.debugCam, npcActions, animalActions, newGame, start, rebuild: () => S.rebuildHome(G.s.home), setCam: S.setCam, setFollow: S.setFollow }; // pour tester depuis la console du navigateur
 
 const walls = ['coupes', 'bas', 'hauts'];
@@ -121,11 +123,14 @@ function onTap(x, y, type) {
     UI.showPop(x, y, doorActions(), it => {
       if (it.act === 'travail') enqueueWork();
       else if (it.act === 'hanout') UI.openHanout();
+      else if (it.act === 'sorties') UI.openSorties();
       else if (it.act === 'rue') { const t = isHome() ? doorstep(G.s.home) : entrance(G.s.home); enqueue({ kind: 'goto', x: t.x, z: t.z, label: it.label }); }
       else UI.openLieu(it.param);
     });
   } else if (h.type === 'hanout') {
     UI.openHanout();
+  } else if (h.type === 'taxi') {
+    UI.openSorties();
   } else if (h.type === 'chair') {
     UI.showPop(x, y, chairActions(h.id), it => enqueue({ kind: 'cafe', chair: it.chair, opt: it.opt }));
   } else if (h.type === 'npc') {

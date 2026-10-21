@@ -1,5 +1,5 @@
 // Le quartier : grille, murs de l'appartement (sur les bords des cases), meubles, obstacles, chemins.
-import { W, D, X0, X1, Z0, Z1, FURN, FLOORS, RUE, CAFE, PLACE } from './data.js';
+import { W, D, X0, X1, Z0, Z1, FURN, FLOORS, RUE, CAFE, PLACE, TAXI } from './data.js';
 
 export const GW = X1 - X0, GD = Z1 - Z0;
 export const idx = (x, z) => (z - Z0) * GW + (x - X0);
@@ -74,7 +74,7 @@ export function outdoorGrid() {
   RUE.lampes.forEach(mark); RUE.palmiers.forEach(mark); RUE.taxi.cells.forEach(mark); RUE.hanout.caisses.forEach(mark); RUE.charrette.cells.forEach(mark);
   mark(RUE.banc); mark({ x: RUE.banc.x + 1, z: RUE.banc.z });
   CAFE.tables.forEach(mark); CAFE.chaises.forEach(mark); CAFE.poteaux.forEach(mark);
-  PLACE.fontaine.cells.forEach(mark); PLACE.orangers.forEach(mark);
+  PLACE.fontaine.cells.forEach(mark); PLACE.orangers.forEach(mark); mark(TAXI.arret);
   for (const b of PLACE.bancs) { mark(b); mark({ x: b.x + 1, z: b.z }); }
   return (outdoor = g);
 }

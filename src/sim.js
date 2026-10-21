@@ -3,7 +3,7 @@ import {
   SAVE_KEY, WALK, FURN, ACT, RECETTES, QUAL, QUAL_MORAL,
   MARCHE, LIEUX, RUE, CAFE, HANOUT, NPCS, PASSANTS, SALUTS, X0, X1, D, matchEnCours, relLabel,
   MILIEUX, POCHE, EPARGNE_TAUX, DARET, BOULOTS, VENTE, VENTE_MAX, ACHETEURS, ANIMAUX, ADOPT_SEUIL,
-  SUJETS, GOUTS, REPONSES, EVENEMENTS, PLATS_SUCRES,
+  SUJETS, GOUTS, REPONSES, EVENEMENTS, PLATS_SUCRES, TAXI, SORTIES, MARCHANDAGE, OUTFIT_COLORS,
 } from './data.js';
 import * as Wd from './world.js';
 
@@ -15,7 +15,7 @@ export const G = {
   speed: 1, mode: 'live', modal: false,
   yaw: 0, walkPhase: 0, idle: 0, amb: 0, alerts: {}, pendingWork: false, workAsk: false, qid: 1,
 };
-export const hooks = { toast: () => {}, askWork: () => {}, workEvent: () => {} };
+export const hooks = { toast: () => {}, askWork: () => {}, workEvent: () => {}, sortieEvent: () => {}, lookChanged: () => {} };
 const toast = (m, k) => hooks.toast(m, k);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const rand = (a, b) => a + Math.random() * (b - a);
@@ -53,7 +53,7 @@ export function newGame(look) {
     plats: [],
     job: { level: 0, perf: 40, day: -1, week: 0, absences: 0, competence: 0, collegues: 50 },
     rel: {}, ventes: { day: -1 }, boulots: { day: -1 }, daret: null, epargne: 0, autoWork: false,
-    animaux: {}, home, pos: center(ent), away: null, lastBill: 0, autonomy: true,
+    animaux: {}, stock: {}, home, pos: center(ent), away: null, lastBill: 0, autonomy: true,
   };
   for (const a of ANIMAUX) G.s.animaux[a.id] = { confiance: 0, adopte: false, nom: '', faim: 70, fled: 0 };
   resetRuntime();
@@ -84,6 +84,7 @@ export function load() {
       s.v = 3;
     }
     if (s.job.competence == null) { s.job.competence = 0; s.job.collegues = 50; }
+    if (!s.stock) s.stock = {};
     G.s = s; resetRuntime(); return true;
   } catch { return false; }
 }
@@ -124,6 +125,7 @@ export function itemLabel(it) {
   }
   if (it.kind === 'cafe') return 'Café : ' + CAFE.options.find(o => o.id === it.opt).nom.toLowerCase();
   if (it.kind === 'hanout') return 'Courses au hanout';
+  if (it.kind === 'sortie') return SORTIES[it.dest].nom + ' (' + TAXI[it.taxi].nom.toLowerCase() + ')';
   if (it.kind === 'animal') return ANIMAL_ACTS[it.act].label + ' : ' + animalName(it.id);
   if (it.kind === 'talk') {
     const n = getN(it.npc).def.nom;
@@ -204,6 +206,7 @@ export function doorActions() {
     items: [
       { act: 'rue', label: isHome() ? 'Sortir dans la rue' : 'Rentrer à la maison', sub: isHome() ? 'Le café est juste à droite' : '' },
       { act: 'hanout', label: 'Courses au hanout', sub: hanoutOuvert(G.s.t) ? 'À côté, un peu plus cher' : `Fermé (ouvre à ${HANOUT.ouvre} h)`, disabled: !hanoutOuvert(G.s.t) },
+      { act: 'sorties', label: 'Sortir en ville (taxi)', sub: 'Plage, mall, médina' },
       { act: 'lieu', param: 'hammam', label: 'Aller au hammam', sub: 'À deux rues, 8 min' },
       { act: 'lieu', param: 'marche', label: 'Faire les courses au marché', sub: 'À deux rues, 8 min' },
       { act: 'travail', label: 'Partir au travail', sub: w || 'Tram : 25 min', disabled: !!w, why: w },
@@ -327,6 +330,10 @@ function startItem(it) {
     G.cur.spot = { x: HANOUT.devant.x + 0.5, z: HANOUT.devant.z + 0.5, yaw: Math.PI, pose: 'stand', anim: 'talk', h: 0 };
     return;
   }
+  if (it.kind === 'sortie') {
+    if (!go(Wd.approachCells(home, [TAXI.arret], blocked))) return fail(it, "Impossible d'atteindre l'arrêt de taxi.");
+    return;
+  }
   if (it.kind === 'cafe') {
     const c = CAFE.chaises[it.chair];
     if (G.chairs[it.chair] && G.chairs[it.chair] !== 'player') return fail(it, 'La chaise vient d\'être prise.');
@@ -425,6 +432,7 @@ function arrive(c) {
   const s = G.s, it = c.it;
   if (it.kind === 'goto') { G.cur = null; return; }
   if (it.kind === 'out') { depart(it); return; }
+  if (it.kind === 'sortie') { departSortie(it); return; }
   if (it.kind === 'hanout') {
     const cost = hanoutCost(it.basket), n = Object.values(it.basket).reduce((a, b) => a + b, 0);
     if (!hanoutOuvert(s.t)) return fail(it, 'Le hanout vient de fermer.');
@@ -732,6 +740,77 @@ function depart(it) {
   G.cur = null; G.queue = []; G.pendingWork = G.pendingWork && it.lieu !== 'travail';
   if (it.lieu === 'travail') s.away.startNeeds = { ...s.needs };
 }
+// ---------- Sorties en ville : taxi, activité, un événement, retour ----------
+export const sortieCost = (dest, taxi, actId) => SORTIES[dest].trajet[taxi].prix * 2 + SORTIES[dest].activites.find(a => a.id === actId).prix;
+function departSortie(it) {
+  const s = G.s, Sd = SORTIES[it.dest], tr = Sd.trajet[it.taxi], act = Sd.activites.find(a => a.id === it.act);
+  const cost = sortieCost(it.dest, it.taxi, it.act);
+  if (cost > s.money) { G.cur = null; toast("Pas assez d'argent pour cette sortie.", 'bad'); return; }
+  s.money -= cost;
+  const t0 = s.t, phases = [];
+  let t = t0;
+  if (it.taxi === 'grand') { const w = Math.round(rand(...TAXI.grand.attente)); t += w; phases.push({ until: t, label: `Attente du grand taxi (${w} min)` }); }
+  t += tr.dur; phases.push({ until: t, label: 'En taxi' });
+  const extra = {};
+  for (const k in act.eff) extra[k] = act.eff[k] / act.dur * 60;
+  phases.push({ until: t + act.dur, label: Sd.ici + ' : ' + act.nom.toLowerCase(), extra, evtAt: t + act.dur / 2 });
+  t += act.dur;
+  phases.push({ until: t + tr.dur, label: 'Retour en taxi' });
+  s.away = { lieu: 'sortie', dest: it.dest, taxi: it.taxi, act: it.act, phases, start: t0, back: { ...s.pos }, backYaw: G.yaw, evt: false };
+  G.cur = null; G.queue = [];
+  if (it.taxi === 'petit' && Math.random() < 0.3) {
+    const ev = { titre: 'Le taxi', texte: 'Le chauffeur annonce que le compteur est « en panne » et demande 10 DH de plus.', choix: [
+      { label: 'Payer les 10 DH', eff: { money: -10 }, suite: 'Il démarre en sifflotant.' },
+      { label: 'Insister pour le compteur', cond: 'chance50', ok: { moral: 4 }, ko: { moral: -3, attente: 10 }, suiteOk: 'Il soupire et met le compteur.', suiteKo: 'Il te fait descendre. Le suivant arrive dix minutes plus tard.' },
+    ] };
+    hooks.sortieEvent(ev, i => sortieChoice(ev, i));
+  }
+}
+function sortieChoice(ev, i) {
+  const s = G.s, a = s.away, ch = ev.choix[i];
+  const { eff, suite } = resolveChoice(ch);
+  for (const k in eff) {
+    const v = eff[k];
+    if (k === 'money') s.money += v;
+    else if (k === 'attente' && a) for (const p of a.phases) p.until += v;
+    else if (s.needs[k] != null) s.needs[k] = clamp(s.needs[k] + v, 0, 100);
+  }
+  if (ch.tenue) newOutfit();
+  toast(suite, eff.money < 0 ? '' : 'good');
+  save();
+}
+function newOutfit() {
+  const c = G.s.char, others = OUTFIT_COLORS.filter(x => x !== c.outfitColor);
+  c.outfitColor = pick(others);
+  hooks.lookChanged();
+}
+// Marchander un objet dans la médina : trois approches, un prix final, l'objet va dans les affaires.
+function bargain(act) {
+  const s = G.s, base = act.achat.prix, type = act.achat.type;
+  hooks.sortieEvent({ titre: FURN[type].nom, texte: `L'artisan annonce ${fmtDH(base)}. Comment tu t'y prends ?`, choix: MARCHANDAGE.map(m => ({ label: m.label })) }, i => {
+    const m = MARCHANDAGE[i], ok = Math.random() < m.chance, prix = Math.round(base * (ok ? m.ok : m.ko));
+    if (prix > s.money) { toast(`Tu n'as pas les ${fmtDH(prix)} demandés. Tu repars sans.`, 'bad'); return; }
+    s.money -= prix;
+    s.stock[type] = (s.stock[type] || 0) + 1;
+    s.needs.moral = clamp(s.needs.moral + (ok ? 10 : 2), 0, 100);
+    toast(`${ok ? m.suiteOk : m.suiteKo} ${FURN[type].nom} pour ${fmtDH(prix)}, rangé(e) dans tes affaires : à poser depuis « Construire ».`, ok ? 'good' : '');
+    save();
+  });
+}
+function stepSortie(m) {
+  const s = G.s, a = s.away, p = awayPhase();
+  if (p.evtAt && !a.evt && s.t >= p.evtAt) {
+    a.evt = true;
+    const Sd = SORTIES[a.dest], ev = pick(Sd.evenements);
+    hooks.sortieEvent({ titre: Sd.nom, img: Sd.img, texte: ev.texte, choix: ev.choix }, i => sortieChoice(ev, i));
+  }
+  if (!a.fin && s.t >= a.phases[a.phases.length - 2].until) {
+    a.fin = true;
+    const act = SORTIES[a.dest].activites.find(x => x.id === a.act);
+    if (act.tenue) { newOutfit(); toast('Nouvelle tenue ! Les voisins vont la remarquer.', 'good'); }
+    if (act.achat) bargain(act);
+  }
+}
 export function awayPhase() {
   const a = G.s.away;
   return a && (a.phases.find(p => G.s.t < p.until) || a.phases[a.phases.length - 1]);
@@ -739,11 +818,13 @@ export function awayPhase() {
 export function comeBack() {
   const s = G.s, a = s.away;
   if (!a || a.lieu === 'travail' || a.lieu === 'marche' || a.lieu === 'boulot') return;
+  if (a.lieu === 'sortie') { a.fin = true; a.phases = [{ until: s.t + SORTIES[a.dest].trajet[a.taxi].dur, label: 'Retour en taxi' }]; return; }
   a.phases = [{ until: s.t + LIEUX[a.lieu].trajet, label: 'Sur le chemin du retour' }];
 }
 function stepAway(m) {
   const s = G.s, a = s.away, p = awayPhase();
   applyNeeds(m, p.extra);
+  if (a.lieu === 'sortie') stepSortie(m);
   if (a.lieu === 'travail' && !a.evt && s.t >= a.phases[0].until + 120) {
     a.evt = true;
     const pool = EVENEMENTS.filter(e => !e.milieux || e.milieux.includes(s.milieu)).filter(e => e.id !== s.job.lastEvt);
@@ -754,14 +835,17 @@ function stepAway(m) {
   if (a.lieu === 'travail' && !a.done && s.t >= a.phases[1].until) finishWork();
   if (s.t >= a.phases[a.phases.length - 1].until) returnHome();
 }
+// Un choix (au travail ou en sortie) : tire le sort s'il y a une condition, puis renvoie les effets et la phrase.
+function resolveChoice(ch) {
+  const J = G.s.job;
+  if (!ch.cond) return { eff: ch.eff || {}, suite: ch.suite || '' };
+  const ok = ch.cond === 'perf70' ? J.perf >= 70 : Math.random() < (+ch.cond.replace('chance', '') / 100);
+  return { eff: ok ? ch.ok : ch.ko, suite: ok ? ch.suiteOk : ch.suiteKo };
+}
 // Le choix fait au travail s'applique tout de suite. Retourne la phrase de conclusion.
 function workChoice(ev, i) {
   const s = G.s, J = s.job, ch = ev.choix[i], a = s.away;
-  let eff = ch.eff, suite = ch.suite;
-  if (ch.cond) {
-    const ok = ch.cond === 'perf70' ? J.perf >= 70 : Math.random() < (+ch.cond.replace('chance', '') / 100);
-    eff = ok ? ch.ok : ch.ko; suite = ok ? ch.suiteOk : ch.suiteKo;
-  }
+  const { eff, suite } = resolveChoice(ch);
   for (const k in eff) {
     const v = eff[k];
     if (k === 'perf') J.perf = clamp(J.perf + v, 0, 100);
@@ -779,6 +863,12 @@ function workChoice(ev, i) {
 function returnHome() {
   const s = G.s, a = s.away;
   s.away = null;
+  if (a.lieu === 'sortie') {
+    s.pos = { ...a.back }; G.yaw = a.backYaw || 0;
+    toast(`${nm()} est de retour de ${SORTIES[a.dest].nom.toLowerCase()}.`);
+    save();
+    return;
+  }
   if (a.lieu === 'boulot') {
     const b = boulotOf(a.boulot), tip = b.pourboire ? Math.round(rand(0, b.pourboire)) : 0;
     s.money += b.paie + tip;
