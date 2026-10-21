@@ -6,7 +6,7 @@ import {
 } from './data.js';
 import {
   G, dow, dayIdx, fmtTime, fmtDH, fmtDur, enqueue, cancel, comeBack, awayPhase, basketCost, progress, hanoutOuvert, hanoutCost,
-  milieu, jobOf, revenu, joinDaret, epargne, enqueueWork, skipWork, animalName, sortieCost, Q, prix, homeHere, loyerHebdo, vehicule, demenager, acheterVehicule, quartierCost,
+  milieu, jobOf, revenu, joinDaret, epargne, enqueueWork, skipWork, animalName, sortieCost, Q, prix, homeHere, loyerHebdo, vehicule, demenager, acheterVehicule, quartierCost, npcDefs,
 } from './sim.js';
 import { ambiance } from './world.js';
 
@@ -290,8 +290,8 @@ export function openFiche(tab = 'moi') {
     ${animaux ? `<div class="stat"><span>À la maison</span><small>${animaux}</small></div>` : ''}`;
   const argent = moneyWays();
   const heures = n => n.sorties.map(([a, b]) => `${fmtH(a)}–${fmtH(b)}`).join(' et ');
-  const voisins = `${banner('illu-cafe')}<p class="hint">Le ${CAFE.nom.toLowerCase()} ouvre de ${CAFE.ouvre} h à ${CAFE.ferme} h. Les voisins passent dans la rue à leurs heures.</p>` +
-    NPCS.map(n => { const v = s.rel[n.id] || 0, live = G.npcs.find(x => x.id === n.id); return `
+  const voisins = `${banner('illu-cafe')}<p class="hint">Le ${Q().cafeNom.toLowerCase()} ouvre de ${CAFE.ouvre} h à ${CAFE.ferme} h. Les voisins passent dans la rue à leurs heures.</p>` +
+    npcDefs().map(n => { const v = s.rel[n.id] || 0, live = G.npcs.find(x => x.id === n.id); return `
     <div class="stat voisin ico">${img('portrait-' + n.id)}<div><span>${esc(n.nom)} · ${relLabel(v)}${live && live.visible ? ' · dans la rue' : ''}</span>
       <div class="bar"><i style="width:${v}%"></i></div><small>${esc(n.desc)} Dehors : ${heures(n)}.</small></div></div>`; }).join('') +
     ANIMAUX.map(a => { const st = s.animaux[a.id]; return `
@@ -343,10 +343,10 @@ function moneyWays() {
   let dem;
   if (!s.visites[autre]) dem = `Pour louer ${QUARTIERS[autre].article}, il faut d'abord y aller voir (taxi depuis le coin de la rue).`;
   else dem = `Loyer ${fmtDH(loyerAutre)} par semaine, caution ${fmtDH(caution)} (${CAUTION_SEMAINES} semaines), première semaine d'avance : ${fmtDH(caution + loyerAutre)} à verser. Tes meubles suivent. <button class="btn small primary" data-dem="${autre}" ${s.money < caution + loyerAutre ? 'disabled' : ''}>Déménager ${QUARTIERS[autre].article}</button>`;
-  h += stat('milieu-' + s.milieu, `<span>Logement</span><b>Tu habites ${QUARTIERS[s.chezMoi].article}</b><small>${loyerHebdo() ? `Loyer ${fmtDH(loyerHebdo())} par semaine.` : 'Sans loyer.'} ${dem}</small>`);
+  h += stat('icone-demenagement', `<span>Logement</span><b>Tu habites ${QUARTIERS[s.chezMoi].article}</b><small>${loyerHebdo() ? `Loyer ${fmtDH(loyerHebdo())} par semaine.` : 'Sans loyer.'} ${dem}</small>`);
   // Se déplacer : le véhicule.
   const v = vehicule();
-  h += stat('icone-boulot', `<span>Se déplacer</span>${v ? `<b>${esc(v.nom)}</b><small>${esc(v.desc)}</small>` : `<small>Les taxis, en attendant mieux.</small><div class="list">${Object.entries(VEHICULES).map(([k, x]) => `<div class="opt line"><span><b>${esc(x.nom)}</b><small>${esc(x.desc)}</small></span><button class="btn small" data-veh="${k}" ${s.money < x.prix ? 'disabled' : ''}>${fmtDH(x.prix)}</button></div>`).join('')}</div>`}`);
+  h += stat(s.vehicule ? 'icone-' + s.vehicule : 'icone-taxi-petit', `<span>Se déplacer</span>${v ? `<b>${esc(v.nom)}</b><small>${esc(v.desc)}</small>` : `<small>Les taxis, en attendant mieux.</small><div class="list">${Object.entries(VEHICULES).map(([k, x]) => `<div class="opt line ico">${img('vehicule-' + k)}<span><b>${esc(x.nom)}</b><small>${esc(x.desc)}</small></span><button class="btn small" data-veh="${k}" ${s.money < x.prix ? 'disabled' : ''}>${fmtDH(x.prix)}</button></div>`).join('')}</div>`}`);
   h += stat('icone-animal', `<span>Et aussi</span><small>Revendre un meuble rapporte 75 % de son prix. Un animal adopté ne rapporte rien, mais il tient compagnie.</small>`);
   return h;
 }
@@ -377,14 +377,14 @@ export function openSorties() {
   const s = G.s, autre = s.quartier === 'anfa' ? 'populaire' : 'anfa', A = QUARTIERS[autre], v = vehicule();
   const sheet = openModal(`${closeBtn}<h2>Sortir en ville</h2><p>${v ? `Avec ${v.nom.toLowerCase()}, plus besoin de taxi.` : "Depuis l'arrêt de taxi au coin de la rue."} Chaque sortie prend l'après-midi ou la soirée.</p>
     <div class="list">
-      <button class="opt" id="goQ"><span><b>${autre === 'anfa' ? 'Aller à Anfa' : 'Rentrer au quartier'}${autre === s.chezMoi ? ' (chez toi)' : ''}</b><small>${esc(A.desc)}</small></span><em>${v ? fmtDur(Math.round(A.trajet.petit.dur * v.vitesse)) : `${fmtDH(A.trajet.petit.prix)} / ${fmtDH(A.trajet.grand.prix)}`}</em></button>
-      ${Object.entries(SORTIES).map(([k, d]) => `<button class="opt" data-d="${k}"><span><b>${esc(d.nom)}</b><small>${esc(d.desc)}</small></span></button>`).join('')}</div>`);
+      <button class="opt ico" id="goQ">${img(autre === 'anfa' ? 'icone-quartier-californie' : 'icone-quartier-populaire')}<span><b>${autre === 'anfa' ? 'Aller à Anfa' : 'Rentrer au quartier'}${autre === s.chezMoi ? ' (chez toi)' : ''}</b><small>${esc(A.desc)}</small></span><em>${v ? fmtDur(Math.round(A.trajet.petit.dur * v.vitesse)) : `${fmtDH(A.trajet.petit.prix)} / ${fmtDH(A.trajet.grand.prix)}`}</em></button>
+      ${Object.entries(SORTIES).map(([k, d]) => `<button class="opt ico" data-d="${k}">${img('icone-' + k)}<span><b>${esc(d.nom)}</b><small>${esc(d.desc)}</small></span></button>`).join('')}</div>`);
   bindClose(sheet);
   sheet.querySelectorAll('[data-d]').forEach(b => { b.onclick = () => openSortie(b.dataset.d); });
   sheet.querySelector('#goQ').onclick = () => {
     if (v) { closeModal(); enqueue({ kind: 'quartier', to: autre, taxi: 'petit' }); return; }
     const sh = openModal(`${closeBtn}<h2>${autre === 'anfa' ? 'Aller à Anfa' : 'Rentrer au quartier'}</h2><p>${esc(A.desc)}</p>
-      <div class="list">${['petit', 'grand'].map(t => `<button class="opt" data-t="${t}" ${A.trajet[t].prix > s.money ? 'disabled' : ''}><span><b>${TAXI[t].nom}</b><small>${esc(TAXI[t].desc)} · ${fmtDur(A.trajet[t].dur)}</small></span><em>${fmtDH(A.trajet[t].prix)}</em></button>`).join('')}</div>`);
+      <div class="list">${['petit', 'grand'].map(t => `<button class="opt ico" data-t="${t}" ${A.trajet[t].prix > s.money ? 'disabled' : ''}>${img('icone-taxi-' + t)}<span><b>${TAXI[t].nom}</b><small>${esc(TAXI[t].desc)} · ${fmtDur(A.trajet[t].dur)}</small></span><em>${fmtDH(A.trajet[t].prix)}</em></button>`).join('')}</div>`);
     bindClose(sh);
     sh.querySelectorAll('[data-t]').forEach(b => { b.onclick = () => { closeModal(); enqueue({ kind: 'quartier', to: autre, taxi: b.dataset.t }); }; });
   };
@@ -395,7 +395,7 @@ function openSortie(dest) {
   const v = vehicule();
   const sheet = openModal(`${closeBtn}${banner(Sd.img)}<h2>${esc(Sd.nom)}</h2><p>${esc(Sd.desc)}</p>
     ${v ? `<p class="hint">Trajet avec ${v.nom.toLowerCase()} : ${fmtDur(Math.round(Sd.trajet.petit.dur * v.vitesse))}, sans frais.</p><div hidden><button data-taxi="petit"></button><p id="taxiDesc"></p></div>`
-      : `<div class="row"><span>Le taxi (aller et retour)</span><div class="chips">${['petit', 'grand'].map(t => `<button data-taxi="${t}">${TAXI[t].nom} · ${fmtDH(Sd.trajet[t].prix * 2)} · ${fmtDur(Sd.trajet[t].dur)}</button>`).join('')}</div><p class="hint" id="taxiDesc"></p></div>`}
+      : `<div class="row"><span>Le taxi (aller et retour)</span><div class="chips icons">${['petit', 'grand'].map(t => `<button data-taxi="${t}">${img('icone-taxi-' + t)}${TAXI[t].nom} · ${fmtDH(Sd.trajet[t].prix * 2)} · ${fmtDur(Sd.trajet[t].dur)}</button>`).join('')}</div><p class="hint" id="taxiDesc"></p></div>`}
     <div class="row"><span>Sur place</span><div class="list">${Sd.activites.map(a => `<button class="opt" data-act="${a.id}"><span><b>${esc(a.nom)}</b><small>${fmtDur(a.dur)} · ${a.achat ? 'à marchander' : effTxt(a.eff)}</small></span><em>${a.prix ? fmtDH(a.prix) : 'gratuit'}</em></button>`).join('')}</div></div>
     <div class="actions"><button class="btn" id="sBack">Retour</button><button class="btn primary" id="sGo">Partir</button></div>`);
   bindClose(sheet);

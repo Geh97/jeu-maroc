@@ -18,11 +18,12 @@ function make(key, size, draw) {
 function rng(seed) { return () => ((seed = (seed * 16807) % 2147483647) / 2147483647); }
 
 // Image fournie, rognée de ses bords blancs, en 512 px. Le canvas est d'abord rempli d'une couleur unie.
-export function imgTex(name, fill = '#d9cdb6', size = 512) {
-  const key = 'img:' + name;
+export function imgTex(name, fill = '#d9cdb6', size = 512, rx = 1, ry = 1) {
+  const key = 'img:' + name + ':' + rx + 'x' + ry;
   if (cache[key]) return cache[key];
   const t = make(key, size, (g, s) => { g.fillStyle = fill; g.fillRect(0, 0, s, s); });
   t.wrapS = t.wrapT = THREE.MirroredRepeatWrapping;
+  t.repeat.set(rx, ry);
   const im = new Image();
   im.onload = () => {
     const [l, tp, r, b] = (IMG[name] && IMG[name].crop) || [0, 0, 0, 0];

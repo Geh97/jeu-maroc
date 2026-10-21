@@ -12,6 +12,14 @@ const iron = () => mat(FER, { metalness: 0.4, roughness: 0.5 });
 const zelMat = () => texMat('zel-vert-mur', T.imgTex('sol-zellige-vert', '#5f8f78'), { roughness: 0.5 });
 const zelBleu = () => texMat('zel-bleu-mur', T.imgTex('sol-zellige-bleu', '#5a7aa8'), { roughness: 0.5 });
 const mouchMat = () => texMat('mouch', T.moucharabieh(), { transparent: true, alphaTest: 0.5, side: THREE.DoubleSide });
+// Matériaux de Californie, à partir des textures fournies.
+const murVilla = (rx = 2, ry = 1) => texMat('mur-villa' + rx + ry, T.imgTex('mur-villa', '#f7f4ee', 512, rx, ry), { roughness: 0.9 });
+const haieMat = () => texMat('haie', T.imgTex('haie', '#3f7a3a', 512, 2, 2), { roughness: 0.95 });
+const pelouseMat = (rx, ry) => texMat('pelouse' + rx + ry, T.imgTex('pelouse', '#5f9a4a', 512, rx, ry), { roughness: 0.95 });
+const dallageChic = (rx, ry) => texMat('dallage-chic' + rx + ry, T.imgTex('dallage-chic', '#e3d6bd', 512, rx, ry), { roughness: 0.85 });
+const eauMat = () => new THREE.MeshStandardMaterial({ map: T.imgTex('eau-piscine', '#3fb1d9', 512, 2, 4), roughness: 0.1, metalness: 0.1 });
+const boisPergola = () => texMat('bois-pergola', T.imgTex('bois-pergola', '#b07a4c', 512, 1, 0.12), { roughness: 0.8 });
+const storeMat = (nom, rx = 4) => texMat('store-' + nom + rx, T.imgTex('store-' + nom, nom === 'rose' ? '#f5c6d6' : '#f2ede3', 512, rx, 1), { roughness: 0.8, side: THREE.DoubleSide });
 
 // Fenêtre marocaine : encadrement clair, petit arc, vitre sombre, et selon les cas moucharabieh ou volets.
 function fenetre(g, x, y, z, face, style) {
@@ -206,13 +214,13 @@ function bougainvillea(g, x, y, z) {
 function villa(g, x0, x1, z, seed, face = 1) {
   const w = x1 - x0, cx = (x0 + x1) / 2, v = new THREE.Group(); v.position.set(cx, 0, z); g.add(v);
   const back = -face; // vers l'intérieur de la parcelle
-  box(v, w, 2.2, 0.3, mat('#f7f4ee'), 0, 1.1, 0);
+  box(v, w, 2.2, 0.3, murVilla(3, 1), 0, 1.1, 0);
   box(v, w + 0.2, 0.25, 0.5, mat(seed % 3 === 0 ? VERT : '#e3dccd'), 0, 2.25, 0);
   const gate = new THREE.Group(); gate.position.set(w / 2 - 2.2, 0, 0); v.add(gate);
   box(gate, 2.4, 2.2, 0.08, mat(FER, { metalness: 0.4 }), 0, 1.1, 0);
   for (let i = -5; i <= 5; i++) box(gate, 0.04, 2.1, 0.12, mat('#d9d2c2'), i * 0.2, 1.05, 0);
   for (const dx of [-1.3, 1.3]) box(gate, 0.4, 2.5, 0.4, mat('#f7f4ee'), dx, 1.25, 0);
-  const depth = 8, zc = back * (depth / 2 + 3), white = mat(seed % 2 ? '#fbf8f2' : '#f3eee4');
+  const depth = 8, zc = back * (depth / 2 + 3), white = murVilla(2, 1);
   const h1 = 3.6, h2 = 6.4 + (seed % 2) * 0.8;
   box(v, w - 3, h1, depth, white, -1, h1 / 2, zc);                         // le volume bas
   box(v, (w - 3) * 0.55, h2, depth * 0.7, white, -1 - (w - 3) * 0.2, h2 / 2, zc + back * depth * 0.1); // le volume haut
@@ -227,11 +235,11 @@ function villa(g, x0, x1, z, seed, face = 1) {
   box(v, (w - 3) * 0.8, 0.03, 0.03, iron(), -1, h1 + 1, back * 1.65);
   const pots = makeFurniture('plante'); pots.position.set(-1 + (w - 3) * 0.3, h1, back * 2.2); v.add(pots);
   palm(v, w / 2 - 5, back * 1.6);
-  for (let i = 0; i < Math.floor((w - 4) / 1.1); i++) sph(v, 0.5, mat(i % 2 ? '#3f7a3a' : '#4b8c3f'), -w / 2 + 1.2 + i * 1.1, 0.5, back * 1.2);
+  box(v, w - 4, 1.0, 0.8, haieMat(), -1, 0.5, back * 1.2);
   bougainvillea(v, -w / 2 + 2, 2.4, face * 0.2);
   if (seed % 2) { // piscine le long du mur latéral
     box(v, 2.2, 0.08, 5, mat('#f7f4ee'), w / 2 - 2.2, 0.04, back * 7.5);
-    box(v, 1.8, 0.06, 4.6, new THREE.MeshStandardMaterial({ color: '#3fb1d9', roughness: 0.1 }), w / 2 - 2.2, 0.08, back * 7.5);
+    box(v, 1.8, 0.06, 4.6, eauMat(), w / 2 - 2.2, 0.08, back * 7.5);
     for (const dz of [-1.8, 0, 1.8]) box(v, 0.6, 0.3, 1.6, mat('#f7f4ee'), w / 2 - 0.7, 0.15, back * 7.5 + dz);
   }
   return v;
@@ -240,7 +248,7 @@ function villa(g, x0, x1, z, seed, face = 1) {
 function restaurant(g, x0, x1, z, style, o = {}) {
   const w = x1 - x0, cx = (x0 + x1) / 2, r = new THREE.Group(); r.position.set(cx, 0, z); g.add(r);
   const dark = style === 'lounge', terrasse = o.terrasse !== false;
-  box(r, w, 4.6, 9, mat(dark ? '#2a2a2e' : '#fbf8f2'), 0, 2.3, 4.5);
+  box(r, w, 4.6, 9, dark ? mat('#2a2a2e') : murVilla(2, 1), 0, 2.3, 4.5);
   box(r, w + 0.3, 0.3, 9.3, mat(dark ? '#1b1b1b' : '#e3dccd'), 0, 4.75, 4.5);
   box(r, w - 1.5, 2.2, 0.06, mat('#2b3440', { roughness: 0.15 }), 0, 1.5, -0.03);
   for (let i = 0; i < 5; i++) box(r, 0.06, 2.2, 0.08, mat(dark ? '#1b1b1b' : '#f7f4ee'), -w / 2 + 0.75 + i * (w - 1.5) / 4, 1.5, -0.03);
@@ -248,7 +256,7 @@ function restaurant(g, x0, x1, z, style, o = {}) {
   box(r, w + 0.1, 0.06, 0.14, BRASS(), 0, 3.6, -0.05);
   if (style === 'pergola') {
     for (const dx of [-w / 2 + 0.4, w / 2 - 0.4]) for (const dz of [-0.3, -2.6]) box(r, 0.14, 3, 0.14, mat('#8a5a3b'), dx, 1.5, dz);
-    for (let i = 0; i < 7; i++) box(r, w, 0.08, 0.12, mat('#8a5a3b'), 0, 3, -0.3 - i * 0.38);
+    for (let i = 0; i < 7; i++) box(r, w, 0.08, 0.12, boisPergola(), 0, 3, -0.3 - i * 0.38);
     for (let i = 0; i < 12; i++) sph(r, 0.3, mat(i % 3 ? '#3f7a3a' : '#c2185b'), -w / 2 + 0.6 + i * (w - 1.2) / 11, 3.15, -0.3 - (i % 4) * 0.6);
   }
   if (dark) for (let i = 0; i < 9; i++) sph(r, 0.06, new THREE.MeshStandardMaterial({ color: '#fff3c4', emissive: '#ffd27a', emissiveIntensity: 1.2 }), -w / 2 + 0.6 + i * (w - 1.2) / 8, 2.7 - (i % 2) * 0.2, -1.4);
@@ -260,7 +268,7 @@ function restaurant(g, x0, x1, z, style, o = {}) {
       box(r, 0.4, 0.45, 0.03, mat(dark ? '#8a5a3b' : '#f7f4ee'), x + dx, 0.68, -1.4 - (dx > 0 ? -0.2 : 0.2) * -1);
       for (const [ax, az] of [[-0.18, -0.18], [0.18, -0.18], [-0.18, 0.18], [0.18, 0.18]]) box(r, 0.03, 0.45, 0.03, iron(), x + dx + ax, 0.22, -1.4 + az);
     }
-    if (style !== 'pergola') { cyl(r, 0.03, 0.03, 2.4, iron(), x, 1.9, -1.4, 8); cyl(r, 0, 1.2, 0.45, mat(style === 'glacier' ? '#f5c6d6' : '#f2ede3', { side: THREE.DoubleSide }), x, 2.6, -1.4, 8); }
+    if (style !== 'pergola') { cyl(r, 0.03, 0.03, 2.4, iron(), x, 1.9, -1.4, 8); cyl(r, 0, 1.2, 0.45, storeMat(style === 'glacier' ? 'rose' : 'creme', 3), x, 2.6, -1.4, 8); }
   }
   for (const dx of [-w / 2 + 0.5, w / 2 - 0.5]) { const p = makeFurniture('plante'); p.scale.set(1.3, 1.3, 1.3); p.position.set(dx, 0, -0.6); r.add(p); }
   return r;
@@ -288,11 +296,11 @@ function scooter(g, x, z) {
   cyl(c, 0.03, 0.03, 0.5, mat('#d8d8dc', { metalness: 0.7 }), 0, 0.7, 0.45, 8);
 }
 function parc(g, P) {
-  const lawn = new THREE.Mesh(new THREE.PlaneGeometry(P.x1 - P.x0, P.z1 - P.z0), mat('#5f9a4a'));
+  const lawn = new THREE.Mesh(new THREE.PlaneGeometry(P.x1 - P.x0, P.z1 - P.z0), pelouseMat(4, 2));
   lawn.rotation.x = -Math.PI / 2; lawn.position.set((P.x0 + P.x1) / 2, 0.006, (P.z0 + P.z1) / 2); lawn.receiveShadow = true; g.add(lawn);
-  const path = new THREE.Mesh(new THREE.PlaneGeometry(P.x1 - P.x0 - 2, 1.2), mat('#d9c7a6'));
+  const path = new THREE.Mesh(new THREE.PlaneGeometry(P.x1 - P.x0 - 2, 1.2), dallageChic(6, 0.5));
   path.rotation.x = -Math.PI / 2; path.position.set((P.x0 + P.x1) / 2, 0.008, P.fontaine.z + 0.5); g.add(path);
-  const path2 = new THREE.Mesh(new THREE.PlaneGeometry(1.2, P.z1 - P.z0 - 1), mat('#d9c7a6'));
+  const path2 = new THREE.Mesh(new THREE.PlaneGeometry(1.2, P.z1 - P.z0 - 1), dallageChic(0.5, 3));
   path2.rotation.x = -Math.PI / 2; path2.position.set(P.fontaine.x, 0.008, (P.z0 + P.z1) / 2); g.add(path2);
   for (const o of P.orangers) { cyl(g, 0.12, 0.16, 2.2, mat('#6b4a2c'), o.x + 0.5, 1.1, o.z + 0.5, 8); sph(g, 1.1, mat('#3f7a3a'), o.x + 0.5, 2.9, o.z + 0.5); sph(g, 0.7, mat('#4b8c3f'), o.x + 0.9, 3.4, o.z + 0.2); }
   for (const c of P.fontaine.cells) if ((c.x + c.z) % 2) sph(g, 0.3, mat(['#c2185b', '#e0a526', '#f2ede3'][(c.x * 3 + c.z) % 3]), c.x + 0.5, 0.3, c.z + 0.5);
@@ -321,7 +329,7 @@ export function makeStreet(opts = {}) {
   };
   const cx = (X0 + X1) / 2, len = X1 - X0 + 40;
   const tr = T.dallage().clone(); tr.repeat.set(len / 2, 1.5); tr.needsUpdate = true;
-  const trM = new THREE.MeshStandardMaterial({ map: tr, roughness: 0.9 });
+  const trM = anfa ? dallageChic(len / 2, 1) : new THREE.MeshStandardMaterial({ map: tr, roughness: 0.9 });
   plane(len, 3, trM, cx, D + 1.5, 0.005);
   box(g, len, 0.15, 0.25, mat('#bdb5a6'), cx, 0.06, D + 3);
   const as = T.asphalte().clone(); as.repeat.set(len / 2, 4); as.needsUpdate = true;
@@ -482,7 +490,7 @@ function anfaStreet(g, opts, plane) {
     cyl(g, 0.45, 0.45, 0.04, mat('#f7f4ee', { roughness: 0.4 }), t.x + 0.5, 0.72, t.z + 0.5, 20);
     cyl(g, 0.03, 0.03, 0.7, iron(), t.x + 0.5, 0.36, t.z + 0.5, 8);
     cyl(g, 0.03, 0.03, 2.4, iron(), t.x + 0.5, 1.9, t.z + 0.5, 8);
-    cyl(g, 0, 1.3, 0.5, mat('#f2ede3', { side: THREE.DoubleSide }), t.x + 0.5, 2.6, t.z + 0.5, 8);
+    cyl(g, 0, 1.3, 0.5, storeMat('creme', 3), t.x + 0.5, 2.6, t.z + 0.5, 8);
   }
   C.chaises.forEach((c, i) => {
     const ch = new THREE.Group(); ch.position.set(c.x + 0.5, 0, c.z + 0.5); ch.rotation.y = c.r * Math.PI / 2; g.add(ch);

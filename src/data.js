@@ -552,5 +552,7 @@ export const IMG = {
   'mur-tadelakt': { crop: [0.01, 0.065, 0.01, 0.01] },
   'tissu-banquette': { crop: [0.03, 0.07, 0.02, 0.02] },
   'tapis-berbere': { crop: [0, 0.07, 0.01, 0.01] },
+  'store-creme': { crop: [0, 0, 0, 0.6] },
+  'store-rose': { crop: [0, 0, 0, 0.6] },
 };
 export const asset = name => `assets/${name}.png`;
