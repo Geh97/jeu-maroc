@@ -1,6 +1,7 @@
-// Modèles 3D faits de formes simples : meubles, murs, personnage, rue de Casablanca.
+// Modèles 3D faits de formes simples : meubles, murs, personnages, la rue et le café.
 import * as THREE from 'three';
 import * as T from './textures.js';
+import { W, D, X0, X1, Z1, RUE, CAFE } from './data.js';
 
 const mats = {};
 export function mat(color, o = {}) {
@@ -26,7 +27,7 @@ function sph(g, r, material, x = 0, y = 0, z = 0) {
 // ---------- Meubles (face avant vers +z, centrés sur leur emprise) ----------
 const BUILD = {
   banquette(g) {
-    const wood = mat('#5a3423'), fab = texMat('fab-rouge', T.tissu('#7d1f2b', '#c9a24a'));
+    const wood = mat('#5a3423'), fab = texMat('tissu-banquette', T.tissuBanquette());
     box(g, 1.96, 0.3, 0.84, wood, 0, 0.15, 0);
     box(g, 1.96, 0.03, 0.86, BRASS(), 0, 0.3, 0);
     box(g, 1.9, 0.14, 0.76, fab, 0, 0.38, 0.02);
@@ -55,7 +56,7 @@ const BUILD = {
     g.userData.screen = screen;
   },
   tapis(g) {
-    const m = new THREE.Mesh(new THREE.PlaneGeometry(1.9, 1.9), texMat('tapis', T.tapis()));
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(1.9, 1.9), texMat('tapis-berbere', T.tapisBerbere()));
     m.rotation.x = -Math.PI / 2; m.position.y = 0.012; m.receiveShadow = true; g.add(m);
   },
   lit(g, w = 1.8) {
@@ -113,7 +114,7 @@ const BUILD = {
   },
   douche(g) {
     box(g, 0.92, 0.07, 0.92, mat('#f4f4f2', { roughness: 0.4 }), 0, 0.035, 0);
-    box(g, 0.92, 1.9, 0.02, texMat('zel-bleu', T.zellige('#24508f', '#e2b54a')), 0, 1.02, -0.45);
+    box(g, 0.92, 1.9, 0.02, texMat('zel-bleu-mur', T.imgTex('sol-zellige-bleu', '#5a7aa8')), 0, 1.02, -0.45);
     box(g, 0.02, 1.9, 0.92, GLASS(), 0.45, 1.02, 0);
     box(g, 0.02, 1.9, 0.92, GLASS(), -0.45, 1.02, 0);
     cyl(g, 0.015, 0.015, 1.7, SILVER(), 0.25, 1.1, -0.42, 8);
@@ -214,7 +215,7 @@ export function makePillar(wallMat, wsMat) {
 export function makeCharacter(c) {
   const root = new THREE.Group(), inner = new THREE.Group();
   root.add(inner);
-  const skin = mat(c.skin, { roughness: 0.7 }), hairM = mat(c.hairColor, { roughness: 0.9 }), cloth = mat(c.outfitColor, { roughness: 0.85 });
+  const skin = mat(c.skin, { roughness: 0.7 }), hairM = mat(c.hairColor || '#1d1714', { roughness: 0.9 }), cloth = mat(c.outfitColor, { roughness: 0.85 });
   const long = c.outfit === 'djellaba' || c.outfit === 'caftan';
   const legM = mat(c.outfit === 'jean' ? '#3d5a85' : c.outfit === 'costume' ? '#26262e' : '#d9cfc0');
   const shoeM = mat(long ? '#e2bd4a' : '#2a2420');
@@ -277,7 +278,6 @@ export function makeCharacter(c) {
     m.position.set(0, 1.6, -0.005); m.scale.set(1, 1.1, 1.05); add(inner, m);
     cyl(inner, 0.13, 0.24, 0.26, sc, 0, 1.38, -0.01, 20);
   }
-  root.traverse(o => { o.userData.char = true; });
   return { root, inner, legL, legR, armL, armR };
 }
 
@@ -302,63 +302,161 @@ export function pose(ch, p, t, walkPhase) {
   }
   if (p.anim === 'cook') { armL.rotation.x = -0.9 + Math.sin(t * 5) * 0.15; armR.rotation.x = -0.9 - Math.sin(t * 5) * 0.15; }
   if (p.anim === 'eat') armR.rotation.x = -1.2 + Math.max(0, Math.sin(t * 3)) * 0.7;
+  if (p.anim === 'talk') { armR.rotation.x = -0.7 + Math.sin(t * 4) * 0.3; armR.rotation.z = -0.3; inner.rotation.x = Math.sin(t * 2.5) * 0.02; }
   if (p.anim === 'shower') { armL.rotation.x = armR.rotation.x = -2.6 + Math.sin(t * 4) * 0.2; inner.position.y = p.h || 0; }
 }
 
-// ---------- Rue de Casablanca autour de l'appartement ----------
-export function makeBackdrop(W, D) {
+// ---------- La rue, le café et le hanout ----------
+const white = () => mat('#f1eee6'), cream = () => mat('#e8dfcc');
+const shutters = ['#2e6b57', '#2f4f7a', '#7a2e3a', '#4f5bd5'];
+// Immeuble blanc de Casablanca, volets colorés et paraboles. face : +1 si la façade regarde +z, -1 sinon.
+function building(g, x, z, w, d, h, face, seed, y0 = 0) {
+  const b = new THREE.Group(); b.position.set(x, 0, z); g.add(b);
+  box(b, w, h - y0, d, seed % 2 ? white() : cream(), 0, y0 + (h - y0) / 2, 0);
+  box(b, w + 0.2, 0.25, d + 0.2, mat('#d9d2c2'), 0, h + 0.1, 0);
+  const fz = face * (d / 2 + 0.02);
+  for (let fy = y0 + 1.6; fy < h - 1; fy += 3) for (let fx = -w / 2 + 1; fx < w / 2 - 0.5; fx += 2) {
+    box(b, 0.9, 1.2, 0.04, mat('#3a3d44', { roughness: 0.3 }), fx, fy, fz);
+    box(b, 0.3, 1.2, 0.05, mat(shutters[(seed + Math.round(fx)) % 4]), fx - 0.6, fy, fz);
+    box(b, 0.3, 1.2, 0.05, mat(shutters[(seed + Math.round(fx)) % 4]), fx + 0.6, fy, fz);
+    box(b, 1.5, 0.08, 0.3, mat('#d9d2c2'), fx, fy - 0.65, fz + face * 0.1);
+  }
+  for (let i = 0; i < 2; i++) {
+    const dish = new THREE.Mesh(new THREE.SphereGeometry(0.4, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2.5), mat('#d6d6d6', { side: THREE.DoubleSide }));
+    dish.position.set(-w / 2 + 1.5 + i * 2.2 + (seed % 3), h + 0.6, fz * 0.6); dish.rotation.x = face * 1.1; b.add(dish);
+  }
+  return b;
+}
+// Porte d'immeuble ou de boutique dans une façade regardant +z, centrée sur la case x.
+function facadeDoor(g, x, z, color, wide = 1) {
+  const m = mat(color, { roughness: 0.6 });
+  box(g, wide, 2.2, 0.08, m, x + 0.5, 1.1, z + 0.02);
+  const top = new THREE.Mesh(new THREE.CylinderGeometry(wide / 2, wide / 2, 0.08, 18, 1, false, 0, Math.PI), m);
+  top.rotation.x = Math.PI / 2; top.rotation.z = 0; top.position.set(x + 0.5, 2.2, z + 0.02); add(g, top);
+  box(g, wide + 0.3, 0.12, 0.14, mat('#d9d2c2'), x + 0.5, 2.2 + wide / 2 + 0.06, z + 0.05);
+  sph(g, 0.035, BRASS(), x + 0.5 + wide * 0.3, 1.05, z + 0.08);
+}
+function lampPost(g, x, z) {
+  const iron = mat('#2a2f36', { metalness: 0.4, roughness: 0.5 });
+  cyl(g, 0.12, 0.16, 0.3, iron, x, 0.15, z, 10);
+  cyl(g, 0.05, 0.07, 4.2, iron, x, 2.25, z, 8);
+  const head = new THREE.MeshStandardMaterial({ color: '#fff2cc', emissive: '#ffd27a', emissiveIntensity: 0.3 });
+  box(g, 0.5, 0.3, 0.5, head, x, 4.45, z);
+  cyl(g, 0, 0.36, 0.25, iron, x, 4.72, z, 4);
+  g.userData.lamps = g.userData.lamps || [];
+  g.userData.lamps.push({ mat: head, x, y: 4.3, z });
+}
+function palm(g, x, z) {
+  const p = new THREE.Group(); p.position.set(x, 0, z); g.add(p);
+  cyl(p, 0.12, 0.2, 4.2, mat('#8a6a48'), 0, 2.1, 0, 10);
+  for (let i = 0; i < 8; i++) {
+    const leaf = new THREE.Group(); leaf.position.y = 4.2; leaf.rotation.y = i * Math.PI / 4; p.add(leaf);
+    const l = box(leaf, 0.35, 0.04, 1.8, mat(i % 2 ? '#3d7a35' : '#4b8c3f'), 0, -0.25, 0.85); l.rotation.x = 0.45;
+  }
+}
+function cafeTable(g, x, z) {
+  const iron = mat('#2a2f36', { metalness: 0.4, roughness: 0.5 });
+  cyl(g, 0.4, 0.4, 0.04, mat('#e9e3d6', { roughness: 0.5 }), x, 0.72, z, 20);
+  cyl(g, 0.03, 0.03, 0.7, iron, x, 0.36, z, 8);
+  cyl(g, 0.3, 0.3, 0.03, iron, x, 0.015, z, 14);
+  for (const [dx, dz] of [[-0.12, 0.08], [0.1, -0.1]]) cyl(g, 0.03, 0.025, 0.09, mat('#8fd0a6', { transparent: true, opacity: 0.75 }), x + dx, 0.79, z + dz, 10);
+}
+function cafeChair(g, x, z, r, i) {
+  const c = new THREE.Group(); c.position.set(x, 0, z); c.rotation.y = r * Math.PI / 2; g.add(c);
+  const wood = mat('#8a5a3b'), straw = mat('#d7a35c');
+  box(c, 0.44, 0.04, 0.44, straw, 0, 0.45, 0);
+  for (const [dx, dz] of [[-0.19, -0.19], [0.19, -0.19], [-0.19, 0.19], [0.19, 0.19]]) box(c, 0.04, 0.45, 0.04, wood, dx, 0.225, dz);
+  box(c, 0.44, 0.5, 0.04, wood, 0, 0.72, -0.2);
+  c.traverse(o => { o.userData.chair = i; });
+  return c;
+}
+// Store de boutique. Il se replie contre la façade quand les murs sont coupés, pour voir la terrasse.
+function awning(g, x0, x1, z, depth, y, tex) {
+  const w = x1 - x0, a = new THREE.Group(), poles = new THREE.Group();
+  a.position.set(0, 0, z); poles.position.set(0, 0, z); g.add(a, poles);
+  const m = box(a, w, 0.04, depth, texMat('awn' + tex.uuid, tex, { side: THREE.DoubleSide }), (x0 + x1) / 2, y, depth / 2);
+  m.rotation.x = 0.22;
+  box(a, w, 0.18, 0.03, texMat('awn' + tex.uuid, tex), (x0 + x1) / 2, y - depth * 0.11 - 0.1, depth * 0.97);
+  const iron = mat('#2a2f36', { metalness: 0.4 });
+  for (const x of [x0 + 0.15, x1 - 0.15]) cyl(poles, 0.03, 0.03, y - depth * 0.11, iron, x, (y - depth * 0.11) / 2, depth * 0.95, 8);
+  g.userData.awnings = g.userData.awnings || [];
+  g.userData.awnings.push({ a, poles });
+}
+function crate(g, x, z, fruit) {
+  box(g, 0.8, 0.3, 0.6, mat('#b8905c'), x + 0.5, 0.15, z + 0.5);
+  for (let i = 0; i < 12; i++) sph(g, 0.07, mat(fruit), x + 0.2 + (i % 4) * 0.2, 0.33 + Math.floor(i / 4) * 0.02, z + 0.25 + Math.floor(i / 4) * 0.2);
+}
+
+export function makeStreet() {
   const g = new THREE.Group();
-  const ground = new THREE.Mesh(new THREE.PlaneGeometry(160, 160), mat('#cdbfa6'));
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(200, 200), mat('#cdbfa6'));
   ground.rotation.x = -Math.PI / 2; ground.position.set(W / 2, -0.02, D / 2); ground.receiveShadow = true; g.add(ground);
   const plane = (w, d, m, x, z, y = 0) => {
     const p = new THREE.Mesh(new THREE.PlaneGeometry(w, d), m); p.rotation.x = -Math.PI / 2; p.position.set(x, y, z); p.receiveShadow = true; g.add(p); return p;
   };
-  const tr = T.trottoir().clone(); tr.repeat.set(40, 3); tr.needsUpdate = true;
-  plane(60, 3, new THREE.MeshStandardMaterial({ map: tr, roughness: 0.9 }), W / 2, D + 1.5, 0.005);
-  box(g, 60, 0.15, 0.25, mat('#bdb5a6'), W / 2, 0.06, D + 3);
-  const as = T.asphalte().clone(); as.repeat.set(30, 4); as.needsUpdate = true;
-  plane(60, 8, new THREE.MeshStandardMaterial({ map: as, roughness: 0.95 }), W / 2, D + 7, 0.004);
-  for (let x = -24; x < 36; x += 3) plane(1.4, 0.15, mat('#f2f0e6'), x, D + 7, 0.01);
-  plane(60, 3, new THREE.MeshStandardMaterial({ map: tr, roughness: 0.9 }), W / 2, D + 12.5, 0.005);
+  const cx = (X0 + X1) / 2, len = X1 - X0 + 40;
+  const tr = T.trottoir().clone(); tr.repeat.set(len / 2, 3); tr.needsUpdate = true;
+  const trM = new THREE.MeshStandardMaterial({ map: tr, roughness: 0.9 });
+  plane(len, 3, trM, cx, D + 1.5, 0.005);
+  box(g, len, 0.15, 0.25, mat('#bdb5a6'), cx, 0.06, D + 3);
+  const as = T.asphalte().clone(); as.repeat.set(len / 2, 4); as.needsUpdate = true;
+  plane(len, 8, new THREE.MeshStandardMaterial({ map: as, roughness: 0.95 }), cx, D + 7, 0.004);
+  for (let x = X0 - 20; x < X1 + 20; x += 3) plane(1.4, 0.15, mat('#f2f0e6'), x, D + 7, 0.01);
+  for (let z = D + 3.5; z < D + 11; z += 1) plane(2.4, 0.5, mat('#f2f0e6'), RUE.traversee.x0 + 1, z, 0.012);
+  plane(len, 3, trM, cx, D + 12.5, 0.005);
+  box(g, len, 0.15, 0.25, mat('#bdb5a6'), cx, 0.06, D + 11);
 
-  // Immeubles blancs de Casablanca, volets colorés et paraboles.
-  const shutters = ['#2e6b57', '#2f4f7a', '#7a2e3a', '#4f5bd5'];
-  const white = mat('#f1eee6'), cream = mat('#e8dfcc');
-  const building = (x, z, w, d, h, face, seed) => {
-    const b = new THREE.Group(); b.position.set(x, 0, z); g.add(b);
-    box(b, w, h, d, seed % 2 ? white : cream, 0, h / 2, 0);
-    box(b, w + 0.2, 0.25, d + 0.2, mat('#d9d2c2'), 0, h + 0.1, 0);
-    const fz = face * (d / 2 + 0.02);
-    for (let fy = 1.6; fy < h - 1; fy += 3) for (let fx = -w / 2 + 1; fx < w / 2 - 0.5; fx += 2) {
-      box(b, 0.9, 1.2, 0.04, mat('#3a3d44', { roughness: 0.3 }), fx, fy, fz);
-      box(b, 0.3, 1.2, 0.05, mat(shutters[(seed + Math.round(fx)) % 4]), fx - 0.6, fy, fz);
-      box(b, 0.3, 1.2, 0.05, mat(shutters[(seed + Math.round(fx)) % 4]), fx + 0.6, fy, fz);
-    }
-    for (let i = 0; i < 2; i++) {
-      const dish = new THREE.Mesh(new THREE.SphereGeometry(0.4, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2.5), mat('#d6d6d6', { side: THREE.DoubleSide }));
-      dish.position.set(-w / 2 + 1.5 + i * 2.2 + (seed % 3), h + 0.6, fz * 0.6); dish.rotation.x = face * 1.1; b.add(dish);
-    }
-    return b;
-  };
-  let seed = 1;
-  for (let x = -14; x < W + 14; x += 7) building(x, D + 18, 6.6, 8, 8 + ((seed * 5) % 4) * 2, -1, seed++);
-  for (let x = -14; x < W + 14; x += 7) building(x, -9, 6.6, 12, 9 + ((seed * 3) % 4) * 2, 1, seed++);
-  building(-9, D / 2, 10, D + 4, 4.5, 1, seed++).rotation.y = Math.PI / 2;
-  building(W + 9, D / 2, 10, D + 4, 4.5, 1, seed++).rotation.y = -Math.PI / 2;
-
-  // Palmiers
-  const palm = (x, z) => {
-    const p = new THREE.Group(); p.position.set(x, 0, z); g.add(p);
-    cyl(p, 0.12, 0.2, 4.2, mat('#8a6a48'), 0, 2.1, 0, 10);
-    for (let i = 0; i < 8; i++) {
-      const leaf = new THREE.Group(); leaf.position.y = 4.2; leaf.rotation.y = i * Math.PI / 4; p.add(leaf);
-      const l = box(leaf, 0.35, 0.04, 1.8, mat(i % 2 ? '#3d7a35' : '#4b8c3f'), 0, -0.25, 0.85); l.rotation.x = 0.45;
-    }
-  };
-  palm(-2.5, D + 2.2); palm(W + 2.5, D + 2.2); palm(-8, D + 12); palm(W + 8, D + 12);
-
-  // Un petit taxi rouge de Casablanca garé dans la rue.
-  const taxi = new THREE.Group(); taxi.position.set(6.5, 0, D + 4.4); g.add(taxi);
+  // Notre pâté de maisons : immeubles de part et d'autre de l'appartement, avec les boutiques au rez-de-chaussée.
+  const lw = 12 - X0, rw = X1 + 12 - W; // de X0-12 à 0, et de W à X1+12
+  building(g, -lw / 2, 1.5, lw, 15, 7.6, 1, 3, 3.1);
+  building(g, W + rw / 2, 1.5, rw, 15, 7.6, 1, 4, 3.1);
+  // Rez-de-chaussée : murs des boutiques (de 0 à 3.1 m).
+  box(g, lw, 3.1, 15, mat('#efe6d4'), -lw / 2, 1.55, 1.5);
+  box(g, rw, 3.1, 15, mat('#efe6d4'), W + rw / 2, 1.55, 1.5);
+  // Le hanout (épicerie) à gauche : store bleu, porte, caisses de fruits.
+  const H = RUE.hanout;
+  awning(g, H.x0 + 4, H.x1, D, 1.3, 2.75, T.rayures('#2f4f7a', '#f2ede3'));
+  facadeDoor(g, H.porte, D, '#2f4f7a', 1.2);
+  box(g, 2.2, 1.3, 0.06, mat('#3a3d44', { roughness: 0.3 }), H.porte - 1.6, 1.6, D + 0.03);
+  for (let i = 0; i < 6; i++) box(g, 0.25, 0.4, 0.05, mat(['#d9a43a', '#c8102e', '#2e6b57', '#f2ede3', '#e0a526', '#7a2e3a'][i]), H.porte - 2.5 + i * 0.35, 1.3 + (i % 2) * 0.5, D + 0.05);
+  crate(g, H.caisses[0].x, H.caisses[0].z, '#e8641a');
+  crate(g, H.caisses[1].x, H.caisses[1].z, '#c8102e');
+  facadeDoor(g, RUE.portes[0].x, D, '#5a3423');
+  // Le café à droite : store vert, bandeau, grande porte en arc, fenêtres, lanternes et terrasse.
+  const C = CAFE;
+  box(g, C.x1 - C.x0, 0.5, 0.1, mat('#1f5a45'), (C.x0 + C.x1) / 2, 2.85, D + 0.04);
+  box(g, C.x1 - C.x0 + 0.1, 0.06, 0.14, BRASS(), (C.x0 + C.x1) / 2, 3.1, D + 0.04);
+  awning(g, C.x0, C.porte.x - 0.5, D, 2.2, 2.6, T.rayures('#2e7d5b', '#f2ede3'));
+  facadeDoor(g, C.porte.x, D, '#5a3423', 1.4);
+  for (const x of [15.5, 19]) {
+    box(g, 2.6, 1.5, 0.06, mat('#2b3440', { roughness: 0.2 }), x, 1.55, D + 0.03);
+    box(g, 2.8, 0.1, 0.12, mat('#5a3423'), x, 0.75, D + 0.05);
+  }
+  for (const x of [13.4, 23.6]) {
+    const glow = new THREE.MeshStandardMaterial({ color: '#ffcf86', emissive: '#ffb347', emissiveIntensity: 0.5 });
+    cyl(g, 0.12, 0.09, 0.3, glow, x, 2.3, D + 0.2, 6);
+    cyl(g, 0, 0.14, 0.14, BRASS(), x, 2.52, D + 0.2, 6);
+    box(g, 0.04, 0.04, 0.3, BRASS(), x, 2.62, D + 0.12);
+    g.userData.lamps = g.userData.lamps || [];
+    g.userData.lamps.push({ mat: glow, x, y: 2.3, z: D + 0.3, small: true });
+  }
+  for (const t of C.tables) cafeTable(g, t.x + 0.5, t.z + 0.5);
+  C.chaises.forEach((c, i) => cafeChair(g, c.x + 0.5, c.z + 0.5, c.r, i));
+  const board = box(g, 0.6, 0.9, 0.04, mat('#2a2a2a'), C.x0 + 0.5, 0.5, D + 2.4); board.rotation.x = -0.2;
+  for (const [x, z] of [[C.x1 - 0.6, D + 0.5], [C.x0 - 0.5, D + 0.5]]) { const p = makeFurniture('plante'); p.position.set(x, 0, z); g.add(p); }
+  facadeDoor(g, RUE.portes[1].x, D, '#2e6b57');
+  // Immeubles d'en face et derrière, palmiers, lampadaires, banc, petit taxi.
+  let seed = 7;
+  for (let x = X0 - 10; x < X1 + 10; x += 7) building(g, x, D + 18, 6.6, 8, 8 + ((seed * 5) % 4) * 2, -1, seed++);
+  for (let x = X0 - 10; x < X1 + 10; x += 7) building(g, x, -12, 6.6, 12, 11 + ((seed * 3) % 4) * 2, 1, seed++);
+  for (const p of RUE.portes.slice(2)) facadeDoor(g, p.x, D + 14 - 0.1, ['#2f4f7a', '#7a2e3a', '#5a3423', '#2e6b57'][seed++ % 4]);
+  for (const p of RUE.palmiers) palm(g, p.x + 0.5, p.z + 0.5);
+  for (const l of RUE.lampes) lampPost(g, l.x + 0.5, l.z + 0.5);
+  const B = RUE.banc;
+  box(g, 1.9, 0.06, 0.45, mat('#8a5a3b'), B.x + 1, 0.45, B.z + 0.5);
+  box(g, 1.9, 0.4, 0.05, mat('#8a5a3b'), B.x + 1, 0.7, B.z + 0.72);
+  for (const x of [B.x + 0.2, B.x + 1.8]) box(g, 0.06, 0.45, 0.4, mat('#2a2f36'), x, 0.22, B.z + 0.5);
+  const taxi = new THREE.Group(); taxi.position.set(RUE.taxi.x, 0, RUE.taxi.z); g.add(taxi);
   box(taxi, 3.6, 0.6, 1.6, mat('#c8102e', { roughness: 0.4 }), 0, 0.55, 0);
   box(taxi, 2, 0.55, 1.45, mat('#c8102e', { roughness: 0.4 }), -0.2, 1.1, 0);
   box(taxi, 1.9, 0.42, 1.47, mat('#2b3440', { roughness: 0.2 }), -0.2, 1.1, 0);
@@ -367,7 +465,7 @@ export function makeBackdrop(W, D) {
     const w = cyl(taxi, 0.32, 0.32, 0.22, mat('#1b1b1b'), x, 0.32, z, 16); w.rotation.x = Math.PI / 2;
   }
   // Au loin : la silhouette d'un grand minaret.
-  const m = new THREE.Group(); m.position.set(W + 34, 0, -46); g.add(m);
+  const m = new THREE.Group(); m.position.set(X1 + 30, 0, -50); g.add(m);
   box(m, 4, 34, 4, mat('#e3d6bd'), 0, 17, 0);
   box(m, 4.1, 2.4, 4.1, mat('#2e6b57'), 0, 30, 0);
   box(m, 2.4, 5, 2.4, mat('#e3d6bd'), 0, 36.5, 0);

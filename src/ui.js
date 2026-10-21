@@ -1,7 +1,7 @@
 // Interface : barre du haut, besoins, file d'actions, menus et fenêtres.
 import {
-  JOURS, NEEDS, SKINS, HAIRS, HAIR_COLORS, SCARF_COLORS, OUTFITS, OUTFIT_COLORS, TRAITS,
-  LIEUX, MARCHE, RECETTES, QUAL, JOB, LOYER, FACTURE,
+  JOURS, NEEDS, NEED_ICONS, SKINS, HAIRS, HAIR_COLORS, SCARF_COLORS, OUTFITS, OUTFIT_COLORS, TRAITS,
+  LIEUX, MARCHE, RECETTES, QUAL, JOB, LOYER, FACTURE, NPCS, CAFE, relLabel, asset,
 } from './data.js';
 import {
   G, dow, dayIdx, fmtTime, fmtDH, fmtDur, enqueue, cancel, comeBack, awayPhase, basketCost, progress,
@@ -10,15 +10,17 @@ import { ambiance } from './world.js';
 
 export const $ = id => document.getElementById(id);
 export const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const img = (name, cls = '') => `<img src="${asset(name)}" alt="" class="${cls}" draggable="false">`;
 
 // ---------- Messages ----------
 export function toast(msg, kind = '') {
   const box = $('toasts'), d = document.createElement('div');
-  d.className = 'toast ' + kind; d.textContent = msg;
+  const dial = /^[^:]{2,24} : « /.test(msg);
+  d.className = 'toast ' + (dial ? 'dial' : kind); d.textContent = msg;
   box.appendChild(d);
   while (box.children.length > 4) box.firstChild.remove();
-  setTimeout(() => d.classList.add('out'), 4200);
-  setTimeout(() => d.remove(), 4700);
+  setTimeout(() => d.classList.add('out'), dial ? 6000 : 4200);
+  setTimeout(() => d.remove(), dial ? 6500 : 4700);
 }
 
 // ---------- Barre du haut et besoins ----------
@@ -33,7 +35,7 @@ export function initHud(handlers) {
   $('queue').addEventListener('click', e => { const b = e.target.closest('[data-cancel]'); if (b) cancel(+b.dataset.cancel); queueSig = ''; updateHud(); });
   $('away').addEventListener('click', e => { if (e.target.closest('[data-back]')) { comeBack(); updateHud(); } });
   $('needs').innerHTML = Object.entries(NEEDS).map(([k, n]) =>
-    `<div class="need"><span>${n}</span><div class="bar"><i id="nd-${k}"></i></div></div>`).join('');
+    `<div class="need">${img(NEED_ICONS[k])}<div><span>${n}</span><div class="bar"><i id="nd-${k}"></i></div></div></div>`).join('');
 }
 export function showHud(on) { $('hud').hidden = !on; }
 export function setMode(mode) {
@@ -51,7 +53,7 @@ export function updateHud() {
   const s = G.s;
   $('day').textContent = `${JOURS[dow(s.t)]} · jour ${dayIdx(s.t) + 1}`;
   $('time').textContent = fmtTime(s.t);
-  $('money').textContent = fmtDH(s.money);
+  $('money').lastChild.textContent = fmtDH(s.money);
   $('money').classList.toggle('neg', s.money < 0);
   for (const b of $('speeds').children) b.classList.toggle('on', +b.dataset.speed === G.speed && G.mode === 'live');
   $('cname').textContent = s.char.name;
@@ -72,7 +74,7 @@ export function updateHud() {
     const pct = Math.min(100, (s.t - a.start) / (end - a.start) * 100);
     $('away').innerHTML = `<div class="away-t"><b>${esc(p.label === 'En chemin' ? 'En chemin : ' + L.nom.toLowerCase() : p.label)}</b>
       <span>Retour vers ${fmtTime(end)}</span></div><div class="bar"><i style="width:${pct}%"></i></div>
-      ${a.lieu === 'cafe' || a.lieu === 'hammam' ? '<button class="btn small" data-back>Rentrer plus tôt</button>' : ''}`;
+      ${a.lieu === 'hammam' ? '<button class="btn small" data-back>Rentrer plus tôt</button>' : ''}`;
     return;
   }
   const items = (G.cur ? [G.cur.it] : []).concat(G.queue);
@@ -124,6 +126,7 @@ export function openModal(html, opts = {}) {
 }
 export function closeModal() { $('modal').hidden = true; G.modal = false; }
 const closeBtn = '<button class="x" data-close aria-label="Fermer">×</button>';
+const banner = name => `<div class="banner">${img(name)}</div>`;
 function bindClose(sheet) { sheet.querySelectorAll('[data-close]').forEach(b => { b.onclick = closeModal; }); }
 
 // Création du personnage
@@ -187,15 +190,15 @@ export function openCreation(look, onChange, onDone) {
 
 export function welcome() {
   const n = esc(G.s.char.name);
-  const sheet = openModal(`${closeBtn}
+  const sheet = openModal(`${closeBtn}${banner('ecran-accueil')}
     <h2>Bienvenue à Casablanca, ${n} !</h2>
-    <p>Voici ton nouvel appartement, en rez-de-chaussée dans un quartier animé.</p>
+    <p>Voici ton nouvel appartement, en rez-de-chaussée dans un quartier animé : le café est juste à droite, le hanout à gauche.</p>
     <ul class="tips">
-      <li>Touche un meuble pour voir ce que ${n} peut y faire.</li>
-      <li>Touche la porte d'entrée verte pour sortir : café, hammam, marché, travail.</li>
-      <li>Touche le sol pour se déplacer. Fais glisser pour tourner la caméra, pince pour zoomer.</li>
-      <li>Garde un œil sur les besoins en bas de l'écran : faim, énergie, hygiène, moral.</li>
-      <li>Le travail : du lundi au vendredi de 9 h à 17 h. ${n} part tout(e) seul(e) à 8 h 30.</li>
+      <li>Touche un meuble pour voir ce que ${n} peut y faire, le sol pour se déplacer.</li>
+      <li>Touche la porte d'entrée verte pour sortir dans la rue, ou partir au hammam, au marché, au travail.</li>
+      <li>Dehors, touche une chaise de la terrasse pour s'asseoir au café, ou un voisin pour le saluer et discuter. Les voisins ont leurs habitudes : on les croise à certaines heures.</li>
+      <li>Garde un œil sur les besoins en bas de l'écran. La vie sociale se remplit au café et en discutant.</li>
+      <li>Le travail : du lundi au vendredi de 9 h à 17 h. ${n} part tout(e) seul(e) à 8 h 20.</li>
       <li>Le loyer (${fmtDH(LOYER)}) et la facture d'eau et d'électricité (${fmtDH(FACTURE)}) tombent chaque lundi, le salaire chaque vendredi soir.</li>
       <li>« Construire » arrête le temps : murs, sols, meubles et peinture.</li>
     </ul>
@@ -203,12 +206,12 @@ export function welcome() {
   bindClose(sheet);
 }
 
-// Café et hammam : choix de l'activité
+// Hammam et marché : choix de l'activité
 export function openLieu(lieu) {
   if (lieu === 'marche') return openMarche();
   const L = LIEUX[lieu];
   const effTxt = eff => Object.entries(eff).map(([k, v]) => `${NEEDS[k]} ${v > 0 ? '+' : ''}${v}`).join(' · ');
-  const sheet = openModal(`${closeBtn}<h2>${esc(L.nom)}</h2><p>${esc(L.desc)} À ${L.trajet} min à pied.</p>
+  const sheet = openModal(`${closeBtn}${banner(L.img)}<h2>${esc(L.nom)}</h2><p>${esc(L.desc)}</p>
     <div class="list">${L.options.map((o, i) => `<button class="opt" data-i="${i}" ${o.prix > G.s.money ? 'disabled' : ''}>
       <span><b>${esc(o.nom)}</b><small>${fmtDur(o.dur)} sur place · ${effTxt(o.eff)}</small></span><em>${fmtDH(o.prix)}</em></button>`).join('')}</div>`);
   bindClose(sheet);
@@ -219,8 +222,8 @@ export function openLieu(lieu) {
 
 function openMarche() {
   const basket = {};
-  const sheet = openModal(`${closeBtn}<h2>Marché du quartier</h2>
-    <p>Choisis tes courses : ${esc(G.s.char.name)} y va à pied (10 min) et les range dans le frigo en rentrant.</p>
+  const sheet = openModal(`${closeBtn}${banner('illu-marche')}<h2>Marché du quartier</h2>
+    <p>Choisis tes courses : ${esc(G.s.char.name)} y va à pied depuis le coin de la rue et les range au frigo en rentrant.</p>
     <div class="list">${MARCHE.map(m => `<div class="opt line"><span><b>${esc(m.nom)}</b><small>${esc(m.detail)} · ${fmtDH(m.prix)}</small></span>
       <div class="qty"><button data-m="${m.id}" data-d="-1" aria-label="Moins">−</button><b id="q-${m.id}">0</b><button data-m="${m.id}" data-d="1" aria-label="Plus">+</button></div></div>`).join('')}</div>
     <div class="actions"><button class="btn primary" id="buy" disabled>Partir faire les courses</button></div>`);
@@ -243,21 +246,31 @@ function openMarche() {
   };
 }
 
-// Fiche du personnage
-export function openFiche() {
+// Fiche du personnage et du quartier
+export function openFiche(tab = 'moi') {
   const s = G.s, J = s.job, sk = s.skills.cuisine, lvl = Math.floor(sk);
   const plats = s.plats.length ? s.plats.map(p => `${RECETTES[p.r].nom} (${QUAL[p.q]}) : ${p.n}`).join('<br>') : 'Aucun';
-  const sheet = openModal(`${closeBtn}<h2>${esc(s.char.name)}</h2>
-    <p class="hint">${s.char.traits.map(t => TRAITS[t].nom).join(' · ') || 'Aucun trait'}</p>
+  const moi = `
     <div class="stat"><span>Cuisine</span><b>Niveau ${lvl}</b><div class="bar"><i style="width:${lvl >= 10 ? 100 : (sk - lvl) * 100}%"></i></div></div>
     <div class="stat"><span>Travail</span><b>${esc(JOB[J.level].titre)}</b><small>${fmtDH(JOB[J.level].salaire)} par semaine · ${J.week} jour${J.week > 1 ? 's' : ''} travaillé${J.week > 1 ? 's' : ''} cette semaine</small>
       <div class="bar"><i style="width:${J.perf}%"></i></div><small>Performance : ${Math.round(J.perf)} / 100 (promotion à 100)</small></div>
     <div class="stat"><span>Argent</span><b>${fmtDH(s.money)}</b></div>
     <div class="stat"><span>Ambiance de la maison</span><b>${ambiance(s.home)} / 30</b><small>Plus elle est belle, mieux on s'y sent.</small></div>
     <div class="stat"><span>Ingrédients au frais</span><small>Thé : ${s.inv.the || 0} · Msemen : ${s.inv.msemen || 0} · Tajine : ${s.inv.tajine || 0} · Casse-croûte : ${s.inv.snack || 0}</small></div>
-    <div class="stat"><span>Plats prêts</span><small>${plats}</small></div>`);
+    <div class="stat"><span>Plats prêts</span><small>${plats}</small></div>`;
+  const heures = n => n.sorties.map(([a, b]) => `${fmtH(a)}–${fmtH(b)}`).join(' et ');
+  const voisins = `${banner('illu-cafe')}<p class="hint">Le ${CAFE.nom.toLowerCase()} ouvre de ${CAFE.ouvre} h à ${CAFE.ferme} h. Les voisins passent dans la rue à leurs heures.</p>` +
+    NPCS.map(n => { const v = s.rel[n.id] || 0, live = G.npcs.find(x => x.id === n.id); return `
+    <div class="stat voisin"><span>${esc(n.nom)} · ${relLabel(v)}${live && live.visible ? ' · dans la rue' : ''}</span>
+      <div class="bar"><i style="width:${v}%"></i></div><small>${esc(n.desc)} Dehors : ${heures(n)}.</small></div>`; }).join('');
+  const sheet = openModal(`${closeBtn}<h2>${esc(s.char.name)}</h2>
+    <p class="hint">${s.char.traits.map(t => TRAITS[t].nom).join(' · ') || 'Aucun trait'}</p>
+    <nav class="tabs small"><button data-t="moi" class="${tab === 'moi' ? 'on' : ''}">Ma vie</button><button data-t="quartier" class="${tab === 'quartier' ? 'on' : ''}">Le quartier</button></nav>
+    ${tab === 'moi' ? moi : voisins}`);
   bindClose(sheet);
+  sheet.querySelectorAll('[data-t]').forEach(b => { b.onclick = () => openFiche(b.dataset.t); });
 }
+const fmtH = h => { const m = Math.round((h % 1) * 60); return Math.floor(h) + ' h' + (m ? ' ' + String(m).padStart(2, '0') : ''); };
 
 // Menu
 export function openMenu() {
@@ -265,7 +278,7 @@ export function openMenu() {
   const sheet = openModal(`${closeBtn}<h2>Menu</h2>
     <div class="list">
       <button class="opt" id="mAuto"><span><b>Libre arbitre : ${s.autonomy ? 'activé' : 'désactivé'}</b>
-        <small>${esc(s.char.name)} mange, dort et se lave tout(e) seul(e) quand rien n'est prévu.</small></span></button>
+        <small>${esc(s.char.name)} mange, dort, se lave et va au café tout(e) seul(e) quand rien n'est prévu.</small></span></button>
       <button class="opt" id="mHelp"><span><b>Comment jouer</b></span></button>
       <button class="opt danger" id="mNew"><span><b>Nouvelle partie</b><small>Efface la partie en cours.</small></span></button>
     </div>

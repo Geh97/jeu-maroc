@@ -1,5 +1,10 @@
-// L'appartement : grille, murs (sur les bords des cases), meubles, chemins.
-import { W, D, FURN, FLOORS } from './data.js';
+// Le quartier : grille, murs de l'appartement (sur les bords des cases), meubles, obstacles, chemins.
+import { W, D, X0, X1, Z0, Z1, FURN, FLOORS, RUE, CAFE } from './data.js';
+
+export const GW = X1 - X0, GD = Z1 - Z0;
+export const idx = (x, z) => (z - Z0) * GW + (x - X0);
+export const inWorld = (x, z) => x >= X0 && x < X1 && z >= Z0 && z < Z1;
+export const inHome = (x, z) => x >= 0 && x < W && z >= 0 && z < D;
 
 // Bords : 'v,x,z' = bord vertical sur la ligne X = x, entre z et z+1.
 //         'h,x,z' = bord horizontal sur la ligne Z = z, entre x et x+1.
@@ -54,77 +59,97 @@ export function furnCenter(f) {
 }
 export const frontDir = r => [{ x: 0, z: 1 }, { x: 1, z: 0 }, { x: 0, z: -1 }, { x: -1, z: 0 }][r];
 
-export function blockedGrid(home, ignoreId) {
-  const g = new Uint8Array(W * D);
+// Obstacles fixes du quartier (immeubles, mobilier urbain, terrasse du café).
+let outdoor = null;
+export function outdoorGrid() {
+  if (outdoor) return outdoor;
+  const g = new Uint8Array(GW * GD);
+  for (let z = Z0; z < Z1; z++) for (let x = X0; x < X1; x++) if (z < D && !inHome(x, z)) g[idx(x, z)] = 1;
+  const mark = c => { if (inWorld(c.x, c.z)) g[idx(c.x, c.z)] = 1; };
+  RUE.lampes.forEach(mark); RUE.palmiers.forEach(mark); RUE.taxi.cells.forEach(mark); RUE.hanout.caisses.forEach(mark);
+  mark(RUE.banc); mark({ x: RUE.banc.x + 1, z: RUE.banc.z });
+  CAFE.tables.forEach(mark); CAFE.chaises.forEach(mark); CAFE.poteaux.forEach(mark);
+  return (outdoor = g);
+}
+// Grille des cases bloquées. noHome : l'appartement entier est interdit (pour les voisins).
+export function blockedGrid(home, ignoreId, noHome = false) {
+  const g = new Uint8Array(outdoorGrid());
+  if (noHome) { for (let z = 0; z < D; z++) for (let x = 0; x < W; x++) g[idx(x, z)] = 1; return g; }
   for (const f of home.furn) {
     if (f.id === ignoreId || FURN[f.type].sol) continue;
-    for (const t of furnTiles(f)) g[t.z * W + t.x] = 1;
+    for (const t of furnTiles(f)) g[idx(t.x, t.z)] = 1;
   }
   return g;
 }
 
 // Passage orthogonal d'une case à sa voisine (murs et fenêtres bloquent, portes non).
-export function wallBetween(home, x, z, dx, dz) {
-  let k;
-  if (dx === 1) k = ek('v', x + 1, z);
-  else if (dx === -1) k = ek('v', x, z);
-  else if (dz === 1) k = ek('h', x, z + 1);
-  else k = ek('h', x, z);
-  return !!BLOCKS[home.edges[k]];
-}
-// Bord séparant deux cases voisines, quel que soit son type.
 export function edgeKeyBetween(x, z, dx, dz) {
   if (dx === 1) return ek('v', x + 1, z);
   if (dx === -1) return ek('v', x, z);
   if (dz === 1) return ek('h', x, z + 1);
   return ek('h', x, z);
 }
-const inside = (x, z) => x >= 0 && z >= 0 && x < W && z < D;
+export const wallBetween = (home, x, z, dx, dz) => !!BLOCKS[home.edges[edgeKeyBetween(x, z, dx, dz)]];
+
+// File de priorité minimale.
+class Heap {
+  constructor() { this.a = []; }
+  push(k, v) { const a = this.a; a.push([k, v]); let i = a.length - 1; while (i) { const p = (i - 1) >> 1; if (a[p][0] <= a[i][0]) break; [a[p], a[i]] = [a[i], a[p]]; i = p; } }
+  pop() {
+    const a = this.a, top = a[0], last = a.pop();
+    if (a.length) { a[0] = last; let i = 0; for (;;) { const l = 2 * i + 1, r = l + 1; let m = i; if (l < a.length && a[l][0] < a[m][0]) m = l; if (r < a.length && a[r][0] < a[m][0]) m = r; if (m === i) break; [a[m], a[i]] = [a[i], a[m]]; i = m; } }
+    return top;
+  }
+  get size() { return this.a.length; }
+}
 
 // Plus court chemin (8 directions) vers la case cible la plus proche.
 export function findPath(home, sx, sz, targets, blocked = blockedGrid(home)) {
-  const goal = new Set(targets.map(t => t.z * W + t.x));
-  if (!goal.size) return null;
-  const start = sz * W + sx;
-  const dist = new Float32Array(W * D).fill(Infinity), prev = new Int32Array(W * D).fill(-1);
-  const done = new Uint8Array(W * D);
-  dist[start] = 0;
-  const can = (x, z, dx, dz) => inside(x + dx, z + dz) && !blocked[(z + dz) * W + x + dx] && !wallBetween(home, x, z, dx, dz);
-  for (;;) {
-    let best = -1, bd = Infinity;
-    for (let i = 0; i < W * D; i++) if (!done[i] && dist[i] < bd) { bd = dist[i]; best = i; }
-    if (best < 0) return null;
+  const goal = new Set(targets.filter(t => inWorld(t.x, t.z)).map(t => idx(t.x, t.z)));
+  if (!goal.size || !inWorld(sx, sz)) return null;
+  const start = idx(sx, sz);
+  const dist = new Float32Array(GW * GD).fill(Infinity), prev = new Int32Array(GW * GD).fill(-1);
+  const done = new Uint8Array(GW * GD), heap = new Heap();
+  dist[start] = 0; heap.push(0, start);
+  const can = (x, z, dx, dz) => inWorld(x + dx, z + dz) && !blocked[idx(x + dx, z + dz)] && !wallBetween(home, x, z, dx, dz);
+  while (heap.size) {
+    const [bd, best] = heap.pop();
+    if (done[best]) continue;
     if (goal.has(best)) {
       const path = [];
-      for (let i = best; i !== -1; i = prev[i]) path.unshift({ x: i % W, z: Math.floor(i / W) });
+      for (let i = best; i !== -1; i = prev[i]) path.unshift({ x: (i % GW) + X0, z: Math.floor(i / GW) + Z0 });
       return path;
     }
     done[best] = 1;
-    const x = best % W, z = Math.floor(best / W);
+    const x = (best % GW) + X0, z = Math.floor(best / GW) + Z0;
     for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) {
       if (!dx && !dz) continue;
       let ok;
       if (dx && dz) ok = can(x, z, dx, 0) && can(x + dx, z, 0, dz) && can(x, z, 0, dz) && can(x, z + dz, dx, 0);
       else ok = can(x, z, dx, dz);
       if (!ok) continue;
-      const n = (z + dz) * W + x + dx, nd = bd + (dx && dz ? 1.414 : 1);
-      if (nd < dist[n]) { dist[n] = nd; prev[n] = best; }
+      const n = idx(x + dx, z + dz), nd = bd + (dx && dz ? 1.414 : 1);
+      if (nd < dist[n]) { dist[n] = nd; prev[n] = best; heap.push(nd, n); }
     }
   }
+  return null;
 }
 
-// Cases libres d'où l'on peut utiliser un meuble.
-export function approachTiles(home, f, blocked = blockedGrid(home)) {
-  const own = new Set(furnTiles(f).map(t => t.z * W + t.x)), out = [];
-  for (const t of furnTiles(f)) {
+// Cases libres d'où l'on peut atteindre un groupe de cases (meuble, chaise, personne).
+export function approachCells(home, cells, blocked = blockedGrid(home)) {
+  const own = new Set(cells.map(t => idx(t.x, t.z))), out = [];
+  for (const t of cells) {
     for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-      const x = t.x + dx, z = t.z + dz, i = z * W + x;
-      if (!inside(x, z) || own.has(i) || blocked[i] || wallBetween(home, t.x, t.z, dx, dz)) continue;
+      const x = t.x + dx, z = t.z + dz;
+      if (!inWorld(x, z)) continue;
+      const i = idx(x, z);
+      if (own.has(i) || blocked[i] || wallBetween(home, t.x, t.z, dx, dz)) continue;
       out.push({ x, z, from: t });
     }
   }
   return out;
 }
+export const approachTiles = (home, f, blocked) => approachCells(home, furnTiles(f), blocked);
 
 export function entrance(home) {
   for (const k in home.edges) {
@@ -134,6 +159,10 @@ export function entrance(home) {
     return e.x === W ? { x: W - 1, z: e.z, out: { x: 1, z: 0 } } : { x: 0, z: e.z, out: { x: -1, z: 0 } };
   }
   return { x: 0, z: 0, out: { x: 0, z: 1 } };
+}
+export function doorstep(home) {
+  const e = entrance(home);
+  return { x: e.x + e.out.x, z: e.z + e.out.z };
 }
 
 // Peut-on poser ce meuble ici ?
@@ -174,7 +203,7 @@ export function roomTiles(home, sx, sz) {
     out.push({ x, z });
     for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
       const nx = x + dx, nz = z + dz, i = nz * W + nx;
-      if (!inside(nx, nz) || seen.has(i)) continue;
+      if (!inHome(nx, nz) || seen.has(i)) continue;
       if ((home.edges[edgeKeyBetween(x, z, dx, dz)] || 'none') !== 'none') continue;
       seen.add(i); stack.push([nx, nz]);
     }
@@ -191,4 +220,11 @@ export function ambiance(home) {
   if (home.wall !== 'chaux') a += 1;
   if (home.wainscot !== 'aucun') a += 2;
   return Math.round(Math.min(30, a));
+}
+
+// Cases libres du trottoir (pour les promenades des voisins).
+export function sidewalkCells() {
+  const g = outdoorGrid(), out = [];
+  for (const [a, b] of [RUE.trottoir, RUE.trottoirLoin]) for (let z = a; z < b; z++) for (let x = X0 + 1; x < X1 - 1; x++) if (!g[idx(x, z)]) out.push({ x, z });
+  return out;
 }

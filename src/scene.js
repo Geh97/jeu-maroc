@@ -1,15 +1,16 @@
-// Affichage 3D : caméra, lumière du jour, appartement, personnage, aperçus du mode construction.
+// Affichage 3D : caméra, lumière du jour, quartier, appartement, personnages, aperçus du mode construction.
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { W, D, FURN, WALL_COLORS } from './data.js';
+import { W, D, X0, X1, Z1, FURN, WALL_COLORS, NPCS, PASSANTS } from './data.js';
 import * as T from './textures.js';
 import * as M from './models.js';
 import { parseEdge, furnCenter, footprint } from './world.js';
 
-let renderer, scene, camera, controls, sun, hemi, amb, floorPlane;
+let renderer, scene, camera, controls, sun, hemi, amb, floorPlane, street;
 const homeG = new THREE.Group(), helpers = new THREE.Group();
-let segs = [], furnGroups = new Map(), lampLights = [], ch = null, look = null;
-let wallMode = 'coupes', clock = 0, savedCam = null;
+let segs = [], furnGroups = new Map(), lampLights = [], streetLights = [], ch = null, look = null;
+const npcs = new Map();
+let wallMode = 'coupes', clock = 0, savedCam = null, userMovedAt = -10, follow = false;
 const wallMat = new THREE.MeshStandardMaterial({ color: '#f1ece2', roughness: 0.9 });
 const sky = { day: new THREE.Color('#a8d8f0'), dusk: new THREE.Color('#f2a65a'), night: new THREE.Color('#0f1830') };
 
@@ -21,38 +22,47 @@ export function initScene(canvas) {
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   scene = new THREE.Scene();
   scene.background = sky.day.clone();
-  scene.fog = new THREE.Fog(scene.background, 45, 120);
-  camera = new THREE.PerspectiveCamera(45, 1, 0.1, 300);
+  scene.fog = new THREE.Fog(scene.background, 60, 150);
+  camera = new THREE.PerspectiveCamera(45, 1, 0.1, 400);
   const far = innerWidth < innerHeight ? 1.8 : 1; // écran en hauteur : on recule pour tout voir
   camera.position.set(W / 2 + 7 * far, 14 * far, D / 2 + 14 * far);
   controls = new OrbitControls(camera, canvas);
   controls.target.set(W / 2, 0, D / 2);
   controls.enableDamping = true;
   controls.minDistance = 3;
-  controls.maxDistance = 42;
+  controls.maxDistance = 48;
   controls.minPolarAngle = 0.25;
   controls.maxPolarAngle = 1.3;
   controls.screenSpacePanning = false;
+  controls.addEventListener('start', () => { userMovedAt = clock; });
   controls.update();
 
   hemi = new THREE.HemisphereLight('#e4f1ff', '#b39a7a', 1.1);
   sun = new THREE.DirectionalLight('#fff1d6', 2.2);
   sun.castShadow = true;
   sun.shadow.mapSize.set(mobile ? 1024 : 2048, mobile ? 1024 : 2048);
-  Object.assign(sun.shadow.camera, { left: -13, right: 13, top: 13, bottom: -13, near: 1, far: 80 });
-  sun.shadow.bias = -0.0005;
-  sun.target.position.set(W / 2, 0, D / 2);
+  Object.assign(sun.shadow.camera, { left: -24, right: 24, top: 20, bottom: -20, near: 1, far: 90 });
+  sun.shadow.bias = -0.0006;
+  sun.target.position.set(W / 2, 0, D / 2 + 4);
   amb = new THREE.AmbientLight('#ffd49a', 0);
-  scene.add(hemi, sun, sun.target, amb, homeG, helpers, M.makeBackdrop(W, D));
+  wallMat.map = T.tadelakt();
+  street = M.makeStreet();
+  scene.add(hemi, sun, sun.target, amb, homeG, helpers, street);
   for (let i = 0; i < 4; i++) {
     const l = new THREE.PointLight('#ffb35c', 0, 6, 2);
     scene.add(l); lampLights.push(l);
   }
-  floorPlane = new THREE.Mesh(new THREE.PlaneGeometry(W + 40, D + 40), new THREE.MeshBasicMaterial({ visible: false }));
+  for (const l of (street.userData.lamps || []).filter(l => !l.small)) {
+    const p = new THREE.PointLight('#ffd27a', 0, 12, 1.6);
+    p.position.set(l.x, l.y, l.z); scene.add(p); streetLights.push(p);
+  }
+  floorPlane = new THREE.Mesh(new THREE.PlaneGeometry(X1 - X0 + 60, Z1 + 60), new THREE.MeshBasicMaterial({ visible: false }));
   floorPlane.rotation.x = -Math.PI / 2;
-  floorPlane.position.set(W / 2, 0, D / 2);
+  floorPlane.position.set((X0 + X1) / 2, 0, Z1 / 2);
   floorPlane.userData.floor = true;
   scene.add(floorPlane);
+  for (const def of NPCS) addNpc(def.id, def.look);
+  PASSANTS.forEach((look, i) => addNpc('p' + i, look));
   addEventListener('resize', resize);
   resize();
 }
@@ -69,15 +79,26 @@ function disposeGroup(g) {
   g.traverse(o => { if (o.geometry && !o.geometry.userData.keep) o.geometry.dispose(); });
   g.clear();
 }
+// Un carreau de sol par case ; les cases voisines sont en miroir pour cacher les raccords.
+const tileGeos = [];
+function tileGeo(x, z) {
+  const k = (x & 1) + (z & 1) * 2;
+  if (tileGeos[k]) return tileGeos[k];
+  const g = new THREE.PlaneGeometry(1, 1), uv = g.attributes.uv;
+  for (let i = 0; i < uv.count; i++) {
+    if (x & 1) uv.setX(i, 1 - uv.getX(i));
+    if (z & 1) uv.setY(i, 1 - uv.getY(i));
+  }
+  g.userData.keep = true;
+  return (tileGeos[k] = g);
+}
 export function rebuildHome(home) {
   disposeGroup(homeG);
   segs = []; furnGroups = new Map();
   wallMat.color.set(WALL_COLORS[home.wall].c);
   const wsMat = home.wainscot === 'aucun' ? wallMat : wainscotMat(home.wainscot);
-
-  const tileGeo = new THREE.PlaneGeometry(1, 1);
   for (let z = 0; z < D; z++) for (let x = 0; x < W; x++) {
-    const m = new THREE.Mesh(tileGeo, floorMat(home.floors[z * W + x]));
+    const m = new THREE.Mesh(tileGeo(x, z), floorMat(home.floors[z * W + x]));
     m.rotation.x = -Math.PI / 2; m.position.set(x + 0.5, 0.002, z + 0.5); m.receiveShadow = true;
     homeG.add(m);
   }
@@ -116,23 +137,24 @@ function floorMat(type) {
 const wsm = {};
 function wainscotMat(kind) {
   return wsm[kind] || (wsm[kind] = new THREE.MeshStandardMaterial({
-    map: kind === 'bleu' ? T.zellige('#24508f', '#e2b54a') : T.zellige('#1f6b4f', '#d9a43a'), roughness: 0.5,
+    map: kind === 'bleu' ? T.imgTex('sol-zellige-bleu', '#5a7aa8') : T.imgTex('sol-zellige-vert', '#5f8f78'), roughness: 0.5,
   }));
 }
 
-// ---------- Personnage ----------
+// ---------- Personnages ----------
 export function setCharLook(c) {
   look = c;
   if (ch) scene.remove(ch.root);
   ch = M.makeCharacter(c);
-  ch.root.traverse(o => { if (o.isMesh) o.castShadow = true; });
+  ch.root.traverse(o => { if (o.isMesh) o.castShadow = true; o.userData.char = true; });
   scene.add(ch.root);
 }
-export function charScreenPos() {
-  if (!ch || !ch.root.visible) return null;
-  const v = ch.root.position.clone(); v.y += 2;
-  v.project(camera);
-  return { x: (v.x + 1) / 2 * innerWidth, y: (1 - v.y) / 2 * innerHeight };
+function addNpc(id, lookDef) {
+  const n = M.makeCharacter(lookDef);
+  n.root.traverse(o => { if (o.isMesh) o.castShadow = true; o.userData.npc = id; });
+  n.root.visible = false;
+  scene.add(n.root);
+  npcs.set(id, n);
 }
 
 // ---------- Caméra ----------
@@ -149,8 +171,11 @@ export function focusChar(on) {
   controls.update();
 }
 export function setWallMode(m) { wallMode = m; }
+export const setFollow = on => { follow = on; };
+export const debugCam = () => ({ cam: camera.position.toArray(), target: controls.target.toArray() });
 
 // ---------- Image par image ----------
+const tmpV = new THREE.Vector3();
 export function updateFrame(dt, v) {
   clock += dt;
   if (v && ch) {
@@ -167,10 +192,24 @@ export function updateFrame(dt, v) {
       if (g.userData.fire) g.userData.fire.visible = on && v.active.act === 'cuisiner';
       if (g.userData.water) g.userData.water.visible = on && v.active.act === 'douche';
     }
+    for (const nv of v.npcs || []) {
+      const n = npcs.get(nv.id);
+      if (!n) continue;
+      n.root.visible = nv.visible;
+      if (!nv.visible) continue;
+      n.root.position.set(nv.x, 0, nv.z); n.root.rotation.y = nv.yaw;
+      M.pose(n, nv.pose, clock + nv.x, nv.walkPhase);
+    }
     daylight(v.t);
+    // Dehors, la caméra suit le personnage (sauf juste après un geste du joueur).
+    if (follow && v.visible && v.outside && clock - userMovedAt > 2.5) {
+      tmpV.set(v.x, 0.4, v.z).sub(controls.target).multiplyScalar(Math.min(1, dt * 2.5));
+      controls.target.add(tmpV); camera.position.add(tmpV);
+    }
   }
   const t = controls.target;
-  t.x = Math.max(-3, Math.min(W + 3, t.x)); t.z = Math.max(-3, Math.min(D + 3, t.z)); t.y = Math.max(0, Math.min(2, t.y));
+  const dx = Math.max(X0 + 2, Math.min(X1 - 2, t.x)) - t.x, dz = Math.max(-3, Math.min(Z1, t.z)) - t.z, dy = Math.max(0, Math.min(2, t.y)) - t.y;
+  t.x += dx; t.z += dz; t.y += dy; camera.position.x += dx; camera.position.z += dz;
   controls.update();
   cutaway();
   renderer.render(scene, camera);
@@ -180,7 +219,7 @@ function daylight(t) {
   const h = (t / 60) % 24, p = (h - 6) / 14;
   const day = p > 0 && p < 1 ? Math.min(1, Math.sin(p * Math.PI) * 1.8) : 0;
   const a = Math.min(1, Math.max(0, p)) * Math.PI;
-  sun.position.set(W / 2 - Math.cos(a) * 22, 4 + Math.sin(a) * 22, D / 2 + 12);
+  sun.position.set(W / 2 - Math.cos(a) * 30, 6 + Math.sin(a) * 30, D / 2 + 18);
   sun.intensity = 2.4 * day;
   hemi.intensity = 0.35 + 0.8 * day;
   amb.intensity = (1 - day) * 0.9;
@@ -190,7 +229,9 @@ function daylight(t) {
   else col.copy(sky.night);
   scene.fog.color.copy(col);
   for (const l of lampLights) l.intensity = l.userData.on ? (1 - day) * 6 + 0.4 : 0;
+  for (const l of streetLights) l.intensity = (1 - day) * 14;
   for (const g of furnGroups.values()) if (g.userData.glow) g.userData.glow.emissiveIntensity = 0.5 + (1 - day) * 1.8;
+  for (const l of street.userData.lamps || []) l.mat.emissiveIntensity = 0.3 + (1 - day) * 1.6;
 }
 
 // Murs coupés : on abaisse les murs du côté de la caméra pour voir dedans.
@@ -203,18 +244,27 @@ function cutaway() {
     if (wallMode === 'coupes') low = (s.x - cx) * tmp.x + (s.z - cz) * tmp.z > -1.2;
     s.g.scale.y = low ? 0.24 : 1;
   }
+  for (const { a, poles } of street.userData.awnings || []) {
+    const full = wallMode === 'hauts';
+    a.scale.z = full ? 1 : 0.18; poles.visible = full;
+  }
 }
 
 // ---------- Sélection à l'écran ----------
 const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
+let chairMeshes = null;
 export function pick(px, py, opts = {}) {
   ndc.set(px / innerWidth * 2 - 1, -(py / innerHeight) * 2 + 1);
   ray.setFromCamera(ndc, camera);
-  const objs = [...furnGroups.values(), ...segs.map(s => s.g), floorPlane];
+  if (!chairMeshes) { chairMeshes = []; street.traverse(o => { if (o.isMesh && o.userData.chair != null) chairMeshes.push(o); }); }
+  const objs = [...furnGroups.values(), ...segs.map(s => s.g), ...chairMeshes, floorPlane];
+  if (!opts.build) for (const n of npcs.values()) if (n.root.visible) objs.unshift(n.root);
   if (ch && ch.root.visible) objs.unshift(ch.root);
   for (const h of ray.intersectObjects(objs, true)) {
     const u = h.object.userData;
     if (u.char) return { type: 'char' };
+    if (u.npc) return { type: 'npc', id: u.npc };
+    if (u.chair != null) return { type: 'chair', id: u.chair };
     if (u.fid != null) {
       if (!opts.build && FURN[typeOf(u.fid)].sol) return floorHit(h.point);
       return { type: 'furn', id: u.fid, point: h.point };
@@ -253,7 +303,6 @@ const marks = new THREE.Group(); helpers.add(marks);
 const markOk = new THREE.MeshBasicMaterial({ color: '#f4c542', transparent: true, opacity: 0.85, depthTest: false });
 const markBad = new THREE.MeshBasicMaterial({ color: '#e35d5d', transparent: true, opacity: 0.85, depthTest: false });
 export function clearMarks() { disposeGroup(marks); }
-// Segments de mur prévus : [{t,x,z}]
 export function markEdges(list, ok = true) {
   for (const e of list) {
     const m = new THREE.Mesh(new THREE.BoxGeometry(1, 0.08, 0.16), ok ? markOk : markBad);

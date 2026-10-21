@@ -1,5 +1,6 @@
-// Textures dessinées à la volée (zellige, carrelage, tapis…), sans fichier image.
+// Textures : images fournies (dossier assets/) et motifs dessinés à la volée en attendant qu'elles chargent.
 import * as THREE from 'three';
+import { IMG, asset } from './data.js';
 
 const cache = {};
 function make(key, size, draw) {
@@ -15,6 +16,23 @@ function make(key, size, draw) {
 }
 // Petit générateur pseudo-aléatoire, pour que les motifs soient toujours les mêmes.
 function rng(seed) { return () => ((seed = (seed * 16807) % 2147483647) / 2147483647); }
+
+// Image fournie, rognée de ses bords blancs, en 512 px. Le canvas est d'abord rempli d'une couleur unie.
+export function imgTex(name, fill = '#d9cdb6', size = 512) {
+  const key = 'img:' + name;
+  if (cache[key]) return cache[key];
+  const t = make(key, size, (g, s) => { g.fillStyle = fill; g.fillRect(0, 0, s, s); });
+  t.wrapS = t.wrapT = THREE.MirroredRepeatWrapping;
+  const im = new Image();
+  im.onload = () => {
+    const [l, tp, r, b] = (IMG[name] && IMG[name].crop) || [0, 0, 0, 0];
+    const sx = im.width * l, sy = im.height * tp, sw = im.width * (1 - l - r), sh = im.height * (1 - tp - b);
+    t.image.getContext('2d').drawImage(im, sx, sy, sw, sh, 0, 0, size, size);
+    t.needsUpdate = true;
+  };
+  im.src = asset(name);
+  return t;
+}
 
 function star(g, cx, cy, r, inner = 0.72) {
   g.beginPath();
@@ -44,85 +62,21 @@ export function zellige(main, accent, bg = '#f4efe3') {
     for (let i = 0; i < 2; i++) for (let j = 0; j < 2; j++) { star(g, (i + 0.5) * step, (j + 0.5) * step, step * 0.44); g.stroke(); }
   });
 }
-
-export function carrelage() {
-  return make('carrelage', 256, (g, s) => {
-    const r = rng(3);
-    for (let i = 0; i < 2; i++) for (let j = 0; j < 2; j++) {
-      const v = 226 + Math.floor(r() * 12);
-      g.fillStyle = `rgb(${v},${v - 12},${v - 32})`; g.fillRect(i * s / 2, j * s / 2, s / 2, s / 2);
-    }
-    g.strokeStyle = '#b9a98c'; g.lineWidth = 4;
-    g.strokeRect(0, 0, s, s); g.beginPath(); g.moveTo(s / 2, 0); g.lineTo(s / 2, s); g.moveTo(0, s / 2); g.lineTo(s, s / 2); g.stroke();
-  });
-}
-export function terreCuite() {
-  return make('terre', 256, (g, s) => {
-    const r = rng(7), n = 4, st = s / n;
-    for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) {
-      const v = Math.floor(r() * 26);
-      g.fillStyle = `rgb(${178 + v},${92 + v / 2},${58 + v / 3})`; g.fillRect(i * st, j * st, st, st);
-    }
-    g.strokeStyle = '#d9c7ad'; g.lineWidth = 3;
-    for (let i = 0; i <= n; i++) { g.beginPath(); g.moveTo(i * st, 0); g.lineTo(i * st, s); g.moveTo(0, i * st); g.lineTo(s, i * st); g.stroke(); }
-  });
-}
-export function parquet() {
-  return make('parquet', 256, (g, s) => {
-    const r = rng(11), rows = 6, h = s / rows;
-    for (let j = 0; j < rows; j++) {
-      let x = -r() * 120;
-      while (x < s) {
-        const w = 90 + r() * 80, v = Math.floor(r() * 30);
-        g.fillStyle = `rgb(${150 + v},${100 + v * 0.7},${62 + v * 0.4})`; g.fillRect(x, j * h, w, h);
-        g.fillStyle = 'rgba(60,35,20,0.5)'; g.fillRect(x, j * h, 2, h);
-        x += w;
-      }
-      g.fillStyle = 'rgba(60,35,20,0.5)'; g.fillRect(0, j * h, s, 2);
-    }
-  });
-}
-export function marbre() {
-  return make('marbre', 256, (g, s) => {
-    const r = rng(5);
-    g.fillStyle = '#f1efea'; g.fillRect(0, 0, s, s);
-    g.strokeStyle = 'rgba(120,120,130,0.25)';
-    for (let i = 0; i < 7; i++) {
-      g.lineWidth = 1 + r() * 2; g.beginPath();
-      let x = r() * s, y = 0; g.moveTo(x, y);
-      while (y < s) { x += (r() - 0.5) * 40; y += 20 + r() * 20; g.lineTo(x, y); }
-      g.stroke();
-    }
-    g.strokeStyle = 'rgba(150,140,130,0.5)'; g.lineWidth = 2; g.strokeRect(0, 0, s, s);
-  });
-}
 export function floorTex(type) {
   switch (type) {
-    case 'zellige_vert': return zellige('#1f6b4f', '#d9a43a');
-    case 'zellige_bleu': return zellige('#24508f', '#e2b54a');
-    case 'parquet': return parquet();
-    case 'terre': return terreCuite();
-    case 'marbre': return marbre();
-    default: return carrelage();
+    case 'zellige_vert': return imgTex('sol-zellige-vert', '#5f8f78');
+    case 'zellige_bleu': return imgTex('sol-zellige-bleu', '#5a7aa8');
+    case 'parquet': return imgTex('sol-parquet', '#b07a4c');
+    case 'terre': return imgTex('sol-terre-cuite', '#c48a5e');
+    case 'marbre': return imgTex('sol-marbre', '#efece6');
+    default: return imgTex('sol-carrelage-beige', '#e3d6bd');
   }
 }
+export const tadelakt = () => imgTex('mur-tadelakt', '#f1ece2');
+export const tissuBanquette = () => imgTex('tissu-banquette', '#8a1f28');
+export const tapisBerbere = () => imgTex('tapis-berbere', '#efe6d2');
 
-// Tapis berbère (style Beni Ouarain) : fond crème et losanges sombres.
-export function tapis() {
-  return make('tapis', 256, (g, s) => {
-    const r = rng(9);
-    g.fillStyle = '#efe6d2'; g.fillRect(0, 0, s, s);
-    for (let i = 0; i < 1400; i++) { g.fillStyle = `rgba(160,140,110,${r() * 0.25})`; g.fillRect(r() * s, r() * s, 2, 2); }
-    g.strokeStyle = '#3b2e26'; g.lineWidth = 7; g.lineCap = 'round';
-    const k = s / 3;
-    for (let i = -3; i <= 6; i++) {
-      g.beginPath(); g.moveTo(i * k, 0); g.lineTo(i * k + s, s); g.stroke();
-      g.beginPath(); g.moveTo(i * k, s); g.lineTo(i * k + s, 0); g.stroke();
-    }
-    g.strokeStyle = '#3b2e26'; g.lineWidth = 10; g.strokeRect(12, 12, s - 24, s - 24);
-  });
-}
-// Tissu rayé des banquettes et couvertures.
+// Tissu rayé des couvertures.
 export function tissu(base, gold) {
   return make('t' + base + gold, 128, (g, s) => {
     g.fillStyle = base; g.fillRect(0, 0, s, s);
@@ -130,6 +84,12 @@ export function tissu(base, gold) {
     for (let y = 8; y < s; y += 32) { g.fillRect(0, y, s, 4); g.fillRect(0, y + 8, s, 2); }
     g.fillStyle = 'rgba(0,0,0,0.12)';
     for (let x = 0; x < s; x += 16) for (let y = 20; y < s; y += 32) { diamond(g, x + 8, y, 4); g.fill(); }
+  });
+}
+// Toile rayée des stores de café et de hanout.
+export function rayures(a, b) {
+  return make('r' + a + b, 128, (g, s) => {
+    for (let x = 0; x < s; x += 32) { g.fillStyle = a; g.fillRect(x, 0, 16, s); g.fillStyle = b; g.fillRect(x + 16, 0, 16, s); }
   });
 }
 export function asphalte() {

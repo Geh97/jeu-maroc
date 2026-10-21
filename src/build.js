@@ -1,5 +1,5 @@
 // Mode construction : meubles, murs, sols, peinture. Le temps est arrêté.
-import { W, D, FURN, CATS, FLOORS, WALL_COLORS, WAINSCOTS, PAINT_PRICE, WAINSCOT_PRICE, WALL_PRICES } from './data.js';
+import { W, D, FURN, CATS, FLOORS, WALL_COLORS, WAINSCOTS, PAINT_PRICE, WAINSCOT_PRICE, WALL_PRICES, asset } from './data.js';
 import { G, spend, homeChanged, fmtDH } from './sim.js';
 import * as S from './scene.js';
 import * as Wd from './world.js';
@@ -34,6 +34,7 @@ const TOOLS = {
 };
 export function render() {
   const tabs = { meubles: 'Meubles', murs: 'Murs', sols: 'Sols', peinture: 'Peinture' };
+  const tabIcon = { meubles: 'onglet-meubles', murs: 'onglet-murs', sols: 'onglet-sols', peinture: 'onglet-peinture' };
   let hint = '', items = '', acts = '';
   if (B.tab === 'meubles') {
     if (B.moving) hint = 'Touche l’endroit où poser le meuble.';
@@ -42,7 +43,7 @@ export function render() {
     else hint = 'Choisis un meuble à acheter, ou touche un meuble de la maison pour le déplacer ou le vendre.';
     items = `<div class="chips cats">${Object.entries(CATS).map(([k, n]) => `<button data-cat="${k}" class="${B.cat === k ? 'on' : ''}">${n}</button>`).join('')}</div>
       <div class="cards">${Object.entries(FURN).filter(([, f]) => f.cat === B.cat).map(([k, f]) =>
-        `<button class="card-i ${B.item === k ? 'on' : ''}" data-item="${k}"><b>${esc(f.nom)}</b><small>${fmtDH(f.prix)}${f.beaute ? ` · ambiance +${f.beaute}` : ''}</small></button>`).join('')}</div>`;
+        `<button class="card-i thumb ${B.item === k ? 'on' : ''}" data-item="${k}"><img src="${asset(f.img)}" alt="" draggable="false"><b>${esc(f.nom)}</b><small>${fmtDH(f.prix)}${f.beaute ? ` · ambiance +${f.beaute}` : ''}</small></button>`).join('')}</div>`;
     if (B.item || B.moving) {
       if (B.ghost) acts += '<button class="btn primary" data-a="place">Poser ici</button>';
       acts += '<button class="btn" data-a="rot">Tourner</button><button class="btn" data-a="cancel">Annuler</button>';
@@ -59,7 +60,7 @@ export function render() {
   } else if (B.tab === 'sols') {
     hint = B.fill ? 'Touche une pièce pour changer tout son sol.' : 'Touche une case pour changer son sol.';
     items = `<div class="cards">${Object.entries(FLOORS).map(([k, f]) =>
-      `<button class="card-i ${B.floor === k ? 'on' : ''}" data-floor="${k}"><i class="sw-floor f-${k}"></i><b>${f.nom}</b><small>${f.prix} DH la case</small></button>`).join('')}</div>`;
+      `<button class="card-i ${B.floor === k ? 'on' : ''}" data-floor="${k}"><i class="sw-floor" style="background-image:url('${asset(f.img)}')"></i><b>${f.nom}</b><small>${f.prix} DH la case</small></button>`).join('')}</div>`;
     acts = `<button class="btn ${B.fill ? 'on' : ''}" data-a="fill">Toute la pièce</button><button class="btn ${B.fill ? '' : 'on'}" data-a="one">Une case</button>`;
   } else {
     hint = `Couleur des murs : ${PAINT_PRICE} DH. Soubassement en zellige : ${WAINSCOT_PRICE} DH.`;
@@ -69,7 +70,7 @@ export function render() {
       `<button class="card-i ${home().wainscot === k ? 'on' : ''}" data-ws="${k}"><b>${n}</b><small>Bas des murs</small></button>`).join('')}</div>`;
   }
   $('build').innerHTML = `<div class="card">
-    <nav class="tabs">${Object.entries(tabs).map(([k, n]) => `<button data-tab="${k}" class="${B.tab === k ? 'on' : ''}">${n}</button>`).join('')}
+    <nav class="tabs">${Object.entries(tabs).map(([k, n]) => `<button data-tab="${k}" class="${B.tab === k ? 'on' : ''}"><img src="${asset(tabIcon[k])}" alt="" draggable="false">${n}</button>`).join('')}
       <span class="amb">Ambiance ${Wd.ambiance(home())} / 30</span></nav>
     <p class="hint">${esc(hint)}</p>${items}${acts ? `<div class="bacts">${acts}</div>` : ''}</div>`;
 }
