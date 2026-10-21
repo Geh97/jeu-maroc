@@ -319,6 +319,19 @@ function ocean(g, z) {
   cyl(phare, 0, 1.5, 1.2, mat('#2a2f36'), 0, 20.6, 0, 12);
 }
 
+// Les guirlandes du Ramadan : des lanternes de couleur tendues au-dessus de la rue.
+export function guirlandes() {
+  const g = new THREE.Group();
+  const cols = ['#ffd27a', '#c2185b', '#2e7d5b', '#4f5bd5', '#e0a526'];
+  for (let x = X0 - 6; x < X1 + 6; x += 3) {
+    box(g, 0.02, 0.02, 15, mat('#2a2a2a'), x, 4.6, D + 7);
+    for (let i = 0; i < 7; i++) {
+      const m = new THREE.MeshStandardMaterial({ color: cols[(i + x) % 5], emissive: cols[(i + x) % 5], emissiveIntensity: 0.8 });
+      cyl(g, 0.12, 0.09, 0.22, m, x, 4.45, D + 0.5 + i * 2.2, 6);
+    }
+  }
+  return g;
+}
 export function makeStreet(opts = {}) {
   const quartier = opts.quartier || 'populaire', anfa = quartier === 'anfa', withHome = opts.withHome !== false;
   const g = new THREE.Group();

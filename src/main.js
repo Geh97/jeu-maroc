@@ -9,6 +9,7 @@ import * as S from './scene.js';
 import * as UI from './ui.js';
 import * as BLD from './build.js';
 import * as TR from './travail.js';
+import * as FT from './fetes.js';
 
 const canvas = document.getElementById('c');
 S.initScene(canvas);
@@ -18,9 +19,9 @@ hooks.askWork = UI.askWork;
 hooks.workEvent = UI.workEvent;
 hooks.sortieEvent = UI.sortieEvent;
 hooks.lookChanged = () => S.setCharLook(G.s.char);
-const ctx = () => ({ quartier: G.s.quartier, withHome: homeHere(), vehicule: G.s.vehicule, npcs: npcDefs() });
+const ctx = () => ({ quartier: G.s.quartier, withHome: homeHere(), vehicule: G.s.vehicule, npcs: npcDefs(), ramadan: FT.ramadan() });
 hooks.quartierChanged = () => { S.setQuartier(ctx()); UI.updateHud(); };
-window.jeu = { G, advance, enqueue, hooks, debugCam: S.debugCam, npcActions, animalActions, newGame, start, rebuild: () => S.rebuildHome(G.s.home), setCam: S.setCam, setFollow: S.setFollow, demenager, acheterVehicule, travail: TR }; // pour tester depuis la console du navigateur
+window.jeu = { G, advance, enqueue, hooks, debugCam: S.debugCam, npcActions, animalActions, newGame, start, rebuild: () => S.rebuildHome(G.s.home), setCam: S.setCam, setFollow: S.setFollow, demenager, acheterVehicule, travail: TR, fetes: FT }; // pour tester depuis la console du navigateur
 
 const walls = ['coupes', 'bas', 'hauts'];
 let wallIdx = 0, preview = null;

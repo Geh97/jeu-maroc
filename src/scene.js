@@ -4,7 +4,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { W, D, X0, X1, Z1, FURN, WALL_COLORS, NPCS, PASSANTS, ANIMAUX } from './data.js';
 import * as T from './textures.js';
 import * as M from './models.js';
-import { makeStreet } from './street.js';
+import { makeStreet, guirlandes } from './street.js';
 import { parseEdge, furnCenter, footprint } from './world.js';
 
 let renderer, scene, camera, controls, sun, hemi, amb, floorPlane, street;
@@ -162,6 +162,7 @@ export function setQuartier(ctx) {
     p.position.set(l.x, l.y, l.z); scene.add(p); streetLights.push(p);
   }
   homeG.visible = ctx.withHome;
+  if (ctx.ramadan) street.add(guirlandes());
   for (const [id, n] of [...npcs]) if (!id.startsWith('p')) { scene.remove(n.root); npcs.delete(id); }
   for (const def of ctx.npcs) addNpc(def.id, def.look);
 }

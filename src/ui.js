@@ -10,6 +10,7 @@ import {
 } from './sim.js';
 import { ambiance } from './world.js';
 import { PRATIQUES, socialInfo } from './social.js';
+import { fetesInfo, rompreJeune, jeune } from './fetes.js';
 import { travailInfo, chercherPoste, entretien, ouvrirAffaire, fermerAffaire, AFFAIRES, salaire } from './travail.js';
 
 export const $ = id => document.getElementById(id);
@@ -55,7 +56,8 @@ const barColor = v => (v > 60 ? '#3f9a5b' : v > 30 ? '#e0a526' : '#c8442f');
 let queueSig = '';
 export function updateHud() {
   const s = G.s;
-  $('day').textContent = `${JOURS[dow(s.t)]} · jour ${dayIdx(s.t) + 1}${s.quartier !== 'populaire' ? ' · ' + Q().nom : ''}`;
+  const F = fetesInfo();
+  $('day').textContent = `${JOURS[dow(s.t)]} · jour ${dayIdx(s.t) + 1}${s.quartier !== 'populaire' ? ' · ' + Q().nom : ''}${F.c.ramadan ? ` · Ramadan ${F.c.jourRamadan}` : F.c.aid ? (F.c.aid === 'fitr' ? ' · Aïd el-Fitr' : ' · Aïd el-Adha') : ''}`;
   $('time').textContent = fmtTime(s.t);
   $('money').lastChild.textContent = fmtDH(s.money);
   $('money').classList.toggle('neg', s.money < 0);
@@ -284,6 +286,7 @@ export function openFiche(tab = 'moi') {
   const moi = `
     <div class="stat ico">${img('milieu-' + s.milieu)}<div><span>Milieu</span><b>${esc(M.nom)}</b><small>${M.loyer ? `Loyer ${fmtDH(M.loyer)} + factures ${fmtDH(M.facture)}` : `Sans loyer, factures ${fmtDH(M.facture)}`} par semaine · ${esc(socialInfo().pratique)}</small></div></div>
     <div class="stat"><span>Réputation dans le quartier</span><b>${esc(socialInfo().repLabel)}</b><div class="bar"><i style="width:${s.reputation}%;background:var(--safran)"></i></div><small>Elle monte avec les amitiés, les coups de main et les dettes payées ; elle baisse avec les absences, les factures impayées et les mots de travers. Bien vu(e), le hanout fait crédit ; respecté(e), il fait une remise.${s.dette ? ` Dette au hanout : ${fmtDH(s.dette)}.` : ''}</small></div>
+    <div class="stat"><span>Les fêtes</span><b>${fetesInfo().c.ramadan ? `Ramadan, jour ${fetesInfo().c.jourRamadan}` : fetesInfo().c.aid ? (fetesInfo().c.aid === 'fitr' ? 'Aïd el-Fitr' : 'Aïd el-Adha') : `Prochaine : ${fetesInfo().prochaine.nom}, dans ${fetesInfo().prochaine.dans} jours`}</b><small>${fetesInfo().c.ramadan ? (s.pratique === 'non' ? 'Tu ne jeûnes pas. Le café vit la nuit, le travail finit à 15 h.' : 'Tu jeûnes du lever au coucher du soleil : pas de repas avant le ftour, à 19 h. Le travail finit à 15 h, le café ouvre à 20 h.') : 'Le Ramadan dure trente jours, l\'Aïd el-Fitr trois jours, l\'Aïd el-Adha deux.'}${fetesInfo().invitation ? ` Invitation : ${fetesInfo().invitation.type === 'mariage' ? 'mariage' : 'sbou3'} dans ${fetesInfo().invitation.jour - dayIdx(s.t)} jour(s), à ${fetesInfo().invitation.heure} h.` : ''}</small></div>
     <div class="stat"><span>Ta famille</span><b>${esc(socialInfo().famLabel)}</b><div class="bar"><i style="width:${s.famille}%;background:var(--terre)"></i></div><small>Les appels du dimanche, le repas de famille${s.milieu === 'aise' ? ' du dimanche midi' : s.milieu === 'populaire' ? ' du vendredi soir' : ', un vendredi sur deux'}, et les coups de main demandés entretiennent le lien.</small></div>
     <div class="stat"><span>Argent</span><b>${fmtDH(s.money)}</b>${s.epargne ? `<small>Épargne : ${fmtDH(s.epargne)}</small>` : ''}</div>
     <div class="stat"><span>Travail</span><b>${J.chomage ? 'Sans emploi' : travailInfo().affaire ? esc(travailInfo().affaire.nom) + ' (ton affaire)' : esc(job.titre)}</b><small>${J.chomage ? 'Cherche un poste depuis l\'onglet Argent.' : travailInfo().affaire ? `Clientèle ${Math.round(travailInfo().etat.clientele)} / 100` : `${fmtDH(salaire())} par semaine · ${J.week} jour${J.week > 1 ? 's' : ''} travaillé${J.week > 1 ? 's' : ''} cette semaine`}</small>
@@ -464,6 +467,7 @@ export function openMenu() {
       <button class="opt" id="mAuto"><span><b>Libre arbitre : ${s.autonomy ? 'activé' : 'désactivé'}</b>
         <small>${esc(s.char.name)} mange, dort, se lave et va au café tout(e) seul(e) quand rien n'est prévu.</small></span></button>
       <button class="opt" id="mWork"><span><b>Départ au travail : ${s.autoWork ? 'automatique' : 'me demander chaque matin'}</b></span></button>
+      ${jeune() ? `<button class="opt" id="mJeune"><span><b>Rompre le jeûne aujourd'hui</b><small>Manger en plein jour pendant le Ramadan. Dans le quartier, ça peut se voir.</small></span></button>` : ''}
       <button class="opt" id="mHelp"><span><b>Comment jouer</b></span></button>
       <button class="opt danger" id="mNew"><span><b>Nouvelle partie</b><small>Efface la partie en cours.</small></span></button>
     </div>
@@ -472,6 +476,7 @@ export function openMenu() {
   sheet.querySelector('#mAuto').onclick = () => { s.autonomy = !s.autonomy; openMenu(); };
   sheet.querySelector('#mWork').onclick = () => { s.autoWork = !s.autoWork; openMenu(); };
   sheet.querySelector('#mHelp').onclick = () => welcome();
+  const mj = sheet.querySelector('#mJeune'); if (mj) mj.onclick = () => { rompreJeune(); closeModal(); };
   const nb = sheet.querySelector('#mNew');
   nb.onclick = () => {
     if (!nb.dataset.sure) { nb.dataset.sure = 1; nb.querySelector('b').textContent = 'Toucher encore pour tout effacer'; return; }

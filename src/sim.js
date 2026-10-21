@@ -9,6 +9,7 @@ import {
 const GOUTS_ALL = { ...GOUTS, ...GOUTS_ANFA }, BOULOTS_ALL = [...BOULOTS, ...BOULOTS_ANFA];
 import * as Wd from './world.js';
 import { initSocial, socialMinute, remarque, rep, remiseHanout, creditPossible, evite } from './social.js';
+import { initFetes, fetesMinute, calendrier, ramadan, jeune, rompreJeune, cafeRamadan, finTravail, ferie } from './fetes.js';
 import { initTravail, collegueDefs, personnaliser, effetCollegue, paie, extraNoir, finExtraNoir, potDepart, journeeAffaire, evenementAffaire, jourAffaire, hausseLoyer } from './travail.js';
 
 export const G = {
@@ -40,7 +41,7 @@ export const hour = t => (t % 1440) / 60;
 export const fmtTime = t => { const { h, m } = hm(t); return String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0'); };
 export const fmtDH = n => Math.round(n).toLocaleString('fr-FR').replace(/ /g, ' ') + ' DH';
 export const fmtDur = m => (m < 60 ? m + ' min' : Math.floor(m / 60) + ' h' + (m % 60 ? ' ' + (m % 60) : ''));
-export const cafeOuvert = t => hour(t) >= CAFE.ouvre && hour(t) < CAFE.ferme;
+export const cafeOuvert = t => (ramadan() ? cafeRamadan(hour(t)) : hour(t) >= CAFE.ouvre && hour(t) < CAFE.ferme);
 export const hanoutOuvert = t => hour(t) >= HANOUT.ouvre && hour(t) < HANOUT.ferme;
 export const hanoutCost = b => Math.round(HANOUT.articles.reduce((t, m) => t + (b[m.id] || 0) * prix(m.prix), 0) * remiseHanout());
 export const milieu = () => MILIEUX[G.s.milieu];
@@ -72,6 +73,7 @@ export function newGame(look) {
   };
   initSocial(G.s);
   initTravail(G.s);
+  initFetes(G.s);
   for (const a of ANIMAUX) G.s.animaux[a.id] = { confiance: 0, adopte: false, nom: '', faim: 70, fled: 0 };
   resetRuntime();
   save();
@@ -106,6 +108,7 @@ export function load() {
     if (!s.quartier) { s.quartier = 'populaire'; s.chezMoi = 'populaire'; s.visites = { populaire: true }; s.vehicule = null; }
     initSocial(s);
     initTravail(s);
+    initFetes(s);
     G.s = s; resetRuntime(); return true;
   } catch { return false; }
 }
@@ -168,6 +171,7 @@ export function itemLabel(it) {
 
 function checkAct(it) {
   const s = G.s;
+  if (jeune() && ['manger', 'boire', 'casse'].includes(it.act)) return 'C\'est le Ramadan : on attend le ftour. (Menu : rompre le jeûne.)';
   if (it.act === 'cuisiner' && !(s.inv[it.param] > 0)) return 'Il manque les ingrédients : passe au marché.';
   if ((it.act === 'manger' || it.act === 'boire') && !findPlat(it.param)) return 'Il ne reste plus rien.';
   if (it.act === 'casse' && !(s.inv.snack > 0)) return 'Plus de casse-croûte : passe au marché.';
@@ -362,6 +366,7 @@ function startItem(it) {
   }
   if (it.kind === 'cafe') {
     const c = CAFE.chaises[it.chair];
+    if (jeune() && it.opt !== 'match' && it.opt !== 'cartes' && it.opt !== 'journal') return fail(it, 'C\'est le Ramadan : rien à consommer avant le ftour.');
     if (G.chairs[it.chair] && G.chairs[it.chair] !== 'player') return fail(it, 'La chaise vient d\'être prise.');
     if (!cafeOuvert(s.t)) return fail(it, 'Le café est fermé.');
     if (!go(Wd.approachCells(home, [c], blocked))) return fail(it, 'Impossible d\'atteindre la terrasse.');
@@ -645,7 +650,7 @@ function sell(it, n) {
   if (s.ventes.day !== d) s.ventes = { day: d };
   const left = VENTE_MAX - (s.ventes[n.id] || 0);
   if (left <= 0) return toast(`${n.def.nom} en a assez acheté pour aujourd'hui.`);
-  const k = Math.min(p.n, left), prix = VENTE[p.r][p.q], total = k * prix;
+  const k = Math.min(p.n, left), prix = VENTE[p.r][p.q] * (ramadan() && (p.r === 'harira' || p.r === 'chebakia') ? 2 : 1), total = k * prix;
   p.n -= k;
   if (!p.n) s.plats.splice(s.plats.indexOf(p), 1);
   s.ventes[n.id] = (s.ventes[n.id] || 0) + k;
@@ -758,7 +763,7 @@ function depart(it) {
   const t0 = s.t, phases = [{ until: t0 + L.trajet, label: 'En chemin' }];
   let late = false;
   if (it.lieu === 'travail') {
-    const end = dayIdx(t0) * 1440 + 17 * 60;
+    const end = dayIdx(t0) * 1440 + finTravail() * 60;
     late = t0 + L.trajet > dayIdx(t0) * 1440 + 9 * 60 + 15;
     phases.push({ until: Math.max(t0 + L.trajet + 60, end), label: L.ici, work: true, extra: { faim: 2.5, social: 1.5 } });
   } else {
@@ -1039,7 +1044,7 @@ function minuteEvent(T) {
     if (s.money < 0) toast('Attention : ton compte est à découvert.', 'bad');
   }
   if (mm === 1) { jourAffaire(d); hausseLoyer(d); }
-  const actif = !s.job.chomage;
+  const actif = !s.job.chomage && !ferie();
   if (w <= 4 && mm === 8 * 60 + 20 && s.job.day !== d && actif) {
     if (s.affaire) { if (!s.away) hooks.askWork(); }
     else if (s.away) { if (s.autoWork) G.pendingWork = true; else G.workAsk = true; }
@@ -1060,6 +1065,7 @@ function minuteEvent(T) {
   if (mm % 60 === 0) save();
   if (mm === 18 * 60 + 30) remarque();
   socialMinute(T);
+  fetesMinute(T);
   greetings();
 }
 // Les voisins qu'on connaît font signe quand on se croise.
@@ -1088,7 +1094,7 @@ function applyNeeds(m, extra) {
   }
   // Un animal adopté tient compagnie, sauf s'il a faim.
   for (const a of ANIMAUX) { const st = s.animaux[a.id]; if (st.adopte) r.moral += st.faim > 25 ? 1 : -2; }
-  for (const k of ['faim', 'energie', 'hygiene']) if (n[k] < 25) r.moral -= 4;
+  for (const k of ['faim', 'energie', 'hygiene']) if (n[k] < 25 && !(k === 'faim' && jeune())) r.moral -= 4;
   if (n.social < 20) r.moral -= 3;
   if (n.faim <= 0) r.moral -= 6;
   if (has('soigne') && n.hygiene < 50) r.moral -= 3;
@@ -1132,7 +1138,7 @@ function decide() {
     return false;
   };
   if ((n.energie < 20 || ((h >= 23 || h < 6) && n.energie < 70)) && tryAct(['lit', 'lit1'], 'dormir')) return;
-  if (n.faim < 35) {
+  if (n.faim < 35 && !jeune()) {
     const p = s.plats.filter(p => p.r !== 'the').sort((a, b) => b.q - a.q)[0];
     if (p && tryAct(['table', 'mida', 'banquette', 'pouf', 'frigo'], 'manger', p.r + ':' + p.q)) return;
     if (s.inv.snack > 0 && tryAct(['frigo'], 'casse')) return;
@@ -1142,7 +1148,7 @@ function decide() {
     if (hanoutOuvert(s.t) && s.money >= 46) { enqueue({ kind: 'hanout', basket: { snack: 1, msemen: 1 }, auto: true }); return; }
   }
   if (n.hygiene < 30 && tryAct(['douche'], 'douche')) return;
-  if (n.social < 35 && h >= 8 && h < 22 && cafeOuvert(s.t) && s.money >= 10) {
+  if (n.social < 35 && h >= 8 && h < 22 && cafeOuvert(s.t) && s.money >= 10 && !jeune()) {
     const i = G.chairs.findIndex(c => !c);
     if (i >= 0) { enqueue({ kind: 'cafe', chair: i, opt: 'the', auto: true }); return; }
   }
@@ -1153,7 +1159,7 @@ function decide() {
 // ---------- Les voisins ----------
 let npcGrid = null;
 const grid = () => npcGrid || (npcGrid = Wd.blockedGrid(G.s.home, null, true));
-const dehors = (n, h) => (!n.def.jours || n.def.jours.includes(dow(G.s.t))) && n.def.sorties.some(([a, b]) => h >= a && h < b);
+const dehors = (n, h) => (!n.def.jours || n.def.jours.includes(dow(G.s.t))) && (ramadan() && !n.def.serveur && !n.def.boutique && !n.def.collegue ? (h >= 10 && h < 12.5) || h >= 20.5 || h < 0.5 : n.def.sorties.some(([a, b]) => h >= a && h < b));
 function goTo(n, targets, goal, chair = -1) {
   const path = Wd.findPath(G.s.home, Math.floor(n.x), Math.floor(n.z), targets, grid());
   if (!path) { n.state = 'idle'; n.nextAt = G.s.t + 5; return false; }
