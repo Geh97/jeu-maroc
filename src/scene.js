@@ -190,6 +190,7 @@ export function focusChar(on) {
 export function setWallMode(m) { wallMode = m; }
 export const setFollow = on => { follow = on; };
 export const debugCam = () => ({ cam: camera.position.toArray(), target: controls.target.toArray() });
+export const debugChar = () => ch;
 export const setCam = (x, y, z, tx, ty, tz) => { camera.position.set(x, y, z); controls.target.set(tx, ty, tz); userMovedAt = clock; controls.update(); };
 
 // ---------- Image par image ----------
@@ -281,7 +282,7 @@ let chairMeshes = null;
 export function pick(px, py, opts = {}) {
   ndc.set(px / innerWidth * 2 - 1, -(py / innerHeight) * 2 + 1);
   ray.setFromCamera(ndc, camera);
-  if (!chairMeshes) { chairMeshes = []; street.traverse(o => { if (o.isMesh && (o.userData.chair != null || o.userData.hanout || o.userData.taxi || o.userData.agence)) chairMeshes.push(o); }); }
+  if (!chairMeshes) { chairMeshes = []; street.traverse(o => { if (o.isMesh && (o.userData.chair != null || o.userData.hanout || o.userData.taxi || o.userData.agence || o.userData.plage)) chairMeshes.push(o); }); }
   const objs = [...(homeG.visible ? [...furnGroups.values(), ...segs.map(s => s.g)] : []), ...chairMeshes, floorPlane];
   if (!opts.build) {
     for (const n of npcs.values()) if (n.root.visible) objs.unshift(n.root);
@@ -297,6 +298,7 @@ export function pick(px, py, opts = {}) {
     if (u.hanout && !opts.build) return { type: 'hanout' };
     if (u.taxi && !opts.build) return { type: 'taxi' };
     if (u.agence && !opts.build) return { type: 'agence' };
+    if (u.plage && !opts.build) return { type: 'plage', act: u.plage, x: Math.floor(h.point.x), z: Math.floor(h.point.z), px: u.px, pz: u.pz };
     if (u.fid != null) {
       if (!opts.build && FURN[typeOf(u.fid)].sol) return floorHit(h.point);
       return { type: 'furn', id: u.fid, point: h.point };

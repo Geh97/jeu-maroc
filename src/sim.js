@@ -4,9 +4,9 @@ import {
   MARCHE, LIEUX, RUE, CAFE, HANOUT, NPCS, PASSANTS, SALUTS, X0, X1, D, matchEnCours, relLabel,
   MILIEUX, POCHE, EPARGNE_TAUX, DARET, BOULOTS, VENTE, VENTE_MAX, ACHETEURS, ANIMAUX, ADOPT_SEUIL,
   SUJETS, GOUTS, REPONSES, EVENEMENTS, PLATS_SUCRES, TAXI, SORTIES, MARCHANDAGE, OUTFIT_COLORS,
-  QUARTIERS, NPCS_ANFA, GOUTS_ANFA, BOULOTS_ANFA, CAUTION_SEMAINES, VEHICULES,
+  QUARTIERS, NPCS_ANFA, GOUTS_ANFA, BOULOTS_ANFA, CAUTION_SEMAINES, VEHICULES, NPCS_CORNICHE, GOUTS_CORNICHE, PLAGE, PLAGE_ACTS,
 } from './data.js';
-const GOUTS_ALL = { ...GOUTS, ...GOUTS_ANFA }, BOULOTS_ALL = [...BOULOTS, ...BOULOTS_ANFA];
+const GOUTS_ALL = { ...GOUTS, ...GOUTS_ANFA, ...GOUTS_CORNICHE }, BOULOTS_ALL = [...BOULOTS, ...BOULOTS_ANFA];
 import * as Wd from './world.js';
 import { initSocial, socialMinute, remarque, rep, remiseHanout, creditPossible, evite } from './social.js';
 import { initFetes, fetesMinute, calendrier, ramadan, jeune, rompreJeune, cafeRamadan, finTravail, ferie } from './fetes.js';
@@ -51,7 +51,7 @@ export const revenu = k => milieu().revenus.includes(k);
 export const Q = () => QUARTIERS[G.s.quartier];
 export const homeHere = () => G.s.quartier === G.s.chezMoi;
 export const prix = p => Math.round(p * Q().coeff);
-export const npcDefs = (q = G.s.quartier) => (q === 'anfa' ? NPCS_ANFA : NPCS).concat(q === G.s.chezMoi ? collegueDefs(G.s.milieu) : []);
+export const npcDefs = (q = G.s.quartier) => (q === 'anfa' ? NPCS_ANFA : q === 'corniche' ? NPCS_CORNICHE : NPCS).concat(q === G.s.chezMoi ? collegueDefs(G.s.milieu) : []);
 // Le loyer hebdomadaire : celui du milieu dans le quartier d'origine, sinon celui du quartier.
 export const loyerHebdo = (q = G.s.chezMoi) => Math.round((q === 'populaire' ? milieu().loyer : Math.max(700, milieu().loyer) * QUARTIERS[q].loyer) * (G.s.loyerMult || 1));
 export const vehicule = () => (G.s.vehicule ? VEHICULES[G.s.vehicule] : null);
@@ -152,7 +152,8 @@ export function itemLabel(it) {
   if (it.kind === 'cafe') return 'Café : ' + CAFE.options.find(o => o.id === it.opt).nom.toLowerCase();
   if (it.kind === 'hanout') return 'Courses au hanout';
   if (it.kind === 'sortie') return SORTIES[it.dest].nom + (vehicule() ? '' : ' (' + TAXI[it.taxi].nom.toLowerCase() + ')');
-  if (it.kind === 'quartier') return (it.to === 'anfa' ? 'Aller à Anfa' : 'Rentrer au quartier') + (vehicule() ? '' : ' (' + TAXI[it.taxi].nom.toLowerCase() + ')');
+  if (it.kind === 'quartier') return (it.to === G.s.chezMoi ? 'Rentrer ' : 'Aller ') + QUARTIERS[it.to].article + (vehicule() ? '' : ' (' + TAXI[it.taxi].nom.toLowerCase() + ')');
+  if (it.kind === 'plage') return PLAGE_ACTS[it.act].nom;
   if (it.kind === 'animal') return ANIMAL_ACTS[it.act].label + ' : ' + animalName(it.id);
   if (it.kind === 'talk') {
     const n = getN(it.npc).def.nom;
@@ -234,7 +235,7 @@ export function doorActions() {
     items: [
       { act: 'rue', label: isHome() ? 'Sortir dans la rue' : 'Rentrer à la maison', sub: isHome() ? 'Le café est juste à droite' : '' },
       { act: 'hanout', label: 'Courses au hanout', sub: hanoutOuvert(G.s.t) ? 'À côté, un peu plus cher' : `Fermé (ouvre à ${HANOUT.ouvre} h)`, disabled: !hanoutOuvert(G.s.t) },
-      { act: 'sorties', label: 'Sortir en ville (taxi)', sub: 'Plage, mall, médina' },
+      { act: 'sorties', label: 'Sortir en ville (taxi)', sub: 'Anfa, la corniche, le mall, la médina' },
       { act: 'lieu', param: 'hammam', label: 'Aller au hammam', sub: 'À deux rues, 8 min' },
       { act: 'lieu', param: 'marche', label: 'Faire les courses au marché', sub: 'À deux rues, 8 min' },
       { act: 'travail', label: 'Partir au travail', sub: w || 'Tram : 25 min', disabled: !!w, why: w },
@@ -374,6 +375,21 @@ function startItem(it) {
     G.cur.spot = { x: c.x + 0.5, z: c.z + 0.5, yaw: c.r * Math.PI / 2, pose: 'sit', h: 0.45, anim: opt.match ? null : 'eat' };
     return;
   }
+  if (it.kind === 'plage') {
+    const A = PLAGE_ACTS[it.act], h = hour(s.t);
+    if (s.quartier !== 'corniche') return fail(it, 'La plage est loin d\'ici.');
+    if (h < A.heures[0] || h >= A.heures[1]) return fail(it, `${A.nom} : pas à cette heure-ci (de ${A.heures[0]} h à ${A.heures[1]} h).`);
+    const F = PLAGE.foot;
+    const cell = it.act === 'bain' ? { x: Math.max(X0 + 1, Math.min(X1 - 2, it.x)), z: PLAGE.eau }
+      : it.act === 'foot' ? { x: Math.floor((F.x0 + F.x1) / 2) + (Math.random() < 0.5 ? -2 : 1), z: Math.floor((F.z0 + F.z1) / 2) }
+      : { x: it.x, z: it.z + 1 };
+    const targets = it.act === 'foot' ? [cell] : Wd.approachCells(home, [cell], blocked);
+    if (!targets.length || !go(targets)) return fail(it, "Impossible d'y aller.");
+    G.cur.spot = it.act === 'bain' ? { x: cell.x + 0.5, z: cell.z + 0.9, yaw: 0, pose: 'stand', anim: 'swim', h: 0 }
+      : it.act === 'foot' ? { x: cell.x + 0.5, z: cell.z + 0.5, yaw: Math.PI / 2, pose: 'walk', anim: null, h: 0 }
+      : { x: cell.x + 0.5, z: cell.z + 0.5, yaw: Math.PI, pose: 'lie', h: 0.04 };
+    return;
+  }
   if (it.kind === 'talk') {
     const n = getN(it.npc);
     if (!n.visible) return fail(it, `${n.def.nom} n'est pas dans le quartier.`);
@@ -476,6 +492,13 @@ function arrive(c) {
     c.dur = 3 + n * 1.5; c.stage = 'do'; c.t = 0; G.yaw = c.spot.yaw;
     return;
   }
+  if (it.kind === 'plage') {
+    const A = PLAGE_ACTS[it.act];
+    c.dur = A.dur; c.rates = {};
+    for (const k in A.eff) c.rates[k] = A.eff[k] / A.dur * 60 * (k === 'moral' && has('sociable') && it.act === 'foot' ? 1.3 : 1);
+    c.stage = 'do'; c.t = 0; G.yaw = c.spot.yaw;
+    return;
+  }
   if (it.kind === 'cafe') {
     const opt = CAFE.options.find(o => o.id === it.opt);
     if (G.chairs[it.chair]) return fail(it, 'La chaise vient d\'être prise.');
@@ -558,6 +581,7 @@ function finish(c) {
     } else if (it.invite) toast('Ton invité n\'est pas venu s\'asseoir.');
     return;
   }
+  if (it.kind === 'plage') return finishPlage(it);
   if (it.kind === 'animal') return finishAnimal(it);
   if (it.kind === 'talk') {
     const n = getN(it.npc);
@@ -844,6 +868,17 @@ function bargain(act) {
     toast(`${ok ? m.suiteOk : m.suiteKo} ${FURN[type].nom} pour ${fmtDH(prix)}, rangé(e) dans tes affaires : à poser depuis « Construire ».`, ok ? 'good' : '');
     save();
   });
+}
+// Fin d'une activité à la plage : un mot, et parfois une petite histoire comme lors des sorties.
+function finishPlage(it) {
+  const s = G.s;
+  toast({ bain: 'L\'eau était bonne. On se sent revivre.', foot: 'Match gagné, ou presque. Du sable partout.', bronzer: 'Le bruit des vagues, le soleil… une vraie sieste.' }[it.act], 'good');
+  if (it.act === 'foot') s.reputation = clamp(s.reputation + 0.5, 0, 100);
+  if (Math.random() < 0.4) {
+    const Sd = SORTIES.plage, ev = pick(Sd.evenements);
+    hooks.sortieEvent({ titre: Sd.nom, img: Sd.img, texte: ev.texte, choix: ev.choix }, i => sortieChoice(ev, i));
+  }
+  save();
 }
 function stepSortie(m) {
   const s = G.s, a = s.away, p = awayPhase();
@@ -1252,6 +1287,7 @@ function step(m) {
     if (c.stage === 'walk') walk(c, m);
     else {
       c.t += m;
+      if (c.it.kind === 'plage' && c.it.act === 'foot') { G.walkPhase += m * 6; if (Math.random() < m * 0.1) c.spot.yaw = Math.random() * Math.PI * 2; }
       const over = c.dur === Infinity ? s.needs.energie >= 99.5 || c.t > 14 * 60 : c.t >= c.dur;
       if (over) finish(c);
     }

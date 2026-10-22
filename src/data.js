@@ -7,7 +7,7 @@ export const WALK = 1.8;    // cases parcourues par minute de jeu
 export const SPEEDS = [0, 1, 3, 10]; // minutes de jeu par seconde réelle
 
 // Le quartier : l'appartement est à l'origine, la rue passe devant (z croissant).
-export const X0 = -20, X1 = 32, Z0 = 0, Z1 = D + 19;
+export const X0 = -20, X1 = 32, Z0 = 0, Z1 = D + 37; // le monde descend jusqu'à l'eau, à la corniche
 export const RUE = {
   trottoir: [D, D + 3], route: [D + 3, D + 11], trottoirLoin: [D + 11, D + 14],
   coin: { x: X0 + 2, z: D + 1 },          // coin de la rue : on y disparaît pour les sorties
@@ -399,7 +399,7 @@ export const TAXI = {
 // Chaque sortie : trajets (prix et durée par taxi), activités au choix, et un événement avec un choix pendant la sortie.
 export const SORTIES = {
   plage: {
-    nom: 'La plage et la corniche', img: 'ecran-accueil', ici: 'À la plage', desc: 'Aïn Diab : la corniche, le sable, les cafés avec vue sur l\'océan.',
+    quartier: 'corniche', nom: 'La plage et la corniche', img: 'illu-plage', ici: 'À la plage', desc: 'Aïn Diab : la corniche, le sable, les cafés avec vue sur l\'océan.',
     trajet: { petit: { prix: 35, dur: 25 }, grand: { prix: 10, dur: 35 } },
     activites: [
       { id: 'bain', nom: 'Se baigner', prix: 0, dur: 120, eff: { moral: 24, hygiene: 20, energie: -12, social: 6 } },
@@ -473,15 +473,22 @@ export const SORTIES = {
 // mais les décors, les gens, les prix et les loyers changent.
 export const QUARTIERS = {
   populaire: {
-    nom: 'Le quartier', article: 'au quartier', coeff: 1, loyer: 1, desc: 'Le quartier où tout a commencé : le café de Hamid, le hanout de Ba Lahcen, la placette et la mosquée.',
+    nom: 'Le quartier', article: 'au quartier', coeff: 1, loyer: 1, habitable: true, icone: 'icone-quartier-populaire', desc: 'Le quartier où tout a commencé : le café de Hamid, le hanout de Ba Lahcen, la placette et la mosquée.',
     illu: 'illu-cafe', cafeNom: 'Café du quartier', boutiqueNom: 'Hanout de Ba Lahcen', regard: { populaire: 1, moyen: 1, aise: 0.8 },
     trajet: { petit: { prix: 40, dur: 25 }, grand: { prix: 12, dur: 35 } },
   },
   anfa: {
-    nom: 'Anfa', article: 'à Anfa', coeff: 3, loyer: 3, desc: 'Villas blanches, palmiers, grosses voitures et cafés branchés, à deux pas de la corniche. Tout coûte trois fois plus cher.',
+    nom: 'Anfa', article: 'à Anfa', coeff: 3, loyer: 3, habitable: true, icone: 'icone-quartier-californie', desc: 'Villas blanches, palmiers, grosses voitures et cafés branchés, à deux pas de la corniche. Tout coûte trois fois plus cher.',
     illu: 'illu-californie', cafeNom: 'Café La Corniche', boutiqueNom: 'Épicerie fine Anfa', regard: { populaire: 0.55, moyen: 0.85, aise: 1.25 },
     trajet: { petit: { prix: 40, dur: 25 }, grand: { prix: 12, dur: 35 } },
     accueil: { populaire: 'On te regarde de haut, ici. Il faudra faire tes preuves.', moyen: 'Les gens sont polis, sans plus.', aise: 'Tu es chez toi, ici.' },
+  },
+  corniche: {
+    nom: 'La corniche', article: 'à la corniche', coeff: 2, loyer: 0, habitable: false, icone: 'icone-plage', illu: 'illu-plage',
+    desc: 'Aïn Diab : la plage, les parasols, un match de foot sur le sable, les cafés face à l\'océan et le phare au bout de la jetée.',
+    cafeNom: 'Café de la plage', boutiqueNom: null, regard: { populaire: 0.8, moyen: 1, aise: 1.1 },
+    trajet: { petit: { prix: 35, dur: 25 }, grand: { prix: 10, dur: 35 } },
+    accueil: { populaire: 'L\'air de la mer, enfin. Ici, tout le monde se mélange.', moyen: 'Le dimanche à la corniche, comme toute la ville.', aise: 'Tu connais chaque café de la corniche par son prénom.' },
   },
 };
 export const NPCS_ANFA = [
@@ -556,3 +563,55 @@ export const IMG = {
   'store-rose': { crop: [0, 0, 0, 0.6] },
 };
 export const asset = name => `assets/${name}.png`;
+
+// ---------- La corniche : la plage d'Aïn Diab, accessible à pied ----------
+// Le sable commence au pied du muret de la promenade et descend jusqu'à l'eau ; on y accède par les escaliers.
+export const PLAGE = {
+  z0: D + 14, muret: D + 14, eau: Z1 - 4,
+  escaliers: [[9, 13], [-9, -6], [25, 28]],            // les ouvertures du muret (x0 inclus, x1 exclu)
+  foot: { x0: 14, x1: 24, z0: D + 22, z1: D + 30 },      // le terrain de foot tracé dans le sable
+  buts: [{ x: 14, z: D + 26 }, { x: 23, z: D + 26 }],
+  parasols: [
+    { x: -14, z: D + 18, c: 'creme' }, { x: -10, z: D + 21, c: 'bleu' }, { x: -5, z: D + 17, c: 'creme' }, { x: -1, z: D + 22, c: 'rouge' },
+    { x: 3, z: D + 18, c: 'creme' }, { x: 6, z: D + 24, c: 'bleu' }, { x: 10, z: D + 19, c: 'creme' }, { x: 27, z: D + 24, c: 'rouge' },
+    { x: 30, z: D + 19, c: 'creme' }, { x: -17, z: D + 25, c: 'bleu' }, { x: 2, z: D + 28, c: 'creme' }, { x: -8, z: D + 29, c: 'rouge' },
+  ],
+  tour: { x: 26, z: D + 17 },                            // la tour du maître-nageur (2 x 2 cases)
+};
+export const PLAGE_ACTS = {
+  bain: { nom: 'Se baigner', titre: 'L\'océan', sub: '1 h · l\'eau est bonne', dur: 60, heures: [8, 20], eff: { moral: 20, hygiene: 18, energie: -8, social: 4 } },
+  foot: { nom: 'Jouer au foot sur le sable', titre: 'Le terrain', sub: '1 h · avec les jeunes du coin', dur: 60, heures: [8, 21], eff: { moral: 18, social: 18, energie: -16, hygiene: -10 } },
+  bronzer: { nom: 'S\'allonger au soleil', titre: 'Le parasol', sub: '1 h · sieste face à la mer', dur: 60, heures: [9, 19], eff: { energie: 12, moral: 12, hygiene: -3 } },
+};
+export const NPCS_CORNICHE = [
+  {
+    id: 'nabil', nom: 'Nabil', desc: 'Maître-nageur. Il siffle, il crie, il sauve des vies, et il connaît tous les habitués de la plage.',
+    look: { skin: '#b07a55', hair: 'courte', hairColor: '#1d1714', outfit: 'jean', outfitColor: '#c8102e' },
+    porte: { x: 27, z: D }, sorties: [[9, 19]], cafe: 0.2, poste: { x: 25, z: D + 18 },
+    lignes: ['Pas de baignade après le drapeau rouge, c\'est tout.', 'Hier, j\'ai sorti deux gamins du courant. Ils sont revenus aujourd\'hui.', 'Le matin, l\'eau est à toi. L\'après-midi, c\'est tout Casa.', 'Tu nages ? Non ? Alors reste où tu as pied.'],
+  },
+  {
+    id: 'youssef', nom: 'Youssef', desc: 'Il vend des sfenj et du thé sur la corniche, de la plage au phare, depuis des années.',
+    look: { skin: '#8a5a3c', hair: 'rasee', hairColor: '#1d1714', outfit: 'djellaba', outfitColor: '#8c6a4f' },
+    porte: { x: -8, z: D }, sorties: [[8, 20]], cafe: 0, poste: { x: -4, z: D + 12 },
+    lignes: ['Sfenj, sfenj ! Encore chauds !', 'Le dimanche, je ne vois pas le temps passer.', 'Le phare, c\'est mon horloge : quand il s\'allume, je rentre.', 'Un thé ? Pour toi, c\'est offert.'],
+  },
+  {
+    id: 'imane', nom: 'Imane', desc: 'Étudiante et surfeuse. Elle est dans l\'eau avant les cours et sur le sable après.',
+    look: { skin: '#d19e78', hair: 'longue', hairColor: '#1d1714', outfit: 'jean', outfitColor: '#2e6b57' },
+    porte: { x: 27, z: D }, sorties: [[10, 13], [16, 19]], cafe: 0.6,
+    lignes: ['Les vagues sont meilleures en hiver, mais l\'eau est glacée.', 'Mes parents croient que je révise à la bibliothèque.', 'Tu veux essayer la planche ? Je te montre.', 'Le coucher de soleil d\'ici, rien ne le bat.'],
+  },
+  {
+    id: 'moh', nom: 'Si Mohamed', desc: 'Retraité. Chaque matin il marche de la plage au phare, chaque soir il refait le chemin en sens inverse.',
+    look: { skin: '#b07a55', hair: 'rasee', hairColor: '#9a958f', outfit: 'djellaba', outfitColor: '#f2ede3' },
+    porte: { x: -8, z: D }, sorties: [[7, 10], [17, 20]], cafe: 0.8,
+    lignes: ['Dix mille pas par jour, c\'est le médecin qui le dit.', 'Avant, cette plage était à nous. Maintenant elle est à tout le monde, et c\'est mieux.', 'Tu vois le phare ? Mon père y travaillait.', 'Un café en regardant la mer, et la journée est gagnée.'],
+  },
+];
+export const GOUTS_CORNICHE = {
+  nabil: { nouvelles: 0, quartier: 1, foot: 1, blague: 1, confier: 0 },
+  youssef: { nouvelles: 1, quartier: 1, foot: 0, blague: 1, confier: 1 },
+  imane: { nouvelles: 1, quartier: 0, foot: 0, blague: 1, confier: 1 },
+  moh: { nouvelles: 1, quartier: 1, foot: 1, blague: -1, confier: 0 },
+};

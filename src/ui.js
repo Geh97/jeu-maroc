@@ -300,7 +300,7 @@ export function openFiche(tab = 'moi') {
     ${animaux ? `<div class="stat"><span>À la maison</span><small>${animaux}</small></div>` : ''}`;
   const argent = moneyWays();
   const heures = n => n.sorties.map(([a, b]) => `${fmtH(a)}–${fmtH(b)}`).join(' et ');
-  const voisins = `${banner(Q().illu || 'illu-cafe')}<p class="hint">Le ${Q().cafeNom.toLowerCase()} ouvre de ${CAFE.ouvre} h à ${CAFE.ferme} h. Les voisins passent dans la rue à leurs heures.</p>` +
+  const voisins = `${banner(Q().illu || 'illu-cafe')}<p class="hint">${esc(Q().desc)} Le ${Q().cafeNom.toLowerCase()} ouvre de ${CAFE.ouvre} h à ${CAFE.ferme} h. Les gens passent à leurs heures.</p>` +
     npcDefs().map(n => { const v = s.rel[n.id] || 0, live = G.npcs.find(x => x.id === n.id); return `
     <div class="stat voisin ico">${img('portrait-' + n.id)}<div><span>${esc(n.nom)} · ${relLabel(v)}${live && live.visible ? ' · dans la rue' : ''}</span>
       <div class="bar"><i style="width:${v}%"></i></div><small>${esc(n.desc)} Dehors : ${heures(n)}.</small></div></div>`; }).join('') +
@@ -404,20 +404,22 @@ export const sortieEvent = (ev, cb) => choiceEvent(ev.titre, ev.img, ev, cb);
 
 // Sortir en ville : choisir la destination, puis le taxi et l'activité.
 export function openSorties() {
-  const s = G.s, autre = s.quartier === 'anfa' ? 'populaire' : 'anfa', A = QUARTIERS[autre], v = vehicule();
+  const s = G.s, v = vehicule(), autres = Object.keys(QUARTIERS).filter(q => q !== s.quartier);
+  const lbl = q => (q === s.chezMoi ? 'Rentrer ' : 'Aller ') + QUARTIERS[q].article;
   const sheet = openModal(`${closeBtn}<h2>Sortir en ville</h2><p>${v ? `Avec ${v.nom.toLowerCase()}, plus besoin de taxi.` : "Depuis l'arrêt de taxi au coin de la rue."} Chaque sortie prend l'après-midi ou la soirée.</p>
     <div class="list">
-      <button class="opt ico" id="goQ">${img(autre === 'anfa' ? 'icone-quartier-californie' : 'icone-quartier-populaire')}<span><b>${autre === 'anfa' ? 'Aller à Anfa' : 'Rentrer au quartier'}${autre === s.chezMoi ? ' (chez toi)' : ''}</b><small>${esc(A.desc)}</small></span><em>${v ? fmtDur(Math.round(A.trajet.petit.dur * v.vitesse)) : `${fmtDH(A.trajet.petit.prix)} / ${fmtDH(A.trajet.grand.prix)}`}</em></button>
-      ${Object.entries(SORTIES).map(([k, d]) => `<button class="opt ico" data-d="${k}">${img('icone-' + k)}<span><b>${esc(d.nom)}</b><small>${esc(d.desc)}</small></span></button>`).join('')}</div>`);
+      ${autres.map(q => { const A = QUARTIERS[q]; return `<button class="opt ico" data-q="${q}">${img(A.icone)}<span><b>${esc(lbl(q))}${q === s.chezMoi ? ' (chez toi)' : ''}</b><small>${esc(A.desc)}</small></span><em>${v ? fmtDur(Math.round(A.trajet.petit.dur * v.vitesse)) : `${fmtDH(A.trajet.petit.prix)} / ${fmtDH(A.trajet.grand.prix)}`}</em></button>`; }).join('')}
+      ${Object.entries(SORTIES).filter(([, d]) => !d.quartier).map(([k, d]) => `<button class="opt ico" data-d="${k}">${img('icone-' + k)}<span><b>${esc(d.nom)}</b><small>${esc(d.desc)}</small></span></button>`).join('')}</div>`);
   bindClose(sheet);
   sheet.querySelectorAll('[data-d]').forEach(b => { b.onclick = () => openSortie(b.dataset.d); });
-  sheet.querySelector('#goQ').onclick = () => {
-    if (v) { closeModal(); enqueue({ kind: 'quartier', to: autre, taxi: 'petit' }); return; }
-    const sh = openModal(`${closeBtn}<h2>${autre === 'anfa' ? 'Aller à Anfa' : 'Rentrer au quartier'}</h2><p>${esc(A.desc)}</p>
+  sheet.querySelectorAll('[data-q]').forEach(b => { b.onclick = () => {
+    const q = b.dataset.q, A = QUARTIERS[q];
+    if (v) { closeModal(); enqueue({ kind: 'quartier', to: q, taxi: 'petit' }); return; }
+    const sh = openModal(`${closeBtn}${A.illu ? banner(A.illu) : ''}<h2>${esc(lbl(q))}</h2><p>${esc(A.desc)}</p>
       <div class="list">${['petit', 'grand'].map(t => `<button class="opt ico" data-t="${t}" ${A.trajet[t].prix > s.money ? 'disabled' : ''}>${img('icone-taxi-' + t)}<span><b>${TAXI[t].nom}</b><small>${esc(TAXI[t].desc)} · ${fmtDur(A.trajet[t].dur)}</small></span><em>${fmtDH(A.trajet[t].prix)}</em></button>`).join('')}</div>`);
     bindClose(sh);
-    sh.querySelectorAll('[data-t]').forEach(b => { b.onclick = () => { closeModal(); enqueue({ kind: 'quartier', to: autre, taxi: b.dataset.t }); }; });
-  };
+    sh.querySelectorAll('[data-t]').forEach(x => { x.onclick = () => { closeModal(); enqueue({ kind: 'quartier', to: q, taxi: x.dataset.t }); }; });
+  }; });
 }
 function openSortie(dest) {
   const Sd = SORTIES[dest], s = G.s, choix = { taxi: 'petit', act: Sd.activites[0].id };

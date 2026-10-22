@@ -319,6 +319,7 @@ export function pose(ch, p, t, walkPhase) {
   if (p.anim === 'talk') { armR.rotation.x = -0.7 + Math.sin(t * 4) * 0.3; armR.rotation.z = -0.3; inner.rotation.x = Math.sin(t * 2.5) * 0.02; }
   if (p.anim === 'read') { armL.rotation.x = armR.rotation.x = -1.3; armL.rotation.z = 0.45; armR.rotation.z = -0.45; inner.rotation.x = 0.12 + Math.sin(t * 1.5) * 0.01; }
   if (p.anim === 'pet') { inner.rotation.x = 0.35; armR.rotation.x = -1.1 + Math.sin(t * 4) * 0.2; armL.rotation.x = -0.6; }
+  if (p.anim === 'swim') { inner.position.y = -1.0; inner.rotation.x = 0.3; armL.rotation.x = -1.3 + Math.sin(t * 3) * 0.9; armR.rotation.x = -1.3 - Math.sin(t * 3) * 0.9; }
   if (p.anim === 'shower') { armL.rotation.x = armR.rotation.x = -2.6 + Math.sin(t * 4) * 0.2; inner.position.y = p.h || 0; }
 }
 

@@ -1,5 +1,5 @@
 // Le quartier : grille, murs de l'appartement (sur les bords des cases), meubles, obstacles, chemins.
-import { W, D, X0, X1, Z0, Z1, FURN, FLOORS, RUE, CAFE, PLACE, TAXI } from './data.js';
+import { W, D, X0, X1, Z0, Z1, FURN, FLOORS, RUE, CAFE, PLACE, TAXI, PLAGE } from './data.js';
 
 export const GW = X1 - X0, GD = Z1 - Z0;
 export const idx = (x, z) => (z - Z0) * GW + (x - X0);
@@ -74,18 +74,29 @@ export function outdoorGrid() {
   const g = new Uint8Array(GW * GD);
   if (blocking.noHome) for (let z = 0; z < D; z++) for (let x = 0; x < W; x++) g[idx(x, z)] = 1;
   vehiculeCells(blocking.vehicule).forEach(c => { g[idx(c.x, c.z)] = 1; });
-  const inPlace = (x, z) => x >= PLACE.x0 && x < PLACE.x1 && z >= PLACE.z0 && z < PLACE.z1;
+  const inPlace = (x, z) => x >= PLACE.x0 && x < PLACE.x1 && z >= PLACE.z0 && z < PLACE.z1, corniche = blocking.quartier === 'corniche';
   for (let z = Z0; z < Z1; z++) for (let x = X0; x < X1; x++) {
     if (z < D && !inHome(x, z)) g[idx(x, z)] = 1;                       // notre pâté de maisons
-    if (z >= RUE.trottoirLoin[1] && !inPlace(x, z)) g[idx(x, z)] = 1;   // les immeubles d'en face
+    if (z >= RUE.trottoirLoin[1] && !inPlace(x, z) && !corniche) g[idx(x, z)] = 1;   // les immeubles d'en face (à la corniche : la plage)
   }
   const mark = c => { if (inWorld(c.x, c.z)) g[idx(c.x, c.z)] = 1; };
   RUE.lampes.forEach(mark); RUE.palmiers.forEach(mark); RUE.taxi.cells.forEach(mark); RUE.hanout.caisses.forEach(mark); RUE.charrette.cells.forEach(mark);
   mark(RUE.banc); mark({ x: RUE.banc.x + 1, z: RUE.banc.z });
   CAFE.tables.forEach(mark); CAFE.chaises.forEach(mark); CAFE.poteaux.forEach(mark);
-  PLACE.fontaine.cells.forEach(mark); PLACE.orangers.forEach(mark); mark(TAXI.arret);
+  if (!corniche) { PLACE.fontaine.cells.forEach(mark); PLACE.orangers.forEach(mark); }
+  mark(TAXI.arret);
   if (blocking.quartier === 'anfa') RUE.terrassesLoin.forEach(mark);
-  for (const b of PLACE.bancs) { mark(b); mark({ x: b.x + 1, z: b.z }); }
+  if (!corniche) for (const b of PLACE.bancs) { mark(b); mark({ x: b.x + 1, z: b.z }); }
+  if (corniche) {
+    // La plage : le muret sauf aux escaliers, l'eau, les parasols et leurs serviettes, la tour, les buts.
+    for (let x = X0; x < X1; x++) {
+      if (!PLAGE.escaliers.some(([a, b]) => x >= a && x < b)) g[idx(x, PLAGE.muret)] = 1;
+      for (let z = PLAGE.eau; z < Z1; z++) g[idx(x, z)] = 1;
+    }
+    for (const p of PLAGE.parasols) { mark(p); mark({ x: p.x, z: p.z + 1 }); }
+    for (let dx = 0; dx < 2; dx++) for (let dz = 0; dz < 2; dz++) mark({ x: PLAGE.tour.x + dx, z: PLAGE.tour.z + dz });
+    for (const b of PLAGE.buts) for (let dz = -1; dz <= 2; dz++) mark({ x: b.x, z: b.z + dz });
+  }
   return (outdoor = g);
 }
 // Grille des cases bloquées. noHome : l'appartement entier est interdit (pour les voisins).
@@ -243,6 +254,7 @@ export function ambiance(home) {
 export function sidewalkCells() {
   const g = outdoorGrid(), out = [];
   for (const [a, b] of [RUE.trottoir, RUE.trottoirLoin]) for (let z = a; z < b; z++) for (let x = X0 + 1; x < X1 - 1; x++) if (!g[idx(x, z)]) out.push({ x, z });
-  for (let z = PLACE.z0; z < PLACE.z1; z++) for (let x = PLACE.x0; x < PLACE.x1; x++) if (!g[idx(x, z)]) out.push({ x, z });
+  if (blocking.quartier === 'corniche') for (let z = PLAGE.z0 + 1; z < PLAGE.eau; z++) for (let x = X0 + 1; x < X1 - 1; x++) if (!g[idx(x, z)]) out.push({ x, z });
+  else for (let z = PLACE.z0; z < PLACE.z1; z++) for (let x = PLACE.x0; x < PLACE.x1; x++) if (!g[idx(x, z)]) out.push({ x, z });
   return out;
 }

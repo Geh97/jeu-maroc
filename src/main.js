@@ -1,5 +1,5 @@
 // Démarrage, boucle de jeu et gestion du toucher / de la souris.
-import { SPEEDS } from './data.js';
+import { SPEEDS, PLAGE_ACTS } from './data.js';
 import {
   G, hooks, newGame, load, save, wipe, advance, view, enqueue, enqueueWork, cancelAll, isHome, homeHere, npcDefs, demenager, acheterVehicule,
   availableActions, doorActions, chairActions, npcActions, animalActions,
@@ -21,7 +21,7 @@ hooks.sortieEvent = UI.sortieEvent;
 hooks.lookChanged = () => S.setCharLook(G.s.char);
 const ctx = () => ({ quartier: G.s.quartier, withHome: homeHere(), vehicule: G.s.vehicule, npcs: npcDefs(), ramadan: FT.ramadan() });
 hooks.quartierChanged = () => { S.setQuartier(ctx()); UI.updateHud(); };
-window.jeu = { G, advance, enqueue, hooks, debugCam: S.debugCam, npcActions, animalActions, newGame, start, rebuild: () => S.rebuildHome(G.s.home), setCam: S.setCam, setFollow: S.setFollow, demenager, acheterVehicule, travail: TR, fetes: FT }; // pour tester depuis la console du navigateur
+window.jeu = { G, advance, enqueue, hooks, debugCam: S.debugCam, debugChar: S.debugChar, npcActions, animalActions, newGame, start, rebuild: () => S.rebuildHome(G.s.home), setCam: S.setCam, setFollow: S.setFollow, demenager, acheterVehicule, travail: TR, fetes: FT }; // pour tester depuis la console du navigateur
 
 const walls = ['coupes', 'bas', 'hauts'];
 let wallIdx = 0, preview = null;
@@ -137,6 +137,9 @@ function onTap(x, y, type) {
     UI.openHanout();
   } else if (h.type === 'taxi') {
     UI.openSorties();
+  } else if (h.type === 'plage') {
+    const A = PLAGE_ACTS[h.act];
+    UI.showPop(x, y, { title: A.titre, items: [{ act: h.act, label: A.nom, sub: A.sub }] }, () => enqueue({ kind: 'plage', act: h.act, x: h.px != null ? h.px : h.x, z: h.pz != null ? h.pz : h.z }));
   } else if (h.type === 'agence') {
     UI.openFiche('argent');
   } else if (h.type === 'chair') {
