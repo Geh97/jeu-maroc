@@ -293,6 +293,184 @@ const EV = [
       { label: 'Juste un thé (3 DH)', cond: s => s.money >= 3, eff: { money: -3, moral: 3, rel: { youssef: 2 } }, suite: 'Un thé brûlant face aux vagues.' },
       { label: 'Non merci', eff: {}, suite: '« Je repasse. »' },
     ] },
+  // Encore du quotidien : la rue
+  { id: 'gardien_voitures', lieu: ['rue'], q: ['populaire'], poids: 2, titre: 'Le gardien de voitures', img: 'illu-cafe',
+    cond: s => !!s.vehicule,
+    texte: 'Le gardien de voitures, gilet jaune et sifflet, tend la main : « 5 DH, j\'ai surveillé. » Tu n\'as rien demandé.', choix: [
+      { label: 'Donner 5 DH', eff: { money: -5, rep: 1 }, suite: 'C\'est la règle de la rue. Il saluera ton véhicule tous les jours.' },
+      { label: 'Discuter', eff: { tags: { tchatcheur: 1 } }, suite: '« Surveillé quoi ? Il n\'a pas bougé. » Il rit. Tu ne paies pas, cette fois.' },
+      { label: 'Ignorer', eff: { rep: -2, tags: { radin: 1 } }, suite: 'Il marmonne. Ton rétroviseur sera parfois tourné.' },
+    ] },
+  { id: 'sacs', lieu: ['rue'], poids: 2, titre: 'Les sacs', img: 'illu-marche',
+    cond: s => hour(s.t) < 20,
+    texte: 'Une vieille dame avance avec deux sacs de légumes qui traînent par terre.', choix: [
+      { label: 'Porter les sacs jusqu\'à chez elle', eff: { energie: -6, rep: 3, moral: 4, tags: { genereux: 1 } }, suite: 'Trois étages. Elle te bénit, et te donne une orange.' },
+      { label: 'Passer', eff: {}, suite: 'Quelqu\'un d\'autre l\'aidera.' },
+    ] },
+  { id: 'cv', lieu: ['rue', 'cafe'], q: ['populaire'], poids: 2, titre: 'Yassine', img: 'portrait-yassine',
+    cond: s => relOf('yassine') >= 10 && s.job.competence >= 1,
+    texte: 'Yassine : « Tu sais écrire un CV, toi ? J\'ai un entretien samedi et je n\'ai rien. »', choix: [
+      { label: 'L\'aider ce soir', eff: { energie: -8, rel: { yassine: 10 }, rep: 2, tags: { fiable: 1 } }, suite: 'Deux heures devant ton téléphone. Il repart avec un CV propre et de l\'espoir.', apres: { id: 'cv_suite', jours: 4 } },
+      { label: 'Lui envoyer un modèle', eff: { rel: { yassine: 3 } }, suite: '« Merci, je me débrouille. » Il ne se débrouillera pas.' },
+      { label: 'Pas le temps', eff: { rel: { yassine: -4 } }, suite: 'Il hoche la tête. Il demandera à quelqu\'un d\'autre.' },
+    ] },
+  { id: 'cv_suite', suite: true, lieu: ['rue', 'cafe', 'maison'], titre: 'L\'entretien de Yassine', img: 'portrait-yassine',
+    texte: 'Yassine te cherche depuis ce matin. Il a eu son entretien.', choix: [
+      { label: 'Alors ?', chance: () => 0.55, ok: { rel: { yassine: 6 }, moral: 6, rep: 2 }, suiteOk: '« Je commence lundi ! » Il te paie le thé pendant un mois.', ko: { rel: { yassine: 2 }, moral: -2 }, suiteKo: '« Ils ont pris le neveu du patron. » Il hausse les épaules. « Merci quand même. »' },
+    ] },
+  { id: 'collecte', lieu: ['rue'], q: ['populaire'], poids: 1, titre: 'Une collecte', img: 'illu-cafe',
+    cond: () => true,
+    texte: 'Un voisin passe avec une liste : le père de la famille du troisième est décédé, on cotise pour les funérailles.', choix: [
+      { label: 'Donner 100 DH', cond: s => s.money >= 100, eff: { money: -100, rep: 5, fam: 1, tags: { genereux: 1 } }, suite: 'Ton nom est sur la liste, en bonne place.' },
+      { label: 'Donner 30 DH', cond: s => s.money >= 30, eff: { money: -30, rep: 2 }, suite: 'Chacun selon ses moyens.' },
+      { label: 'Ne rien donner', eff: { rep: -4, tags: { radin: 1 } }, suite: 'La liste passe. On a vu que tu n\'y étais pas.' },
+    ] },
+  { id: 'chat_blesse', lieu: ['rue', 'anfa'], poids: 1, titre: 'Un chat', img: 'animal-chat',
+    cond: () => true,
+    texte: 'Un chat de gouttière boite sur le trottoir, une patte en sang. Il te regarde.', choix: [
+      { label: 'L\'emmener chez le vétérinaire (150 DH)', cond: s => s.money >= 150, eff: { money: -150, moral: 8, tags: { genereux: 1 } }, suite: 'Une piqûre, un bandage. Il repart en te frôlant la jambe.' },
+      { label: 'Lui laisser à manger', eff: { moral: 3 }, suite: 'Un bout de pain, un peu d\'eau. Il mange sans te quitter des yeux.' },
+      { label: 'Continuer', eff: { moral: -2 }, suite: 'Tu y repenses dans la soirée.' },
+    ] },
+  { id: 'voisin_chomage', lieu: ['rue', 'cafe'], poids: 1, titre: 'Un mot pour lui', img: 'illu-travail',
+    cond: s => !s.job.chomage && !s.affaire,
+    texte: 'Un voisin qui a perdu son travail : « Là où tu bosses, ils cherchent quelqu\'un ? Tu peux glisser mon nom ? »', choix: [
+      { label: 'Le recommander', chance: s => 0.4 + s.job.perf / 200, ok: { rep: 5, collegues: 4, tags: { fiable: 1 } }, suiteOk: 'Il a été pris à l\'essai. Il te doit beaucoup, et le chef a aimé ton initiative.', ko: { perf: -6, rep: 2 }, suiteKo: 'Il s\'est présenté en retard, mal habillé. Le chef t\'a regardé(e) de travers.' },
+      { label: 'Promettre sans rien faire', eff: { rep: -2, tags: { tchatcheur: 1 } }, suite: 'Il attend un appel. Il attendra longtemps.' },
+      { label: 'Dire non franchement', eff: { rep: 0, tags: { fiable: 1 } }, suite: '« Je ne peux pas. » Il apprécie au moins la franchise.' },
+    ] },
+  { id: 'tombola', lieu: ['rue', 'plage'], poids: 2, titre: 'La tombola', img: 'illu-marche',
+    cond: s => s.money >= 10,
+    texte: 'Un gamin vend des tickets de tombola pour son école, 10 DH. « Y a un vélo à gagner ! »', choix: [
+      { label: 'Un ticket', eff: { money: -10, moral: 2 }, suite: 'Tirage dans quelques jours.', apres: { id: 'tirage', jours: 4 } },
+      { label: 'Non merci', eff: {}, suite: 'Il court vers le suivant.' },
+    ] },
+  { id: 'tirage', suite: true, lieu: ['rue', 'cafe', 'maison', 'plage', 'anfa'], titre: 'Le tirage', img: 'illu-marche',
+    texte: 'Le tirage de la tombola de l\'école a eu lieu.', choix: [
+      { label: 'Vérifier ton ticket', chance: () => 0.12, ok: { money: 500, moral: 12 }, suiteOk: 'Pas le vélo, mais le deuxième lot : 500 DH en bons d\'achat. Le gamin est plus content que toi.', ko: { moral: -1 }, suiteKo: 'Rien. Mais l\'école a un nouveau tableau.' },
+    ] },
+  { id: 'cireur', lieu: ['rue', 'anfa'], poids: 1, titre: 'Le cireur', img: 'illu-cafe',
+    cond: s => s.char.outfit === 'costume' && s.money >= 10,
+    texte: 'Un cireur de chaussures te montre tes souliers du doigt, puis sa boîte. « 10 DH, et tu brilles. »', choix: [
+      { label: 'Oui (10 DH)', eff: { money: -10, hygiene: 4, moral: 4 }, suite: 'Cinq minutes, un chiffon qui claque. Tu brilles.' },
+      { label: 'Non', eff: {}, suite: 'Il te laisse à tes chaussures ternes.' },
+    ] },
+  // Le café
+  { id: 'addition', lieu: ['cafe'], poids: 2, titre: 'L\'addition', img: 'illu-cafe',
+    cond: () => true,
+    texte: 'En partant, tu réalises que le serveur a oublié de te faire payer.', choix: [
+      { label: 'Le signaler et payer', eff: { money: -10, rep: 3, rel: { hamid: 4, rachid: 2 }, tags: { fiable: 1 } }, suite: '« Il y en a encore des honnêtes. » On s\'en souviendra.' },
+      { label: 'Partir sans rien dire', chance: () => 0.7, ok: { money: 0, tags: { radin: 1 } }, suiteOk: 'Personne n\'a rien vu. Dix dirhams de gagnés, et un petit poids.', ko: { rep: -6, rel: { hamid: -6 } }, suiteKo: 'Le serveur te rattrape dans la rue. Toute la terrasse regarde.' },
+    ] },
+  { id: 'formation', lieu: ['cafe', 'maison'], poids: 1, titre: 'Une annonce', img: 'illu-travail',
+    cond: s => !s.job.chomage && s.money >= 300,
+    texte: 'Dans le journal, une annonce : formation du soir, deux semaines, 300 DH. Ça correspond à ton métier.', choix: [
+      { label: 'S\'inscrire (300 DH)', eff: { money: -300, competence: 0.6, energie: -8, tags: { ambitieux: 1 } }, suite: 'Deux semaines de soirées studieuses. Tu sais des choses que ton chef ignore.' },
+      { label: 'Laisser passer', eff: {}, suite: 'Une autre fois.' },
+    ] },
+  { id: 'vieil_ami', lieu: ['cafe', 'anfa'], poids: 1, titre: 'Un visage connu', img: 'illu-cafe',
+    cond: () => true,
+    texte: 'Un ancien camarade de lycée, à la table d\'à côté. Costume, montre, téléphone qui sonne tout le temps.', choix: [
+      { label: 'Prendre un café ensemble (30 DH)', cond: s => s.money >= 30, eff: { money: -30, social: 8, moral: 2 }, suite: 'Il parle de ses affaires, beaucoup. Il te propose de te rappeler.', apres: { id: 'ami_rappelle', jours: 3 } },
+      { label: 'Un bonjour, sans plus', eff: { social: 2 }, suite: 'Chacun sa route.' },
+    ] },
+  { id: 'ami_rappelle', suite: true, lieu: ['cafe', 'maison', 'rue', 'anfa'], titre: 'Il rappelle', img: 'illu-cafe',
+    texte: 'Ton ancien camarade appelle : « J\'ai un plan. Tu mets 2 000 DH, dans un mois tu en as 3 000. Mes associés sont sérieux. »', choix: [
+      { label: 'Mettre 2 000 DH', cond: s => s.money >= 2000, chance: () => 0.3 - tagN('naif') * 0.05, ok: { money: 1000, moral: 10, tags: { debrouillard: 1 } }, suiteOk: 'Un mois plus tard, 3 000 DH sur ton compte. Tu n\'as pas tout compris, mais ça a marché.', ko: { money: -2000, moral: -12, tags: { naif: 1 } }, suiteKo: 'Son numéro ne répond plus. Ses « associés » non plus.' },
+      { label: 'Refuser poliment', eff: { tags: { fiable: 1 } }, suite: '« Tu rates quelque chose. » Peut-être. Ou pas.' },
+    ] },
+  { id: 'pari', lieu: ['cafe'], poids: 2, titre: 'Le pari', img: 'illu-cafe',
+    cond: s => s.money >= 100 && hour(s.t) >= 18,
+    texte: 'Avant le match, les habitués parient. « 100 DH sur le Raja, tu suis ? »', choix: [
+      { label: 'Parier 100 DH', chance: () => 0.45, ok: { money: 100, social: 8, moral: 8 }, suiteOk: 'But à la 89e. Tu rafles la mise et les accolades.', ko: { money: -100, social: 4, moral: -6 }, suiteKo: 'Match nul. Tu paies, et on se moque gentiment.' },
+      { label: 'Regarder sans parier', eff: { social: 3 }, suite: 'Tu gardes tes 100 DH et tes nerfs.' },
+    ] },
+  { id: 'telephone_oublie', lieu: ['cafe'], poids: 1, titre: 'Un téléphone oublié', img: 'illu-cafe',
+    cond: () => true,
+    texte: 'Sur la table d\'à côté, un téléphone oublié. Personne ne le réclame.', choix: [
+      { label: 'Le confier au serveur', eff: { rep: 3, tags: { fiable: 1 } }, suite: 'Le propriétaire reviendra en courant une heure plus tard. Il te cherchera pour te remercier.' },
+      { label: 'Le garder', chance: () => 0.5, ok: { money: 400, tags: { debrouillard: 1 } }, suiteOk: 'Revendu 400 DH au marché. Personne n\'a rien su.', ko: { rep: -10, moral: -8 }, suiteKo: 'Le propriétaire l\'a localisé. Il est venu avec deux amis. Tu l\'as rendu, devant tout le monde.' },
+    ] },
+  // La maison
+  { id: 'diner_voisins', lieu: ['maison'], q: ['populaire', 'moyen'], poids: 2, titre: 'Invitation', img: 'portrait-khadija',
+    cond: s => hour(s.t) >= 18 && hour(s.t) < 21,
+    texte: 'Lalla Khadija : « Ce soir on fait un tajine, viens manger avec nous, il y a aussi mon neveu. »', choix: [
+      { label: 'Y aller', eff: { faim: 40, social: 12, moral: 6, rel: { khadija: 6 }, energie: -4 }, suite: 'Le tajine, le neveu qui parle de son travail, la télé en fond. Une vraie soirée de quartier.' },
+      { label: 'Décliner gentiment', eff: { rel: { khadija: -2 } }, suite: 'Elle t\'envoie quand même une assiette.' },
+    ] },
+  { id: 'travaux', lieu: ['maison'], poids: 1, titre: 'Les travaux', img: 'icone-demenagement',
+    cond: s => hour(s.t) < 10,
+    texte: 'Sept heures du matin : le voisin du dessus casse un mur au marteau-piqueur. Depuis trois jours.', choix: [
+      { label: 'Monter lui parler', chance: () => 0.6 + tagN('tchatcheur') * 0.1, ok: { moral: 4, rep: 1 }, suiteOk: '« Je finis demain, promis. » Il a fini le surlendemain.', ko: { moral: -4, rep: -2, tags: { bagarreur: 1 } }, suiteKo: 'Ça a fini en cris dans l\'escalier.' },
+      { label: 'Supporter', eff: { energie: -8, moral: -4 }, suite: 'Tu te lèves. Le mur aussi.' },
+    ] },
+  { id: 'frere_examen', lieu: ['maison'], poids: 1, titre: 'Ton frère', img: 'illu-cafe',
+    cond: s => s.money >= 300,
+    texte: 'Ton petit frère appelle, gêné : « Les frais d\'inscription à l\'examen, 300 DH… Papa ne peut pas ce mois-ci. »', choix: [
+      { label: 'Envoyer 300 DH', eff: { money: -300, fam: 8, moral: 4, tags: { famille: 1 } }, suite: '« Je te rembourserai. » Il ne remboursera pas, et ce n\'est pas grave.' },
+      { label: 'Envoyer 150 DH', eff: { money: -150, fam: 3 }, suite: '« Merci. » Il trouvera le reste.' },
+      { label: 'Pas possible ce mois-ci', eff: { fam: -8, moral: -4 }, suite: 'Il dit qu\'il comprend. Ta mère, moins.' },
+    ] },
+  { id: 'livre_fz', lieu: ['maison', 'rue'], q: ['populaire'], poids: 1, titre: 'Fatima-Zahra', img: 'portrait-fz',
+    cond: () => relOf('fz') >= 10,
+    texte: 'Fatima-Zahra te tend un livre : « Tu me diras ce que tu en penses. Il m\'a changé la tête. »', choix: [
+      { label: 'Le lire cette semaine', eff: { energie: -4, moral: 8, competence: 0.2, rel: { fz: 8 } }, suite: 'Lu en trois soirs. Vous en parlez une heure, debout dans l\'escalier.' },
+      { label: 'Le rendre sans l\'ouvrir', eff: { rel: { fz: -4 } }, suite: '« Tu l\'as lu ? » Tu mens mal.' },
+    ] },
+  { id: 'fuite', lieu: ['maison'], q: ['populaire'], poids: 1, titre: 'La fuite', img: 'icone-demenagement',
+    cond: () => true,
+    texte: 'Une tache au plafond, puis une goutte, puis un seau. Le voisin du dessus a une fuite.', choix: [
+      { label: 'Appeler le propriétaire', chance: () => 0.5, ok: { moral: 2 }, suiteOk: 'Un plombier passe le lendemain. Pour une fois.', ko: { moral: -6, hygiene: -4 }, suiteKo: '« Je vois ça la semaine prochaine. » Le seau se remplit.' },
+      { label: 'Réparer avec le voisin', eff: { energie: -10, rel: { khadija: 3 }, rep: 2, tags: { debrouillard: 1 } }, suite: 'Un joint, du mastic, un thé. Ça tient.' },
+    ] },
+  // Anfa
+  { id: 'brunch', lieu: ['anfa'], poids: 2, titre: 'Brunch', img: 'portrait-sofia',
+    cond: s => relOf('sofia') >= 10 && s.money >= 150 && dow(s.t) >= 5,
+    texte: 'Sofia : « On fait un brunch dimanche, tout le monde sera là. 150 DH par personne, c\'est rien. »', choix: [
+      { label: 'Y aller (150 DH)', eff: { money: -150, social: 12, rel: { sofia: 8, karim: 4, leila: 4 }, faim: 30 }, suite: 'Des avocats, des photos, des prénoms que tu oublies. Tu es dans la boucle.' },
+      { label: 'Décliner', eff: { rel: { sofia: -4 } }, suite: '« Oh, dommage. » Les photos tournent sans toi.' },
+    ] },
+  { id: 'rayure', lieu: ['anfa'], poids: 1, titre: 'La rayure', img: 'illu-californie',
+    cond: s => !!s.vehicule,
+    texte: 'Un gros 4x4 recule et accroche ton véhicule. Le conducteur descend, pressé : « 200 DH et on oublie, d\'accord ? »', choix: [
+      { label: 'Prendre les 200 DH', eff: { money: 200, moral: -2 }, suite: 'La rayure restera. Deux cents dirhams aussi.' },
+      { label: 'Exiger le constat', chance: () => 0.5 + tagN('tchatcheur') * 0.1, ok: { money: 600, tags: { debrouillard: 1 } }, suiteOk: 'Il finit par céder : 600 DH, le vrai prix de la carrosserie.', ko: { moral: -8, rep: -1 }, suiteKo: 'Il remonte et démarre. Pas de plaque, pas de constat, pas d\'argent.' },
+    ] },
+  { id: 'golf', lieu: ['anfa'], poids: 1, titre: 'Haj Abdellah', img: 'portrait-haj',
+    cond: () => relOf('haj') >= 30,
+    texte: 'Haj Abdellah : « Samedi matin, je joue au golf avec des amis. Viens, tu rencontreras du monde. »', choix: [
+      { label: 'Y aller', eff: { energie: -10, rel: { haj: 8 }, social: 8, tags: { ambitieux: 1 } }, suite: 'Tu ne sais pas jouer. Ça n\'a aucune importance : tu as serré six mains qui comptent.', apres: { id: 'golf_suite', jours: 5 } },
+      { label: 'Décliner', eff: { rel: { haj: -3 } }, suite: '« Comme tu veux. » Il n\'insiste pas, et il n\'insistera plus.' },
+    ] },
+  { id: 'golf_suite', suite: true, lieu: ['anfa', 'cafe', 'maison', 'rue'], titre: 'Une carte de visite', img: 'portrait-haj',
+    texte: 'Un des amis du Haj t\'appelle : il a un poste à pourvoir, et il se souvient de toi.', choix: [
+      { label: 'Écouter sa proposition', eff: { offre: 1.4, moral: 6 }, suite: 'Une offre arrive dans l\'onglet Argent. Le réseau, ça sert à ça.' },
+    ] },
+  // La plage
+  { id: 'volley', lieu: ['plage'], poids: 2, titre: 'Beach-volley', img: 'illu-plage',
+    cond: s => s.needs.energie >= 30,
+    texte: 'Un groupe cherche un sixième pour le beach-volley. « Tu sais jouer ? Pas grave, viens. »', choix: [
+      { label: 'Jouer', eff: { social: 10, moral: 8, energie: -14, hygiene: -8 }, suite: 'Du sable dans les cheveux, des rires, un numéro ou deux échangés.' },
+      { label: 'Non merci', eff: {}, suite: 'Tu les regardes jouer depuis ta serviette.' },
+    ] },
+  { id: 'surf', lieu: ['plage'], poids: 1, titre: 'Imane', img: 'portrait-imane',
+    cond: () => relOf('imane') >= 15,
+    texte: 'Imane te tend sa planche : « Allez, une vague. Je te tiens. »', choix: [
+      { label: 'Essayer', chance: () => 0.5, ok: { moral: 15, social: 6, rel: { imane: 8 }, energie: -10 }, suiteOk: 'Trois secondes debout. Les plus belles de ta semaine.', ko: { moral: -3, hygiene: -10, energie: -12, rel: { imane: 4 } }, suiteKo: 'Tu as bu la tasse quatre fois. Imane rit, gentiment.' },
+      { label: 'Une autre fois', eff: { rel: { imane: -2 } }, suite: '« Peureux(se). » Elle repart vers les vagues.' },
+    ] },
+  { id: 'meduse', lieu: ['plage'], poids: 1, titre: 'Une méduse', img: 'illu-plage',
+    cond: () => true,
+    texte: 'Une brûlure sur la jambe en sortant de l\'eau : une méduse.', choix: [
+      { label: 'Aller voir Nabil', eff: { moral: -3, rel: { nabil: 5 } }, suite: 'Vinaigre, et un sermon sur les drapeaux. Ça passe en une heure.' },
+      { label: 'Serrer les dents', eff: { moral: -6, energie: -6 }, suite: 'Ça brûle jusqu\'au soir.' },
+    ] },
+  { id: 'drapeau', lieu: ['plage'], poids: 1, titre: 'Drapeau rouge', img: 'illu-plage',
+    cond: s => hour(s.t) < 18,
+    texte: 'Drapeau rouge aujourd\'hui : courant fort. L\'eau a l\'air tellement bonne, pourtant.', choix: [
+      { label: 'Se baigner quand même', chance: () => 0.6, ok: { moral: 10, hygiene: 10, rel: { nabil: -4 } }, suiteOk: 'Tu ressors essoufflé(e) mais ravi(e). Nabil te siffle, furieux.', ko: { energie: -30, moral: -10, rel: { nabil: 4 }, rep: -3 }, suiteKo: 'Le courant t\'a emporté(e). Nabil t\'a ramené(e). Toute la plage a regardé.' },
+      { label: 'Rester sur le sable', eff: { moral: 1, tags: { fiable: 1 } }, suite: 'Un jour sans baignade. La mer sera là demain.' },
+    ] },
   // Quand ça peut mal tourner
   { id: 'bagarre', lieu: ['cafe'], poids: 1, titre: 'Ça chauffe', img: 'illu-cafe',
     cond: s => hour(s.t) >= 20,
@@ -461,6 +639,7 @@ function effets(eff, data = {}) {
     else if (k === 'inv') for (const i in x) s.inv[i] = (s.inv[i] || 0) + x[i];
     else if (k === 'perf') s.job.perf = clampv(s.job.perf + x, 0, 100);
     else if (k === 'collegues') s.job.collegues = clampv(s.job.collegues + x, 0, 100);
+    else if (k === 'competence') s.job.competence = Math.min(10, s.job.competence + x);
     else if (k === 'offre') nouvelleOffre('reseau', x);
     else if (k === 'licenciement') licencier('pour absences répétées');
     else if (k === 'etape' && a) { a.etape = x; a.depuis = d0(); }
