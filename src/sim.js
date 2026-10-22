@@ -10,6 +10,7 @@ const GOUTS_ALL = { ...GOUTS, ...GOUTS_ANFA, ...GOUTS_CORNICHE }, BOULOTS_ALL = 
 import * as Wd from './world.js';
 import { initSocial, socialMinute, remarque, rep, remiseHanout, creditPossible, evite } from './social.js';
 import { initFetes, fetesMinute, calendrier, ramadan, jeune, rompreJeune, cafeRamadan, finTravail, ferie } from './fetes.js';
+import { initVie, vieMinute } from './vie.js';
 import { initTravail, collegueDefs, personnaliser, effetCollegue, paie, extraNoir, finExtraNoir, potDepart, journeeAffaire, evenementAffaire, jourAffaire, hausseLoyer } from './travail.js';
 
 export const G = {
@@ -74,6 +75,7 @@ export function newGame(look) {
   initSocial(G.s);
   initTravail(G.s);
   initFetes(G.s);
+  initVie(G.s);
   for (const a of ANIMAUX) G.s.animaux[a.id] = { confiance: 0, adopte: false, nom: '', faim: 70, fled: 0 };
   resetRuntime();
   save();
@@ -109,6 +111,7 @@ export function load() {
     initSocial(s);
     initTravail(s);
     initFetes(s);
+    initVie(s);
     G.s = s; resetRuntime(); return true;
   } catch { return false; }
 }
@@ -1101,6 +1104,7 @@ function minuteEvent(T) {
   if (mm === 18 * 60 + 30) remarque();
   socialMinute(T);
   fetesMinute(T);
+  vieMinute(T);
   greetings();
 }
 // Les voisins qu'on connaît font signe quand on se croise.

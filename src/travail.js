@@ -101,9 +101,9 @@ export function chercherPoste() {
   if (!n) toast('Rien d\'intéressant cette semaine. Réessaie la semaine prochaine.');
   save();
 }
-function nouvelleOffre(source = 'annonce') {
+export function nouvelleOffre(source = 'annonce', multReseau = 0) {
   const s = G.s, J = s.job, base = jobOf().salaire * (J.chomage ? 0.85 : 1);
-  const mult = J.chomage ? rand(0.8, 1.05) : rand(1.1, 1.4);
+  const mult = multReseau || (J.chomage ? rand(0.8, 1.05) : rand(1.1, 1.4));
   const o = { id: Date.now() + Math.random(), employeur: pick(EMPLOYEURS[s.milieu]), salaire: Math.round(base * mult / 10) * 10, source, expire: dayIdx(s.t) + 7 };
   J.offres.push(o);
   toast(`${source === 'reseau' ? 'Par le réseau' : 'Une annonce'} : ${o.employeur} cherche quelqu'un, ${fmtDH(o.salaire)} par semaine. Entretien possible depuis l'onglet Argent.`, 'good');
@@ -204,22 +204,27 @@ export const AFFAIRES = {
   populaire: [
     { id: 'stand', nom: 'Stand de msemen et de thé', capital: 12000, loyer: 300, base: 1500, desc: 'Un stand au coin de la rue. Petit capital, longues journées, clients du quartier.' },
     { id: 'snack', nom: 'Snack du quartier', capital: 40000, loyer: 900, base: 3400, desc: 'Sandwichs, frites, jus. Il faut tenir le rythme et les fournisseurs.' },
+    { id: 'startup', cache: true, nom: 'Start-up de livraison, avec ton associé', capital: 15000, loyer: 400, base: 3200, desc: 'Ton associé met le gros de l\'argent, toi ton temps et ta part. Des scooters, une appli, et des restaurants à convaincre.' },
   ],
   moyen: [
     { id: 'domicile', nom: 'Cours et traiteur à domicile', capital: 4000, loyer: 0, base: 1600, desc: 'On part de chez soi : des élèves, des commandes de plats. Ça dépend de ta réputation.' },
     { id: 'cafe', nom: 'Un café', capital: 90000, loyer: 2000, base: 5500, desc: 'Un vrai commerce, un serveur à payer, et les matchs qui remplissent la salle.' },
+    { id: 'startup', cache: true, nom: 'Start-up de livraison, avec ton associé', capital: 25000, loyer: 600, base: 4800, desc: 'Ton associé met le gros de l\'argent, toi ton temps et ta part. Une appli, des livreurs, et des restaurants à convaincre.' },
   ],
   aise: [
     { id: 'agence', nom: 'Agence immobilière', capital: 150000, loyer: 3000, base: 9000, desc: 'Un local à Anfa, du réseau, et des commissions qui peuvent tomber… ou pas.' },
     { id: 'cafe', nom: 'Un café branché', capital: 120000, loyer: 2500, base: 7000, desc: 'Parasols crème, latte à 35 DH. La clientèle d\'Anfa est exigeante.' },
+    { id: 'startup', cache: true, nom: 'Start-up de livraison, avec ton associé', capital: 60000, loyer: 1200, base: 9500, desc: 'Ton associé met le gros de l\'argent, toi ton temps et ta part. Une appli, une flotte, et les restaurants d\'Anfa à convaincre.' },
   ],
 };
 export const affaireDef = () => G.s.affaire && AFFAIRES[G.s.milieu].find(a => a.id === G.s.affaire.id);
+export const capitalDe = a => (a.id === 'startup' && G.s.vie && G.s.vie.flags.startupRemise ? Math.round(a.capital * 0.7) : a.capital);
 export function ouvrirAffaire(id) {
   const s = G.s, a = AFFAIRES[s.milieu].find(x => x.id === id);
   if (!a || s.affaire) return;
-  if (s.money < a.capital) return toast(`Il faut ${fmtDH(a.capital)} de capital.`, 'bad');
-  s.money -= a.capital;
+  if (a.cache && !(s.vie && s.vie.flags.startup)) return;
+  if (s.money < capitalDe(a)) return toast(`Il faut ${fmtDH(capitalDe(a))} de capital.`, 'bad');
+  s.money -= capitalDe(a);
   s.affaire = { id, clientele: 25, jours: 0, caisse: 0, ouvert: -1 };
   s.job.chomage = false; s.job.mult = 1;
   rep(4); s.needs.moral = clampv(s.needs.moral + 15, 0, 100);
