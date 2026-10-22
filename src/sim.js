@@ -10,7 +10,8 @@ const GOUTS_ALL = { ...GOUTS, ...GOUTS_ANFA, ...GOUTS_CORNICHE }, BOULOTS_ALL = 
 import * as Wd from './world.js';
 import { initSocial, socialMinute, remarque, rep, remiseHanout, creditPossible, evite } from './social.js';
 import { initFetes, fetesMinute, calendrier, ramadan, jeune, rompreJeune, cafeRamadan, finTravail, ferie } from './fetes.js';
-import { initVie, vieMinute } from './vie.js';
+import { initVie, vieMinute, amourNpcDefs, conjointView, conjointLabel, startConjoint, arriveConjoint, finishConjoint } from './vie.js';
+import { initObjectifs, objectifsMinute } from './objectifs.js';
 import { initParents, parentsMinute, parentsView, parentLabel, startParent, arriveParent, finishParent } from './parents.js';
 import { initTravail, collegueDefs, personnaliser, effetCollegue, paie, extraNoir, finExtraNoir, potDepart, journeeAffaire, evenementAffaire, jourAffaire, hausseLoyer } from './travail.js';
 
@@ -53,7 +54,15 @@ export const revenu = k => milieu().revenus.includes(k);
 export const Q = () => QUARTIERS[G.s.quartier];
 export const homeHere = () => G.s.quartier === G.s.chezMoi;
 export const prix = p => Math.round(p * Q().coeff);
-export const npcDefs = (q = G.s.quartier) => (q === 'anfa' ? NPCS_ANFA : q === 'corniche' ? NPCS_CORNICHE : NPCS).concat(q === G.s.chezMoi ? collegueDefs(G.s.milieu) : []);
+export const npcDefs = (q = G.s.quartier) => (q === 'anfa' ? NPCS_ANFA : q === 'corniche' ? NPCS_CORNICHE : NPCS).concat(q === G.s.chezMoi ? collegueDefs(G.s.milieu) : [], q === G.s.quartier ? amourNpcDefs() : []);
+// Quand la liste des gens du quartier change (une rencontre, un mariage), on la reconstruit sans perdre ceux qui sont là.
+export function refreshNpcs() {
+  if (!G.s || !G.npcs) return;
+  const old = new Map(G.npcs.map(n => [n.id, n]));
+  G.npcs = npcDefs().map(def => old.get(def.id) || { id: def.id, def, visible: false, x: 0, z: 0, yaw: 0, state: 'home', path: [], walkPhase: 0, nextAt: 0, chair: -1, goal: null, talkUntil: 0, greetedAt: -9999, talks: 0, talkDay: -1, sujets: {}, sujetsDay: -1 });
+  npcGrid = null;
+  hooks.quartierChanged();
+}
 // Le loyer hebdomadaire : celui du milieu dans le quartier d'origine, sinon celui du quartier.
 const loyerMilieu = () => (G.s.independant && milieu().loyerSeul ? milieu().loyerSeul : milieu().loyer);
 export const loyerHebdo = (q = G.s.chezMoi) => Math.round((q === 'populaire' ? loyerMilieu() : Math.max(700, loyerMilieu()) * QUARTIERS[q].loyer) * (G.s.loyerMult || 1));
@@ -79,6 +88,7 @@ export function newGame(look) {
   initFetes(G.s);
   initVie(G.s);
   initParents(G.s);
+  initObjectifs(G.s);
   for (const a of ANIMAUX) G.s.animaux[a.id] = { confiance: 0, adopte: false, nom: '', faim: 70, fled: 0 };
   resetRuntime();
   save();
@@ -116,6 +126,7 @@ export function load() {
     initFetes(s);
     initVie(s);
     initParents(s);
+    initObjectifs(s);
     G.s = s; resetRuntime(); return true;
   } catch { return false; }
 }
@@ -163,6 +174,7 @@ export function itemLabel(it) {
   if (it.kind === 'plage') return PLAGE_ACTS[it.act].nom;
   if (it.kind === 'animal') return ANIMAL_ACTS[it.act].label + ' : ' + animalName(it.id);
   if (it.kind === 'parent') return parentLabel(it);
+  if (it.kind === 'conjoint') return conjointLabel(it);
   if (it.kind === 'talk') {
     const n = getN(it.npc).def.nom;
     if (it.mode === 'boulot') return boulotOf(it.boulot).nom;
@@ -412,6 +424,7 @@ function startItem(it) {
     return;
   }
   if (it.kind === 'parent') return startParent(it, go, home, blocked, fail, Wd.approachCells);
+  if (it.kind === 'conjoint') return startConjoint(it, go, home, blocked, fail, Wd.approachCells);
   if (it.kind === 'animal') {
     const a = getA(it.id);
     if (!animalHere(a)) return fail(it, `${animalName(it.id)} n'est pas ici.`);
@@ -523,6 +536,7 @@ function arrive(c) {
     return;
   }
   if (it.kind === 'parent') { arriveParent(c); return; }
+  if (it.kind === 'conjoint') { arriveConjoint(c); return; }
   if (it.kind === 'animal') {
     const a = getA(it.id), d = Math.hypot(a.x - s.pos.x, a.z - s.pos.z);
     if (d > 2.2) {
@@ -596,6 +610,7 @@ function finish(c) {
   }
   if (it.kind === 'plage') return finishPlage(it);
   if (it.kind === 'parent') return finishParent(it);
+  if (it.kind === 'conjoint') return finishConjoint(it);
   if (it.kind === 'animal') return finishAnimal(it);
   if (it.kind === 'talk') {
     const n = getN(it.npc);
@@ -1117,6 +1132,7 @@ function minuteEvent(T) {
   fetesMinute(T);
   vieMinute(T);
   parentsMinute(T);
+  objectifsMinute(T);
   greetings();
 }
 // Les voisins qu'on connaît font signe quand on se croise.
@@ -1328,7 +1344,7 @@ export function view() {
   const npcs = G.npcs.map(n => ({
     id: n.id, visible: n.visible, x: n.x, z: n.z, yaw: n.yaw, walkPhase: n.walkPhase,
     pose: n.state === 'walk' ? { base: 'walk' } : n.state === 'sit' ? { base: 'sit', h: 0.45, anim: 'eat' } : n.state === 'talk' ? { base: 'stand', anim: 'talk' } : { base: 'stand' },
-  })).concat(G.passants.map(p => ({ id: p.id, visible: p.visible, x: p.x, z: p.z, yaw: p.yaw, walkPhase: p.walkPhase, pose: { base: 'walk' } })), parentsView());
+  })).concat(G.passants.map(p => ({ id: p.id, visible: p.visible, x: p.x, z: p.z, yaw: p.yaw, walkPhase: p.walkPhase, pose: { base: 'walk' } })), parentsView(), conjointView());
   const animaux = G.animaux.map(a => ({
     id: a.id, x: a.x, z: a.z, yaw: a.yaw, walkPhase: a.walkPhase, visible: animalHere(a),
     pose: a.state === 'walk' ? 'walk' : (h >= 23 || h < 7) && s.t >= a.hold ? 'lie' : 'idle',

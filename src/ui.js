@@ -14,6 +14,7 @@ import { fetesInfo, rompreJeune, jeune } from './fetes.js';
 import { travailInfo, chercherPoste, entretien, ouvrirAffaire, fermerAffaire, AFFAIRES, salaire, capitalDe } from './travail.js';
 import { vieInfo } from './vie.js';
 import { parentsInfo, independance } from './parents.js';
+import { objectifsInfo, verifierObjectifs } from './objectifs.js';
 
 export const $ = id => document.getElementById(id);
 export const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -312,10 +313,14 @@ export function openFiche(tab = 'moi') {
     ANIMAUX.map(a => { const st = s.animaux[a.id]; return `
     <div class="stat voisin ico">${img('animal-' + a.id)}<div><span>${esc(st.adopte ? st.nom : a.nom)} · ${st.adopte ? 'adopté' : 'confiance ' + Math.round(st.confiance)}</span>
       <div class="bar"><i style="width:${st.adopte ? st.faim : st.confiance}%"></i></div><small>${esc(a.desc)}</small></div></div>`; }).join('');
+  verifierObjectifs();
+  const OBJ = objectifsInfo(), faits = OBJ.filter(o => o.fait).length, themes = [...new Set(OBJ.map(o => o.theme))];
+  const objectifs = `<p class="hint">${faits} objectif${faits > 1 ? 's' : ''} sur ${OBJ.length}. Chaque objectif atteint remonte le moral, et parfois le compte en banque.</p>` +
+    themes.map(th => `<div class="stat obj"><span>${esc(th)}</span>${OBJ.filter(o => o.theme === th).map(o => `<small class="${o.fait ? 'done' : ''}">${o.fait ? '✓' : '○'} <b>${esc(o.nom)}</b> · ${esc(o.desc)}</small>`).join('')}</div>`).join('');
   const sheet = openModal(`${closeBtn}<h2>${esc(s.char.name)}</h2>
     <p class="hint">${s.char.traits.map(t => TRAITS[t].nom).join(' · ') || 'Aucun trait'}</p>
-    <nav class="tabs small"><button data-t="moi" class="${tab === 'moi' ? 'on' : ''}">Ma vie</button><button data-t="argent" class="${tab === 'argent' ? 'on' : ''}">Argent</button><button data-t="quartier" class="${tab === 'quartier' ? 'on' : ''}">Le quartier</button></nav>
-    ${tab === 'moi' ? moi : tab === 'argent' ? argent : voisins}`);
+    <nav class="tabs small"><button data-t="moi" class="${tab === 'moi' ? 'on' : ''}">Ma vie</button><button data-t="argent" class="${tab === 'argent' ? 'on' : ''}">Argent</button><button data-t="quartier" class="${tab === 'quartier' ? 'on' : ''}">Le quartier</button><button data-t="objectifs" class="${tab === 'objectifs' ? 'on' : ''}">Objectifs (${faits}/${OBJ.length})</button></nav>
+    ${tab === 'moi' ? moi : tab === 'argent' ? argent : tab === 'objectifs' ? objectifs : voisins}`);
   bindClose(sheet);
   sheet.querySelectorAll('[data-t]').forEach(b => { b.onclick = () => openFiche(b.dataset.t); });
   const daretBtn = sheet.querySelector('#daretJoin');

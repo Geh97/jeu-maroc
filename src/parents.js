@@ -25,13 +25,13 @@ export function initParents(s) {
 
 // ---------- Où sont-ils, à chaque heure ? ----------
 const furnOf = (type, i = 0) => G.s.home.furn.filter(f => f.type === type)[i];
-function spotCook() {
+export function spotCook() {
   const f = furnOf('cuisiniere');
   if (!f) return { x: 10.5, z: 5.5, yaw: Math.PI / 2, pose: 'stand', anim: 'cook', h: 0 };
   const c = furnCenter(f), fd = frontDir(f.r);
   return { x: c.x + fd.x, z: c.z + fd.z, yaw: Math.atan2(-fd.x, -fd.z), pose: 'stand', anim: 'cook', h: 0 };
 }
-function spotSit(i, anim) {
+export function spotSit(i, anim) {
   const f = furnOf('banquette', i) || furnOf('banquette', 0) || furnOf('pouf', i);
   if (!f) return { x: 2.5 + i, z: 5.5, yaw: 0, pose: 'stand', anim, h: 0 };
   const c = furnCenter(f);

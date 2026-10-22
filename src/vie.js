@@ -1,10 +1,11 @@
 // Les choix de vie : les petites histoires du quotidien selon l'endroit où l'on est, les étiquettes qu'elles
 // collent au personnage, les suites qui reviennent des jours plus tard, et l'amour, de la rencontre au mariage.
 import { MILIEUX } from './data.js';
-import { G, hooks, dayIdx, dow, hour, fmtDH, save, clampv, getNpc, relOf, addRelRaw, jobOf, milieu, vehicule, homeHere, isHome, cancelAll } from './sim.js';
+import { G, hooks, dayIdx, dow, hour, fmtDH, save, clampv, getNpc, relOf, addRelRaw, jobOf, milieu, vehicule, homeHere, isHome, cancelAll, refreshNpcs } from './sim.js';
 import { rep, fam } from './social.js';
 import { licencier, nouvelleOffre, AFFAIRES } from './travail.js';
 import { ferie } from './fetes.js';
+import { spotSit, spotCook } from './parents.js';
 
 const toast = (m, k) => hooks.toast(m, k);
 const pick = a => a[Math.floor(Math.random() * a.length)];
@@ -30,20 +31,20 @@ function tag(k, n = 1) {
 export const ETAPES = ['', 'Une rencontre', 'Numéro échangé', 'On se voit', 'En couple', 'Fiancé(e)s', 'Marié(e)s'];
 const CANDIDATS = {
   rue: [
-    { id: 'salma', nom: 'Salma', genre: 'f', desc: 'Institutrice au quartier, elle passe au café après l\'école.' },
-    { id: 'reda', nom: 'Réda', genre: 'm', desc: 'Il tient la pharmacie à deux rues d\'ici.' },
+    { id: 'salma', nom: 'Salma', genre: 'f', desc: 'Institutrice au quartier, elle passe au café après l\'école.', look: { skin: '#d19e78', hair: 'attachee', hairColor: '#1d1714', outfit: 'jean', outfitColor: '#5b3d6e' }, lignes: ['Mes élèves m\'ont encore fait une surprise. Une grenouille, cette fois.', 'Le soir, le quartier est plus doux. Tu ne trouves pas ?', 'Tu lis, toi ? Je te prêterai quelque chose.', 'Ma mère demande déjà qui tu es.'] },
+    { id: 'reda', nom: 'Réda', genre: 'm', desc: 'Il tient la pharmacie à deux rues d\'ici.', look: { skin: '#b07a55', hair: 'courte', hairColor: '#1d1714', outfit: 'costume', outfitColor: '#2f4f7a' }, lignes: ['Tout le quartier me raconte ses maladies. Et ses secrets.', 'Je ferme à 21 h. Après, je suis libre.', 'Tu as une bonne mine aujourd\'hui. Je m\'y connais.', 'Mon père voudrait que je reprenne sa pharmacie à Fès. Je préfère ici.'] },
   ],
   cafe: [
-    { id: 'salma', nom: 'Salma', genre: 'f', desc: 'Institutrice au quartier, elle passe au café après l\'école.' },
-    { id: 'reda', nom: 'Réda', genre: 'm', desc: 'Il tient la pharmacie à deux rues d\'ici.' },
+    { id: 'salma', nom: 'Salma', genre: 'f', desc: 'Institutrice au quartier, elle passe au café après l\'école.', look: { skin: '#d19e78', hair: 'attachee', hairColor: '#1d1714', outfit: 'jean', outfitColor: '#5b3d6e' }, lignes: ['Mes élèves m\'ont encore fait une surprise. Une grenouille, cette fois.', 'Le soir, le quartier est plus doux. Tu ne trouves pas ?', 'Tu lis, toi ? Je te prêterai quelque chose.', 'Ma mère demande déjà qui tu es.'] },
+    { id: 'reda', nom: 'Réda', genre: 'm', desc: 'Il tient la pharmacie à deux rues d\'ici.', look: { skin: '#b07a55', hair: 'courte', hairColor: '#1d1714', outfit: 'costume', outfitColor: '#2f4f7a' }, lignes: ['Tout le quartier me raconte ses maladies. Et ses secrets.', 'Je ferme à 21 h. Après, je suis libre.', 'Tu as une bonne mine aujourd\'hui. Je m\'y connais.', 'Mon père voudrait que je reprenne sa pharmacie à Fès. Je préfère ici.'] },
   ],
   anfa: [
-    { id: 'lina', nom: 'Lina', genre: 'f', desc: 'Architecte, une amie de Sofia. Elle rit fort et conduit vite.' },
-    { id: 'adam', nom: 'Adam', genre: 'm', desc: 'Il travaille à la banque de son père et rêve d\'autre chose.' },
+    { id: 'lina', nom: 'Lina', genre: 'f', desc: 'Architecte, une amie de Sofia. Elle rit fort et conduit vite.', look: { skin: '#e6b994', hair: 'longue', hairColor: '#3b2618', outfit: 'jean', outfitColor: '#3a3a3a' }, lignes: ['J\'ai dessiné la villa d\'en face. Le propriétaire a tout changé.', 'Un jour, je construirai une maison avec vue sur l\'océan. La mienne.', 'Sofia parle trop. Mais elle a bon goût en amis.', 'Tu veux voir le chantier ? Mets des chaussures fermées.'] },
+    { id: 'adam', nom: 'Adam', genre: 'm', desc: 'Il travaille à la banque de son père et rêve d\'autre chose.', look: { skin: '#d19e78', hair: 'courte', hairColor: '#1d1714', outfit: 'costume', outfitColor: '#3a3a3a' }, lignes: ['Les chiffres, toute la journée. Le soir, je joue de la guitare.', 'Mon père a un plan pour moi. Je n\'en suis pas sûr.', 'La corniche à 6 h du matin, c\'est le seul moment où elle est à nous.', 'Tu es différent(e) des gens d\'ici. C\'est un compliment.'] },
   ],
   plage: [
-    { id: 'nour', nom: 'Nour', genre: 'f', desc: 'Elle court sur la corniche tous les soirs, même l\'hiver.' },
-    { id: 'ayoub', nom: 'Ayoub', genre: 'm', desc: 'Il joue au foot sur le sable le dimanche et répare des bateaux la semaine.' },
+    { id: 'nour', nom: 'Nour', genre: 'f', desc: 'Elle court sur la corniche tous les soirs, même l\'hiver.', look: { skin: '#b07a55', hair: 'attachee', hairColor: '#1d1714', outfit: 'jean', outfitColor: '#2e6b57' }, lignes: ['Dix kilomètres ce matin. Tu viens demain ?', 'La mer en hiver, c\'est là qu\'elle est belle.', 'Je suis infirmière. Les gens croient que je ne dors jamais. Ils ont raison.', 'Tu as déjà vu le phare s\'allumer ? Reste jusqu\'au soir.'] },
+    { id: 'ayoub', nom: 'Ayoub', genre: 'm', desc: 'Il joue au foot sur le sable le dimanche et répare des bateaux la semaine.', look: { skin: '#8a5a3c', hair: 'courte', hairColor: '#1d1714', outfit: 'jean', outfitColor: '#c99a3a' }, lignes: ['Un bateau, c\'est comme une personne : il faut l\'écouter.', 'Dimanche, on joue contre ceux de Sidi Abderrahmane. Viens nous voir.', 'Mon grand-père pêchait ici quand il n\'y avait pas de corniche.', 'Je ne suis pas riche, mais la mer est à moi.'] },
   ],
 };
 const MARIAGE_COUT = { populaire: 25000, moyen: 60000, aise: 150000 };
@@ -579,6 +580,8 @@ const okCond = (c, s) => (!c.cond || c.cond(s));
 export function vieMinute(T) {
   const s = G.s, v = V(), d = dayIdx(T), mm = T % 1440, h = hour(T);
   if (v.jour.d !== d) { v.jour = { d, n: 0 }; }
+  // Parler à la personne dans la rue fait aussi avancer l'histoire.
+  if (v.amour && mm % 60 === 0 && s.rel[v.amour.id] != null) { const r = s.rel[v.amour.id]; if (v.amour.relSync == null) v.amour.relSync = r; if (r > v.amour.relSync) amourScore((r - v.amour.relSync) * 0.5); v.amour.relSync = r; }
   // Les soirées à deux.
   if (v.amour && v.amour.etape >= 4 && mm === 21 * 60 && !s.away) { s.needs.social = clampv(s.needs.social + 8, 0, 100); s.needs.moral = clampv(s.needs.moral + 3, 0, 100); }
   if (v.amour && v.amour.etape >= 6 && mm === 20 * 60 + 30 && !s.away) s.needs.faim = clampv(s.needs.faim + 12, 0, 100);
@@ -642,7 +645,7 @@ function effets(eff, data = {}) {
     else if (k === 'competence') s.job.competence = Math.min(10, s.job.competence + x);
     else if (k === 'offre') nouvelleOffre('reseau', x);
     else if (k === 'licenciement') licencier('pour absences répétées');
-    else if (k === 'etape' && a) { a.etape = x; a.depuis = d0(); }
+    else if (k === 'etape' && a) { a.etape = x; a.depuis = d0(); refreshNpcs(); }
     else if (k === 'score') amourScore(x);
     else if (k === 'sortie' && a) a.sorties += x;
     else if (k === 'famille' && a) a.famille = x;
@@ -666,6 +669,7 @@ function amourTick(lieu, d) {
       if (!ch.cand) { toast('Tu restes dans ton coin.'); return; }
       v.amour = { ...ch.cand, lieu, etape: 1, score: 20, sorties: 0, famille: 'inconnue', depuis: d, next: d + 2 + Math.floor(Math.random() * 3) };
       s.needs.moral = clampv(s.needs.moral + 6, 0, 100);
+      refreshNpcs();
       toast(`${ch.cand.nom}. ${ch.cand.desc} Vous avez parlé dix minutes. Tu y repenses le soir.`, 'good');
       save();
     });
@@ -695,6 +699,7 @@ function rupture(msg) {
   if (!v.amour) return;
   v.amour = null;
   s.needs.moral = clampv(s.needs.moral - 25, 0, 100);
+  refreshNpcs();
   toast(msg + ' Le moral en prend un coup.', 'bad');
 }
 function mariage() {
@@ -704,6 +709,7 @@ function mariage() {
   rep(10); fam(15); tag('famille', 1);
   a.etape = 6; a.depuis = d0(); a.score = Math.max(a.score, 80);
   cancelAll();
+  refreshNpcs();
 }
 
 // ---------- Pour la fiche ----------
@@ -721,3 +727,67 @@ export const debugVie = () => {
   const s = G.s, lieu = lieuActuel(), d = d0(), faits = V().faits;
   return { lieu, jour: V().jour, away: !!s.away, modal: G.modal, pool: lieu ? EV.filter(ev => !ev.suite && ev.lieu.includes(lieu) && (!ev.q || ev.q.includes(s.quartier)) && okCond(ev, s) && (faits[ev.id] || 0) < (ev.max || 4) && d - (faits[ev.id + '_d'] ?? -99) >= 3).map(ev => ev.id) : [] };
 };
+
+// ---------- La personne qu'on fréquente, en chair et en os ----------
+const QUARTIER_DE = { rue: 'populaire', cafe: 'populaire', anfa: 'anfa', plage: 'corniche' };
+// Dans le quartier de la rencontre, du numéro jusqu'aux fiançailles : on la croise dans la rue et au café.
+export function amourNpcDefs() {
+  const a = G.s.vie && G.s.vie.amour;
+  if (!a || a.etape < 2 || a.etape >= 6 || QUARTIER_DE[a.lieu] !== G.s.quartier) return [];
+  return [{ id: a.id, nom: a.nom, desc: a.desc, look: a.look, porte: { x: a.lieu === 'anfa' ? -8 : 27, z: 9 }, sorties: [[12, 14], [17.5, 20.5]], cafe: 0.7, lignes: a.lignes || ['Content(e) de te voir.'], amour: true }];
+}
+export const isConjoint = id => { const a = G.s.vie && G.s.vie.amour; return !!a && a.etape >= 6 && a.id === id; };
+export const conjointDefs = () => { const a = G.s.vie && G.s.vie.amour; return a && a.etape >= 6 && homeHere() ? [{ id: a.id, nom: a.nom, look: a.look }] : []; };
+// À la maison après le mariage : le soir et le week-end, à la cuisine ou au salon.
+function conjointOu(h, w) {
+  const we = w >= 5, d = dayIdx(G.s.t);
+  if (h < 7 || h >= 23) return null;
+  if (!we) { if (h < 18) return h < 8 ? spotSit(0, 'eat') : null; return h < 20 && d % 2 ? spotCook() : spotSit(0, null); }
+  if (h < 9) return null;
+  if (h < 13) return spotSit(0, h < 10 ? 'eat' : null);
+  if (h < 15) return spotCook();
+  if (h < 19) return null;
+  return spotSit(0, null);
+}
+export const conjointSpot = () => (conjointDefs().length ? conjointOu(hour(G.s.t), dow(G.s.t)) : null);
+export function conjointView() {
+  const defs = conjointDefs();
+  if (!defs.length) return [];
+  const p = conjointSpot(), id = defs[0].id;
+  return [p ? { id, visible: true, x: p.x, z: p.z, yaw: p.yaw, walkPhase: 0, pose: { base: p.pose, anim: p.anim, h: p.h } } : { id, visible: false, x: 0, z: 0, yaw: 0, walkPhase: 0, pose: { base: 'stand' } }];
+}
+export const CONJOINT_ACTS = {
+  discuter: { label: 'Discuter', dur: 15 },
+  cuisiner: { label: 'Cuisiner ensemble', dur: 30 },
+  sortir: { label: 'Sortir en amoureux (80 DH)', dur: 60 },
+};
+export function conjointActions(id) {
+  const a = G.s.vie.amour, sp = conjointSpot();
+  if (!sp) return { title: a.nom, items: [] };
+  const items = [{ act: 'discuter', label: CONJOINT_ACTS.discuter.label, sub: '15 min · la journée de chacun' }];
+  if (sp.anim === 'cook') items.push({ act: 'cuisiner', label: CONJOINT_ACTS.cuisiner.label, sub: '30 min · à quatre mains' });
+  items.push({ act: 'sortir', label: CONJOINT_ACTS.sortir.label, sub: '1 h · un café, une balade', disabled: G.s.money < 80, why: 'Pas assez d\'argent.' });
+  return { title: a.nom, items };
+}
+export const conjointLabel = it => `${CONJOINT_ACTS[it.act].label.replace(' (80 DH)', '')} : ${G.s.vie.amour ? G.s.vie.amour.nom : ''}`;
+export function startConjoint(it, go, home, blocked, fail, approachCells) {
+  const sp = conjointSpot();
+  if (!sp) return fail(it, `${G.s.vie.amour.nom} n'est pas là en ce moment.`);
+  const app = approachCells(home, [{ x: Math.floor(sp.x), z: Math.floor(sp.z) }], blocked);
+  if (!app.length || !go(app)) return fail(it, 'Impossible d\'approcher.');
+}
+export function arriveConjoint(c) {
+  const s = G.s, it = c.it, sp = conjointSpot();
+  if (!sp) { G.cur = null; toast(`${s.vie.amour.nom} vient de sortir.`); return; }
+  if (it.act === 'sortir') s.money -= 80;
+  c.dur = CONJOINT_ACTS[it.act].dur;
+  c.spot = { x: s.pos.x, z: s.pos.z, yaw: Math.atan2(sp.x - s.pos.x, sp.z - s.pos.z), pose: 'stand', anim: it.act === 'cuisiner' ? 'cook' : 'talk', h: 0 };
+  c.stage = 'do'; c.t = 0; G.yaw = c.spot.yaw;
+}
+export function finishConjoint(it) {
+  const s = G.s, a = s.vie.amour, n = s.needs, up = (k, v) => { n[k] = clampv(n[k] + v, 0, 100); };
+  if (it.act === 'discuter') { up('social', 10); up('moral', 4); amourScore(4); toast(`${a.nom} : « ${pick(a.lignes || ['Raconte-moi ta journée.'])} »`); }
+  else if (it.act === 'cuisiner') { s.skills.cuisine = Math.min(10, s.skills.cuisine + 0.2); up('social', 8); up('moral', 6); amourScore(5); toast(`Cuisiner à quatre mains, avec de la musique. Cuisine +0,2.`, 'good'); }
+  else if (it.act === 'sortir') { up('social', 8); up('moral', 10); up('energie', -6); amourScore(8); toast(`Un café, une balade, et la ville qui vous regarde. ${a.nom} rentre en souriant.`, 'good'); }
+  save();
+}

@@ -11,6 +11,7 @@ import * as BLD from './build.js';
 import * as TR from './travail.js';
 import * as FT from './fetes.js';
 import * as PR from './parents.js';
+import * as VI from './vie.js';
 
 const canvas = document.getElementById('c');
 S.initScene(canvas);
@@ -20,7 +21,7 @@ hooks.askWork = UI.askWork;
 hooks.workEvent = UI.workEvent;
 hooks.sortieEvent = UI.sortieEvent;
 hooks.lookChanged = () => S.setCharLook(G.s.char);
-const ctx = () => ({ quartier: G.s.quartier, withHome: homeHere(), vehicule: G.s.vehicule, npcs: npcDefs().concat(PR.parentDefs()), ramadan: FT.ramadan() });
+const ctx = () => ({ quartier: G.s.quartier, withHome: homeHere(), vehicule: G.s.vehicule, npcs: npcDefs().concat(PR.parentDefs(), VI.conjointDefs()), ramadan: FT.ramadan() });
 hooks.quartierChanged = () => { S.setQuartier(ctx()); UI.updateHud(); };
 window.jeu = { G, advance, enqueue, hooks, debugCam: S.debugCam, debugChar: S.debugChar, npcActions, animalActions, newGame, start, rebuild: () => S.rebuildHome(G.s.home), setCam: S.setCam, setFollow: S.setFollow, demenager, acheterVehicule, travail: TR, fetes: FT, parents: PR }; // pour tester depuis la console du navigateur
 
@@ -146,6 +147,8 @@ function onTap(x, y, type) {
     UI.openFiche('argent');
   } else if (h.type === 'chair') {
     UI.showPop(x, y, chairActions(h.id), it => enqueue({ kind: 'cafe', chair: it.chair, opt: it.opt }));
+  } else if (h.type === 'npc' && VI.isConjoint(h.id)) {
+    UI.showPop(x, y, VI.conjointActions(h.id), it => enqueue({ kind: 'conjoint', id: h.id, act: it.act }));
   } else if (h.type === 'npc' && PR.isParent(h.id)) {
     UI.showPop(x, y, PR.parentActions(h.id), it => enqueue({ kind: 'parent', id: h.id, act: it.act }));
   } else if (h.type === 'npc') {
