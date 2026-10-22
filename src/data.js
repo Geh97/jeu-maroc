@@ -474,12 +474,12 @@ export const SORTIES = {
 export const QUARTIERS = {
   populaire: {
     nom: 'Le quartier', article: 'au quartier', coeff: 1, loyer: 1, desc: 'Le quartier où tout a commencé : le café de Hamid, le hanout de Ba Lahcen, la placette et la mosquée.',
-    cafeNom: 'Café du quartier', boutiqueNom: 'Hanout de Ba Lahcen', regard: { populaire: 1, moyen: 1, aise: 0.8 },
+    illu: 'illu-cafe', cafeNom: 'Café du quartier', boutiqueNom: 'Hanout de Ba Lahcen', regard: { populaire: 1, moyen: 1, aise: 0.8 },
     trajet: { petit: { prix: 40, dur: 25 }, grand: { prix: 12, dur: 35 } },
   },
   anfa: {
     nom: 'Anfa', article: 'à Anfa', coeff: 3, loyer: 3, desc: 'Villas blanches, palmiers, grosses voitures et cafés branchés, à deux pas de la corniche. Tout coûte trois fois plus cher.',
-    cafeNom: 'Café La Corniche', boutiqueNom: 'Épicerie fine Anfa', regard: { populaire: 0.55, moyen: 0.85, aise: 1.25 },
+    illu: 'illu-californie', cafeNom: 'Café La Corniche', boutiqueNom: 'Épicerie fine Anfa', regard: { populaire: 0.55, moyen: 0.85, aise: 1.25 },
     trajet: { petit: { prix: 40, dur: 25 }, grand: { prix: 12, dur: 35 } },
     accueil: { populaire: 'On te regarde de haut, ici. Il faudra faire tes preuves.', moyen: 'Les gens sont polis, sans plus.', aise: 'Tu es chez toi, ici.' },
   },

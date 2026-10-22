@@ -300,7 +300,7 @@ export function openFiche(tab = 'moi') {
     ${animaux ? `<div class="stat"><span>À la maison</span><small>${animaux}</small></div>` : ''}`;
   const argent = moneyWays();
   const heures = n => n.sorties.map(([a, b]) => `${fmtH(a)}–${fmtH(b)}`).join(' et ');
-  const voisins = `${banner('illu-cafe')}<p class="hint">Le ${Q().cafeNom.toLowerCase()} ouvre de ${CAFE.ouvre} h à ${CAFE.ferme} h. Les voisins passent dans la rue à leurs heures.</p>` +
+  const voisins = `${banner(Q().illu || 'illu-cafe')}<p class="hint">Le ${Q().cafeNom.toLowerCase()} ouvre de ${CAFE.ouvre} h à ${CAFE.ferme} h. Les voisins passent dans la rue à leurs heures.</p>` +
     npcDefs().map(n => { const v = s.rel[n.id] || 0, live = G.npcs.find(x => x.id === n.id); return `
     <div class="stat voisin ico">${img('portrait-' + n.id)}<div><span>${esc(n.nom)} · ${relLabel(v)}${live && live.visible ? ' · dans la rue' : ''}</span>
       <div class="bar"><i style="width:${v}%"></i></div><small>${esc(n.desc)} Dehors : ${heures(n)}.</small></div></div>`; }).join('') +

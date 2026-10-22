@@ -209,69 +209,151 @@ function bougainvillea(g, x, y, z) {
   for (let i = 0; i < 9; i++) sph(g, 0.3 + (i % 3) * 0.1, mat(i % 3 ? '#c2185b' : '#3f7a3a'), x + (i % 3) * 0.5 - 0.5, y + Math.floor(i / 3) * 0.5, z + ((i * 7) % 3) * 0.15);
 }
 
-// Villa de Californie : mur de clôture blanc et portail, jardin avec palmier et haie, maison blanche en deux
-// volumes aux lignes droites, grandes baies vitrées, toit-terrasse, et une piscine pour certaines.
+// ---------- Californie : éléments modernes ----------
+// Baie vitrée à cadre sombre ; l'intérieur s'éclaire d'une lumière chaude le soir.
+function vitrage(g, w, h, x, y, z, nb = 4) {
+  const m = new THREE.MeshStandardMaterial({ color: '#34414f', emissive: '#ffb062', emissiveIntensity: 0.1, roughness: 0.15, metalness: 0.2 });
+  box(g, w, h, 0.06, m, x, y, z);
+  for (const dy of [-h / 2, h / 2]) box(g, w + 0.12, 0.09, 0.12, mat('#1f232a'), x, y + dy, z);
+  for (let i = 0; i <= nb; i++) box(g, 0.08, h, 0.12, mat('#1f232a'), x - w / 2 + i * w / nb, y, z);
+  g.userData.lamps = g.userData.lamps || []; g.userData.lamps.push({ mat: m, small: true, k: 0.35 });
+}
+// Claustra : des lames de bois horizontales, comme sur les villas modernes.
+function claustra(g, w, h, x, y, z) {
+  const n = Math.max(2, Math.round(h / 0.22));
+  for (let i = 0; i < n; i++) box(g, w, 0.12, 0.1, mat('#8a5a3b'), x, y - h / 2 + 0.11 + i * 0.22, z);
+}
+// Lampadaire moderne : un mât noir et une tête carrée qui s'allume le soir.
+function lampadaire(g, x, z, h = 4.2) {
+  cyl(g, 0.14, 0.18, 0.3, mat('#1f232a'), x, 0.15, z, 8);
+  box(g, 0.1, h, 0.1, mat('#1f232a'), x, h / 2, z);
+  const glow = new THREE.MeshStandardMaterial({ color: '#ffe3a8', emissive: '#ffb347', emissiveIntensity: 0.3 });
+  box(g, 0.34, 0.5, 0.34, glow, x, h + 0.25, z);
+  box(g, 0.44, 0.06, 0.44, mat('#1f232a'), x, h + 0.53, z);
+  box(g, 0.44, 0.06, 0.44, mat('#1f232a'), x, h - 0.03, z);
+  g.userData.lamps = g.userData.lamps || []; g.userData.lamps.push({ mat: glow, x, y: h + 0.25, z });
+}
+// Jardinière blanche : avec un petit arbre, ou des fleurs roses.
+function jardiniere(g, x, z, fleurs = false) {
+  box(g, 1, 0.7, 1, mat('#f7f4ee'), x, 0.35, z);
+  box(g, 0.9, 0.05, 0.9, mat('#4a3a2a'), x, 0.7, z);
+  if (fleurs) for (let i = 0; i < 6; i++) sph(g, 0.22, mat(i % 2 ? '#c2185b' : '#3f7a3a'), x - 0.3 + (i % 3) * 0.3, 0.85 + (i % 2) * 0.1, z - 0.2 + Math.floor(i / 3) * 0.4);
+  else { cyl(g, 0.06, 0.08, 1.2, mat('#6b4a2c'), x, 1.3, z, 6); sph(g, 0.6, mat('#3f7a3a'), x, 2.2, z); sph(g, 0.4, mat('#4b8c3f'), x + 0.25, 2.5, z - 0.1); }
+}
+function cypres(g, x, z, h = 4.5) {
+  cyl(g, 0.05, 0.08, 0.6, mat('#5a4030'), x, 0.3, z, 6);
+  cyl(g, 0, 0.55, h, mat('#2f5f33'), x, 0.5 + h / 2, z, 7);
+}
+function parasol(g, x, z, h = 2.4, r = 1.2) {
+  cyl(g, 0.03, 0.03, h, iron(), x, h / 2, z, 8);
+  cyl(g, 0, r, 0.45, storeMat('creme', 3), x, h + 0.2, z, 8);
+}
+function transat(g, x, z, r = 0) {
+  const t = new THREE.Group(); t.position.set(x, 0, z); t.rotation.y = r; g.add(t);
+  box(t, 0.6, 0.08, 1.6, mat('#f2ede3'), 0, 0.35, 0);
+  const d = box(t, 0.6, 0.08, 0.7, mat('#f2ede3'), 0, 0.55, -0.95); d.rotation.x = -0.7;
+  for (const [dx, dz] of [[-0.25, -0.6], [0.25, -0.6], [-0.25, 0.6], [0.25, 0.6]]) box(t, 0.04, 0.3, 0.04, mat('#8a5a3b'), dx, 0.15, dz);
+}
+// Chaise de terrasse en rotin clair.
+function chaiseRotin(g, x, z, r = 0) {
+  const ch = new THREE.Group(); ch.position.set(x, 0, z); ch.rotation.y = r; g.add(ch);
+  box(ch, 0.44, 0.05, 0.44, mat('#c9a06a'), 0, 0.45, 0);
+  box(ch, 0.44, 0.5, 0.04, mat('#c9a06a'), 0, 0.72, -0.2);
+  for (const [dx, dz] of [[-0.19, -0.19], [0.19, -0.19], [-0.19, 0.19], [0.19, 0.19]]) box(ch, 0.03, 0.45, 0.03, mat('#8a5a3b'), dx, 0.225, dz);
+  return ch;
+}
+
+// Villa de Californie : mur de clôture bas couvert de haie et de bougainvilliers, portail à barreaux sombres entre deux
+// piliers éclairés, pelouse, palmier et cyprès ; maison blanche en deux volumes cubiques, baies vitrées à cadres sombres,
+// claustra en bois, dalles de toit crème, terrasse de toit avec parasol et transats, et une piscine pour certaines.
 function villa(g, x0, x1, z, seed, face = 1) {
   const w = x1 - x0, cx = (x0 + x1) / 2, v = new THREE.Group(); v.position.set(cx, 0, z); g.add(v);
-  const back = -face; // vers l'intérieur de la parcelle
-  box(v, w, 2.2, 0.3, murVilla(3, 1), 0, 1.1, 0);
-  box(v, w + 0.2, 0.25, 0.5, mat(seed % 3 === 0 ? VERT : '#e3dccd'), 0, 2.25, 0);
-  const gate = new THREE.Group(); gate.position.set(w / 2 - 2.2, 0, 0); v.add(gate);
-  box(gate, 2.4, 2.2, 0.08, mat(FER, { metalness: 0.4 }), 0, 1.1, 0);
-  for (let i = -5; i <= 5; i++) box(gate, 0.04, 2.1, 0.12, mat('#d9d2c2'), i * 0.2, 1.05, 0);
-  for (const dx of [-1.3, 1.3]) box(gate, 0.4, 2.5, 0.4, mat('#f7f4ee'), dx, 1.25, 0);
-  const depth = 8, zc = back * (depth / 2 + 3), white = murVilla(2, 1);
-  const h1 = 3.6, h2 = 6.4 + (seed % 2) * 0.8;
-  box(v, w - 3, h1, depth, white, -1, h1 / 2, zc);                         // le volume bas
-  box(v, (w - 3) * 0.55, h2, depth * 0.7, white, -1 - (w - 3) * 0.2, h2 / 2, zc + back * depth * 0.1); // le volume haut
-  box(v, w - 2.6, 0.25, depth + 0.4, mat('#e3dccd'), -1, h1 + 0.1, zc);
-  box(v, (w - 3) * 0.55 + 0.4, 0.25, depth * 0.7 + 0.4, mat('#e3dccd'), -1 - (w - 3) * 0.2, h2 + 0.1, zc + back * depth * 0.1);
-  const front = back * 3 + face * 0.03;
-  box(v, (w - 3) * 0.8, 2.4, 0.06, mat('#2b3440', { roughness: 0.15 }), -1, 1.5, front); // grande baie vitrée
-  for (let i = -2; i <= 2; i++) box(v, 0.06, 2.4, 0.08, mat('#f7f4ee'), -1 + i * (w - 3) * 0.16, 1.5, front);
-  box(v, (w - 3) * 0.45, 1.4, 0.06, mat('#2b3440', { roughness: 0.15 }), -1 - (w - 3) * 0.2, h1 + 1.5, front + back * depth * 0.1 * 0);
-  box(v, (w - 3) * 0.8, 0.12, 1.6, mat('#e3dccd'), -1, h1 + 0.02, back * 2.4);                   // la terrasse de l'étage
-  for (let i = 0; i <= 8; i++) box(v, 0.03, 0.9, 0.03, iron(), -1 - (w - 3) * 0.4 + i * (w - 3) * 0.1, h1 + 0.55, back * 1.65);
-  box(v, (w - 3) * 0.8, 0.03, 0.03, iron(), -1, h1 + 1, back * 1.65);
-  const pots = makeFurniture('plante'); pots.position.set(-1 + (w - 3) * 0.3, h1, back * 2.2); v.add(pots);
-  palm(v, w / 2 - 5, back * 1.6);
-  box(v, w - 4, 1.0, 0.8, haieMat(), -1, 0.5, back * 1.2);
-  bougainvillea(v, -w / 2 + 2, 2.4, face * 0.2);
-  if (seed % 2) { // piscine le long du mur latéral
-    box(v, 2.2, 0.08, 5, mat('#f7f4ee'), w / 2 - 2.2, 0.04, back * 7.5);
-    box(v, 1.8, 0.06, 4.6, eauMat(), w / 2 - 2.2, 0.08, back * 7.5);
-    for (const dz of [-1.8, 0, 1.8]) box(v, 0.6, 0.3, 1.6, mat('#f7f4ee'), w / 2 - 0.7, 0.15, back * 7.5 + dz);
+  const back = -face, white = murVilla(2, 1), cream = mat('#e9e2d3'), fer = mat('#1f232a');
+  // La clôture.
+  box(v, w, 1.9, 0.3, murVilla(3, 1), 0, 0.95, 0);
+  box(v, w + 0.1, 0.12, 0.42, cream, 0, 1.96, 0);
+  box(v, w - 6, 0.8, 0.9, haieMat(), -2.5, 2.3, back * 0.5);
+  bougainvillea(v, -w / 2 + 2.5, 1.8, face * 0.25);
+  if (w > 13) bougainvillea(v, w / 2 - 6.5, 1.6, face * 0.25);
+  const gx = w / 2 - 2.4;
+  for (const dx of [-1.5, 1.5]) {
+    box(v, 0.5, 2.4, 0.5, white, gx + dx, 1.2, 0);
+    const lamp = new THREE.MeshStandardMaterial({ color: '#ffcf86', emissive: '#ffb347', emissiveIntensity: 0.5 });
+    box(v, 0.16, 0.22, 0.12, lamp, gx + dx, 1.7, face * 0.3);
+    v.userData.lamps = v.userData.lamps || []; v.userData.lamps.push({ mat: lamp, small: true });
+  }
+  for (const y of [0.12, 2.3]) box(v, 2.5, 0.1, 0.1, fer, gx, y, 0);
+  for (let i = -5; i <= 5; i++) box(v, 0.06, 2.2, 0.06, fer, gx + i * 0.23, 1.2, 0);
+  jardiniere(v, gx - 2.3, face * 0.9, true);
+  // Le jardin.
+  const lawn = new THREE.Mesh(new THREE.PlaneGeometry(w - 1, 2.4), pelouseMat(3, 1)); lawn.rotation.x = -Math.PI / 2; lawn.position.set(0, 0.01, back * 1.6); v.add(lawn);
+  const allee = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 2.6), dallageChic(1, 1)); allee.rotation.x = -Math.PI / 2; allee.position.set(gx, 0.02, back * 1.6); v.add(allee);
+  palm(v, -w / 2 + 3.2, back * 1.8);
+  cypres(v, -w / 2 + 1, back * 2.4, 4.5 + (seed % 3) * 0.5);
+  cypres(v, -w / 2 + 1, back * 6.5, 5.2);
+  cypres(v, w / 2 - 0.8, back * 10, 5.6);
+  // La maison.
+  const depth = 8, zc = back * (depth / 2 + 3), h1 = 3.6, h2 = 6.6 + (seed % 2) * 0.6;
+  const w1 = w - 5, xc = -1.5, w2 = w1 * 0.55, x2 = xc - w1 * 0.2, z2 = zc + back * depth * 0.1;
+  box(v, w1, h1, depth, white, xc, h1 / 2, zc);
+  box(v, w2, h2, depth * 0.7, white, x2, h2 / 2, z2);
+  box(v, w1 + 0.5, 0.22, depth + 0.5, cream, xc, h1 + 0.1, zc);
+  box(v, w2 + 0.5, 0.22, depth * 0.7 + 0.5, cream, x2, h2 + 0.1, z2);
+  const front = back * 3 + face * 0.04, front2 = back * 5 + face * 0.04;
+  vitrage(v, w1 * 0.8, 2.6, xc, 1.5, front, 4);
+  vitrage(v, w2 * 0.55, 1.9, x2 - w2 * 0.18, h1 + 1.6, front2, 2);
+  claustra(v, w2 * 0.3, 2.3, x2 + w2 * 0.3, h1 + 1.6, front2 + face * 0.03);
+  // La terrasse de toit, sur le volume bas.
+  const yt = h1 + 0.21;
+  box(v, w1 * 0.8, 0.03, 0.03, iron(), xc, yt + 1, back * 3.1);
+  for (let i = 0; i <= 8; i++) box(v, 0.03, 1, 0.03, iron(), xc - w1 * 0.4 + i * w1 * 0.1, yt + 0.5, back * 3.1);
+  const tg = new THREE.Group(); tg.position.set(xc + w1 * 0.22, yt, back * 4.1); v.add(tg);
+  parasol(tg, 0, 0, 2.2, 1.1); transat(tg, -0.75, 0); transat(tg, 0.75, 0);
+  const pots = makeFurniture('plante'); pots.position.set(xc - w1 * 0.4, yt, back * 4); v.add(pots);
+  // La piscine, le long du mur latéral.
+  if (seed % 2) {
+    box(v, 2.4, 0.08, 5.4, mat('#f7f4ee'), w / 2 - 2.2, 0.04, back * 7.5);
+    box(v, 2, 0.06, 5, eauMat(), w / 2 - 2.2, 0.08, back * 7.5);
+    transat(v, w / 2 - 0.6, back * 6.2, Math.PI / 2); transat(v, w / 2 - 0.6, back * 8.2, Math.PI / 2);
+    parasol(v, w / 2 - 0.6, back * 4.6, 2.3, 1);
   }
   return v;
 }
-// Restaurant ou café d'Anfa, face à la rue : façade basse et blanche, terrasse avec tables, parasols ou pergola.
+// Restaurant ou café d'Anfa, face à la rue : façade basse et blanche, grande vitrine, bandeau de bois, terrasse avec
+// tables blanches, chaises en rotin, parasols crème ou pergola, et des jardinières fleuries en bordure.
 function restaurant(g, x0, x1, z, style, o = {}) {
   const w = x1 - x0, cx = (x0 + x1) / 2, r = new THREE.Group(); r.position.set(cx, 0, z); g.add(r);
-  const dark = style === 'lounge', terrasse = o.terrasse !== false;
-  box(r, w, 4.6, 9, dark ? mat('#2a2a2e') : murVilla(2, 1), 0, 2.3, 4.5);
-  box(r, w + 0.3, 0.3, 9.3, mat(dark ? '#1b1b1b' : '#e3dccd'), 0, 4.75, 4.5);
-  box(r, w - 1.5, 2.2, 0.06, mat('#2b3440', { roughness: 0.15 }), 0, 1.5, -0.03);
-  for (let i = 0; i < 5; i++) box(r, 0.06, 2.2, 0.08, mat(dark ? '#1b1b1b' : '#f7f4ee'), -w / 2 + 0.75 + i * (w - 1.5) / 4, 1.5, -0.03);
-  box(r, w, 0.5, 0.1, mat({ glacier: '#c2185b', lounge: '#1b1b1b', cafe: '#1b1b1b', epicerie: '#1f5a45', agence: '#2f4f7a', pergola: '#2e6b57' }[style]), 0, 3.3, -0.05);
-  box(r, w + 0.1, 0.06, 0.14, BRASS(), 0, 3.6, -0.05);
-  if (style === 'pergola') {
+  const terrasse = o.terrasse !== false, cream = mat('#e9e2d3');
+  box(r, w, 4.6, 9, murVilla(2, 1), 0, 2.3, 4.5);
+  box(r, w + 0.4, 0.22, 9.4, cream, 0, 4.71, 4.5);
+  vitrage(r, w - 1.6, 2.3, 0, 1.45, -0.04, 4);
+  claustra(r, w - 0.4, 1.0, 0, 3.4, -0.06);
+  const accent = { glacier: '#c2185b', lounge: '#1f232a', cafe: '#8a5a3b', epicerie: '#1f5a45', agence: '#2f4f7a', pergola: '#2e6b57' }[style];
+  box(r, w - 0.4, 0.12, 0.14, mat(accent), 0, 2.78, -0.06);
+  if (style === 'pergola' || style === 'lounge') {
     for (const dx of [-w / 2 + 0.4, w / 2 - 0.4]) for (const dz of [-0.3, -2.6]) box(r, 0.14, 3, 0.14, mat('#8a5a3b'), dx, 1.5, dz);
     for (let i = 0; i < 7; i++) box(r, w, 0.08, 0.12, boisPergola(), 0, 3, -0.3 - i * 0.38);
-    for (let i = 0; i < 12; i++) sph(r, 0.3, mat(i % 3 ? '#3f7a3a' : '#c2185b'), -w / 2 + 0.6 + i * (w - 1.2) / 11, 3.15, -0.3 - (i % 4) * 0.6);
+    if (style === 'pergola') for (let i = 0; i < 12; i++) sph(r, 0.3, mat(i % 3 ? '#3f7a3a' : '#c2185b'), -w / 2 + 0.6 + i * (w - 1.2) / 11, 3.15, -0.3 - (i % 4) * 0.6);
+    else for (let i = 0; i < 9; i++) sph(r, 0.06, new THREE.MeshStandardMaterial({ color: '#fff3c4', emissive: '#ffd27a', emissiveIntensity: 1.2 }), -w / 2 + 0.6 + i * (w - 1.2) / 8, 2.7 - (i % 2) * 0.2, -1.4);
   }
-  if (dark) for (let i = 0; i < 9; i++) sph(r, 0.06, new THREE.MeshStandardMaterial({ color: '#fff3c4', emissive: '#ffd27a', emissiveIntensity: 1.2 }), -w / 2 + 0.6 + i * (w - 1.2) / 8, 2.7 - (i % 2) * 0.2, -1.4);
-  if (terrasse) for (let x = -w / 2 + 1.5; x < w / 2 - 1; x += 2) {
-    cyl(r, 0.4, 0.4, 0.04, mat(dark ? '#1b1b1b' : '#f7f4ee', { roughness: 0.4 }), x, 0.72, -1.4, 18);
-    cyl(r, 0.03, 0.03, 0.7, iron(), x, 0.36, -1.4, 8);
-    for (const dx of [-0.6, 0.6]) {
-      box(r, 0.4, 0.04, 0.4, mat(dark ? '#8a5a3b' : '#f7f4ee'), x + dx, 0.45, -1.4);
-      box(r, 0.4, 0.45, 0.03, mat(dark ? '#8a5a3b' : '#f7f4ee'), x + dx, 0.68, -1.4 - (dx > 0 ? -0.2 : 0.2) * -1);
-      for (const [ax, az] of [[-0.18, -0.18], [0.18, -0.18], [-0.18, 0.18], [0.18, 0.18]]) box(r, 0.03, 0.45, 0.03, iron(), x + dx + ax, 0.22, -1.4 + az);
+  if (terrasse) {
+    for (let x = -w / 2 + 1.5; x < w / 2 - 1; x += 2) {
+      cyl(r, 0.4, 0.4, 0.04, mat('#f7f4ee', { roughness: 0.4 }), x, 0.72, -1.4, 18);
+      cyl(r, 0.03, 0.03, 0.7, iron(), x, 0.36, -1.4, 8);
+      chaiseRotin(r, x - 0.6, -1.4, -Math.PI / 2); chaiseRotin(r, x + 0.6, -1.4, Math.PI / 2);
+      if (style !== 'pergola' && style !== 'lounge') parasol(r, x, -1.4, 2.4, 1.2);
     }
-    if (style !== 'pergola') { cyl(r, 0.03, 0.03, 2.4, iron(), x, 1.9, -1.4, 8); cyl(r, 0, 1.2, 0.45, storeMat(style === 'glacier' ? 'rose' : 'creme', 3), x, 2.6, -1.4, 8); }
-  }
-  for (const dx of [-w / 2 + 0.5, w / 2 - 0.5]) { const p = makeFurniture('plante'); p.scale.set(1.3, 1.3, 1.3); p.position.set(dx, 0, -0.6); r.add(p); }
+    for (let x = -w / 2 + 0.8; x < w / 2 - 0.5; x += 2.4) jardiniere(r, x, -2.75, true);
+  } else for (const dx of [-w / 2 + 0.7, w / 2 - 0.7]) jardiniere(r, dx, -0.8, dx < 0);
   return r;
+}
+// Berline blanche qui passe sur la route.
+function voitureBlanche(g, x, z) {
+  const c = new THREE.Group(); c.position.set(x, 0, z); g.add(c);
+  box(c, 4.2, 0.6, 1.7, mat('#f2f0e6', { roughness: 0.35 }), 0, 0.5, 0);
+  box(c, 2.3, 0.55, 1.5, mat('#f2f0e6', { roughness: 0.35 }), -0.2, 1.05, 0);
+  box(c, 2.2, 0.4, 1.52, mat('#2b3440', { roughness: 0.2 }), -0.2, 1.05, 0);
+  for (const [dx, dz] of [[-1.35, 0.85], [1.35, 0.85], [-1.35, -0.85], [1.35, -0.85]]) { const w = cyl(c, 0.32, 0.32, 0.22, mat('#1b1b1b'), dx, 0.32, dz, 16); w.rotation.x = Math.PI / 2; }
 }
 function suv(g, x, z, color) {
   const c = new THREE.Group(); c.position.set(x, 0, z); g.add(c);
@@ -307,16 +389,37 @@ function parc(g, P) {
   for (const b of P.bancs) bench(g, b.x + 1, b.z + 0.5, b.r);
   for (const x of [P.x0 + 1, P.x1 - 1]) palm(g, x, P.z1 - 1);
 }
+// La corniche : promenade, plage de sable, rochers, océan, phare blanc et, au loin, les immeubles blancs de la ville.
 function ocean(g, z) {
-  const sea = new THREE.Mesh(new THREE.PlaneGeometry(260, 80), new THREE.MeshStandardMaterial({ color: '#2d7fb8', roughness: 0.25, metalness: 0.1 }));
-  sea.rotation.x = -Math.PI / 2; sea.position.set(W / 2, -0.01, z + 50); g.add(sea);
-  box(g, 260, 1.1, 1.2, mat('#d9d2c2'), W / 2, 0.55, z + 10);
-  for (let x = -60; x < 80; x += 9) palm(g, x, z + 8);
-  const phare = new THREE.Group(); phare.position.set(W / 2 + 26, 0, z + 30); g.add(phare);
-  cyl(phare, 1.4, 1.9, 18, mat('#f7f4ee'), 0, 9, 0, 12);
-  for (let y = 3; y < 17; y += 4) cyl(phare, 1.75, 1.75, 0.8, mat('#c8102e'), 0, y, 0, 12);
-  cyl(phare, 1.1, 1.1, 2, GLASS(), 0, 19, 0, 12);
-  cyl(phare, 0, 1.5, 1.2, mat('#2a2f36'), 0, 20.6, 0, 12);
+  const sea = new THREE.Mesh(new THREE.PlaneGeometry(300, 90), new THREE.MeshStandardMaterial({ color: '#2d8fc4', roughness: 0.2, metalness: 0.15 }));
+  sea.rotation.x = -Math.PI / 2; sea.position.set(W / 2, -0.01, z + 68); g.add(sea);
+  const sand = new THREE.Mesh(new THREE.PlaneGeometry(300, 14), mat('#eadcb4'));
+  sand.rotation.x = -Math.PI / 2; sand.position.set(W / 2, 0, z + 18); g.add(sand);
+  const ecume = new THREE.Mesh(new THREE.PlaneGeometry(300, 1.2), mat('#dff3fb'));
+  ecume.rotation.x = -Math.PI / 2; ecume.position.set(W / 2, 0.005, z + 24.5); g.add(ecume);
+  // La promenade : un muret blanc, des palmiers et des lampadaires.
+  const prom = new THREE.Mesh(new THREE.PlaneGeometry(300, 9), dallageChic(60, 2));
+  prom.rotation.x = -Math.PI / 2; prom.position.set(W / 2, 0.004, z + 6.5); g.add(prom);
+  box(g, 300, 0.9, 0.6, mat('#f7f4ee'), W / 2, 0.45, z + 10.8);
+  for (let x = -70; x < 90; x += 8) { palm(g, x, z + 9.2); if ((x / 8) % 2 === 0) lampadaire(g, x + 4, z + 9.6, 3.8); }
+  // Les rochers de la pointe, et le phare.
+  const roc = mat('#7d7366', { roughness: 1 });
+  for (let i = 0; i < 9; i++) { const s = 1.2 + (i % 3) * 0.8; box(g, s * 2, s * 0.8, s * 1.3, roc, W / 2 + 30 + i * 3.4, s * 0.3, z + 27 + (i % 3) * 3).rotation.y = i * 0.6; }
+  box(g, 14, 1.4, 10, roc, W / 2 + 48, 0.7, z + 42);
+  const phare = new THREE.Group(); phare.position.set(W / 2 + 48, 1.4, z + 42); g.add(phare);
+  box(phare, 5, 1.2, 5, mat('#f7f4ee'), 0, 0.6, 0);
+  cyl(phare, 1.3, 1.9, 19, mat('#f7f4ee'), 0, 10.5, 0, 12);
+  for (const y of [6, 12]) cyl(phare, 1.7, 1.7, 0.4, mat('#1f232a'), 0, y, 0, 12);
+  cyl(phare, 1.9, 1.9, 0.5, mat('#1f232a'), 0, 20, 0, 12);
+  cyl(phare, 1.1, 1.1, 2, GLASS(), 0, 21.2, 0, 12);
+  cyl(phare, 0, 1.4, 1.2, mat('#2a2f36'), 0, 22.8, 0, 12);
+  // Les immeubles blancs de la ville, loin derrière les villas.
+  for (let i = 0; i < 14; i++) {
+    const x = -110 + i * 17 + (i % 3) * 4, h = 10 + (i * 7) % 16, w = 7 + (i % 4) * 2;
+    if (x > -40 && x < 60) continue;
+    box(g, w, h, w, mat(i % 2 ? '#f1ece2' : '#e7e0d0'), x, h / 2, z + 20 + (i % 4) * 8);
+    box(g, w + 0.4, 0.3, w + 0.4, mat('#d9d2c2'), x, h + 0.1, z + 20 + (i % 4) * 8);
+  }
 }
 
 // Les guirlandes du Ramadan : des lanternes de couleur tendues au-dessus de la rue.
@@ -335,7 +438,7 @@ export function guirlandes() {
 export function makeStreet(opts = {}) {
   const quartier = opts.quartier || 'populaire', anfa = quartier === 'anfa', withHome = opts.withHome !== false;
   const g = new THREE.Group();
-  const ground = new THREE.Mesh(new THREE.PlaneGeometry(200, 200), mat(anfa ? '#d8ccb0' : '#cdbfa6'));
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(200, 200), mat(anfa ? '#e4dac4' : '#cdbfa6'));
   ground.rotation.x = -Math.PI / 2; ground.position.set(W / 2, -0.02, D / 2); ground.receiveShadow = true; g.add(ground);
   const plane = (w, d, m, x, z, y = 0) => {
     const p = new THREE.Mesh(new THREE.PlaneGeometry(w, d), m); p.rotation.x = -Math.PI / 2; p.position.set(x, y, z); p.receiveShadow = true; g.add(p); return p;
@@ -344,13 +447,13 @@ export function makeStreet(opts = {}) {
   const tr = T.dallage().clone(); tr.repeat.set(len / 2, 1.5); tr.needsUpdate = true;
   const trM = anfa ? dallageChic(len / 2, 1) : new THREE.MeshStandardMaterial({ map: tr, roughness: 0.9 });
   plane(len, 3, trM, cx, D + 1.5, 0.005);
-  box(g, len, 0.15, 0.25, mat('#bdb5a6'), cx, 0.06, D + 3);
+  box(g, len, 0.15, 0.25, mat(anfa ? '#e9e2d3' : '#bdb5a6'), cx, 0.06, D + 3);
   const as = T.asphalte().clone(); as.repeat.set(len / 2, 4); as.needsUpdate = true;
   plane(len, 8, new THREE.MeshStandardMaterial({ map: as, roughness: 0.95 }), cx, D + 7, 0.004);
   for (let x = X0 - 20; x < X1 + 20; x += 3) plane(1.4, 0.15, mat('#f2f0e6'), x, D + 7, 0.01);
   for (let z = D + 3.5; z < D + 11; z += 1) plane(2.4, 0.5, mat('#f2f0e6'), RUE.traversee.x0 + 1, z, 0.012);
   plane(len, 3, trM, cx, D + 12.5, 0.005);
-  box(g, len, 0.15, 0.25, mat('#bdb5a6'), cx, 0.06, D + 11);
+  box(g, len, 0.15, 0.25, mat(anfa ? '#e9e2d3' : '#bdb5a6'), cx, 0.06, D + 11);
   // Le véhicule du personnage, garé devant chez lui.
   if (opts.vehicule === 'voiture' && withHome) voiture(g, 2.5, D + 4);
   if (opts.vehicule === 'scooter' && withHome) scooter(g, 7.5, D + 0.5);
@@ -496,34 +599,37 @@ function anfaStreet(g, opts, plane) {
   vit.traverse(o => { o.userData.hanout = true; });
   crate(g, H.caisses[0].x, H.caisses[0].z, '#e8641a');
   crate(g, H.caisses[1].x, H.caisses[1].z, '#c2185b');
-  // Le café La Corniche : sa porte, ses tables blanches et ses parasols crème.
+  // Le café La Corniche : sa porte, ses tables blanches, ses chaises en rotin et ses parasols crème, sous une pergola.
   const C = CAFE;
   door(g, C.porte.x, D + 0.28, '#1b1b1b', 1.4, null, false);
+  for (const p of C.poteaux) box(g, 0.14, 3, 0.14, mat('#8a5a3b'), p.x + 0.5, 1.5, p.z + 0.5);
+  for (let i = 0; i < 6; i++) box(g, C.poteaux[1].x - C.poteaux[0].x + 0.4, 0.08, 0.12, boisPergola(), (C.poteaux[0].x + C.poteaux[1].x) / 2 + 0.5, 3, D + 0.6 + i * 0.4);
   for (const t of C.tables) {
     cyl(g, 0.45, 0.45, 0.04, mat('#f7f4ee', { roughness: 0.4 }), t.x + 0.5, 0.72, t.z + 0.5, 20);
     cyl(g, 0.03, 0.03, 0.7, iron(), t.x + 0.5, 0.36, t.z + 0.5, 8);
-    cyl(g, 0.03, 0.03, 2.4, iron(), t.x + 0.5, 1.9, t.z + 0.5, 8);
-    cyl(g, 0, 1.3, 0.5, storeMat('creme', 3), t.x + 0.5, 2.6, t.z + 0.5, 8);
+    parasol(g, t.x + 0.5, t.z + 0.5, 2.5, 1.3);
   }
   C.chaises.forEach((c, i) => {
-    const ch = new THREE.Group(); ch.position.set(c.x + 0.5, 0, c.z + 0.5); ch.rotation.y = c.r * Math.PI / 2; g.add(ch);
-    box(ch, 0.44, 0.04, 0.44, mat('#f7f4ee'), 0, 0.45, 0);
-    for (const [dx, dz] of [[-0.19, -0.19], [0.19, -0.19], [-0.19, 0.19], [0.19, 0.19]]) box(ch, 0.03, 0.45, 0.03, iron(), dx, 0.225, dz);
-    box(ch, 0.44, 0.5, 0.03, mat('#f7f4ee'), 0, 0.72, -0.2);
+    const ch = chaiseRotin(g, c.x + 0.5, c.z + 0.5, c.r * Math.PI / 2);
     ch.traverse(o => { o.userData.chair = i; });
   });
+  for (const x of [C.x0 + 0.5, C.x1 - 0.5]) jardiniere(g, x, D + 2.5, true);
   // L'agence immobilière : porte bleue et vitrine d'annonces (on la touche pour déménager).
   const M = RUE.mahlaba, ag = new THREE.Group(); g.add(ag);
   box(ag, 4, 1.8, 0.06, mat('#1d2630', { roughness: 0.15 }), M.porte - 1.5, 1.5, D + 0.3);
   for (let i = 0; i < 6; i++) box(ag, 0.5, 0.35, 0.02, mat('#f7f4ee'), M.porte - 2.9 + (i % 3) * 0.8, 1.3 + Math.floor(i / 3) * 0.5, D + 0.36);
   door(ag, M.porte, D + 0.28, '#2f4f7a', 1.2, null, false);
   ag.traverse(o => { o.userData.agence = true; });
-  // Lanternes, palmiers, gros 4x4 garés.
-  for (const l of RUE.lampes) lantern(g, l.x + 0.5, l.z + 0.5, 4);
-  for (const p of RUE.palmiers) palm(g, p.x + 0.5, p.z + 0.5);
-  for (let x = X0 - 10; x < X1 + 12; x += 6) palm(g, x, D + 2.6);
+  // Lampadaires, jardinières le long des trottoirs, et les grosses voitures.
+  for (const l of RUE.lampes) lampadaire(g, l.x + 0.5, l.z + 0.5);
+  for (let x = X0 - 10; x < X1 + 12; x += 5) {
+    if (x < 5 || x > 13) jardiniere(g, x, D + 2.55, x % 2 === 0);
+    if (x < 1 || x > 19) jardiniere(g, x + 2, D + 11.45, x % 2 !== 0);
+  }
+  for (const p of RUE.palmiers) if (p.z > D + 10) palm(g, p.x + 0.5, p.z + 0.5);
   suv(g, RUE.taxi.x, RUE.taxi.z, '#1b1b1b');
   suv(g, RUE.taxi.x + 14, RUE.taxi.z, '#f7f4ee');
+  voitureBlanche(g, RUE.taxi.x - 9, D + 9.2);
   // L'arrêt de taxi (au même coin).
   const A = TAXI.arret, arret = new THREE.Group(); g.add(arret);
   cyl(arret, 0.04, 0.05, 2.6, iron(), A.x + 0.5, 1.3, A.z + 0.5, 8);
@@ -537,11 +643,14 @@ function anfaStreet(g, opts, plane) {
   box(gt, 2.5, 0.42, 1.57, mat('#2b3440', { roughness: 0.2 }), -0.3, 1.15, 0);
   for (const [x, z] of [[-1.5, 0.85], [1.5, 0.85], [-1.5, -0.85], [1.5, -0.85]]) { const w = cyl(gt, 0.33, 0.33, 0.22, mat('#1b1b1b'), x, 0.33, z, 16); w.rotation.x = Math.PI / 2; }
   gt.traverse(o => { o.userData.taxi = true; });
-  // En face : un restaurant à pergola, le parc, un lounge, et des villas aux deux bouts ; l'océan derrière.
+  // En face : un restaurant à pergola, le parc, un lounge, et des villas aux deux bouts ; la corniche et l'océan derrière.
   parc(g, PLACE);
   restaurant(g, -18, -2, D + 14, 'pergola');
   restaurant(g, 18, 32, D + 14, 'lounge');
   villa(g, X0 - 14, -18, D + 14, 7, -1); villa(g, 32, X1 + 14, D + 14, 8, -1);
   ocean(g, PLACE.z1 + 1);
+  // Les petites lumières des villas et des vitrines sont rassemblées au niveau de la rue pour s'allumer le soir.
+  g.userData.lamps = g.userData.lamps || [];
+  g.traverse(o => { if (o !== g && o.userData.lamps) { g.userData.lamps.push(...o.userData.lamps); o.userData.lamps = null; } });
   return g;
 }

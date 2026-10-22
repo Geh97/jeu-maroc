@@ -256,7 +256,7 @@ function daylight(t) {
   for (const l of lampLights) l.intensity = l.userData.on ? (1 - day) * 6 + 0.4 : 0;
   for (const l of streetLights) l.intensity = (1 - day) * 14;
   for (const g of furnGroups.values()) if (g.userData.glow) g.userData.glow.emissiveIntensity = 0.5 + (1 - day) * 1.8;
-  for (const l of street.userData.lamps || []) l.mat.emissiveIntensity = 0.3 + (1 - day) * 1.6;
+  for (const l of street.userData.lamps || []) l.mat.emissiveIntensity = (0.3 + (1 - day) * 1.6) * (l.k || 1);
 }
 
 // Murs coupés : on abaisse les murs du côté de la caméra pour voir dedans.
