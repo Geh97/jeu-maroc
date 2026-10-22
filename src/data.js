@@ -65,7 +65,13 @@ export const matchEnCours = (jour, h) => (jour >= 5 ? h >= 16 && h < 21 : h >= 2
 export const HANOUT = {
   nom: 'Hanout de Ba Lahcen', ouvre: 7, ferme: 22, porte: { x: RUE.hanout.porte, z: D }, devant: { x: RUE.hanout.porte, z: D + 1 },
   articles: [
+    { id: 'tartines', nom: 'Pain, beurre et confiture', detail: 'Un petit-déjeuner, 5 minutes', prix: 8 },
+    { id: 'oeufs', nom: 'Œufs, oignons et cumin', detail: 'Pour une omelette (2 parts)', prix: 10 },
+    { id: 'salade', nom: 'Tomates, concombre et oignon', detail: 'Pour une salade (2 parts)', prix: 9 },
     { id: 'the', nom: 'Thé vert, menthe et sucre', detail: 'Pour une théière (3 verres)', prix: 15 },
+    { id: 'pates', nom: 'Pâtes et sauce tomate', detail: 'Pour un plat de pâtes (3 parts)', prix: 14 },
+    { id: 'bissara', nom: 'Fèves sèches, ail et cumin', detail: 'Pour une bissara (4 parts)', prix: 10 },
+    { id: 'kefta', nom: 'Viande hachée, œufs et tomates', detail: 'Pour une kefta aux œufs (3 parts)', prix: 48 },
     { id: 'loubia', nom: 'Haricots blancs, tomates et épices', detail: 'Pour une loubia (4 parts)', prix: 17 },
     { id: 'msemen', nom: 'Farine, semoule et beurre', detail: 'Pour une fournée de msemen (4 parts)', prix: 22 },
     { id: 'harira', nom: 'Lentilles, pois chiches et tomates', detail: 'Pour une marmite de harira (6 parts)', prix: 36 },
@@ -278,21 +284,37 @@ export const ACT = {
 
 // Recettes. d : difficulté. faim et moral : effet d'une part.
 export const RECETTES = {
+  // On commence par des petites choses, et on avance : chaque niveau de cuisine ouvre des recettes.
+  tartines: { nom: 'Tartines : pain, beurre, confiture', d: 0, dur: 5, portions: 1, faim: 18, moral: 3, xp: 0.15 },
   the: { nom: 'Thé à la menthe', d: 0, dur: 15, portions: 3, faim: 4, moral: 6, xp: 0.35 },
+  oeufs: { nom: 'Omelette aux oignons et au cumin', d: 0, dur: 15, portions: 2, faim: 26, moral: 4, xp: 0.3 },
+  salade: { nom: 'Salade marocaine (tomates, concombre, oignon)', d: 0, dur: 15, portions: 2, faim: 15, moral: 4, xp: 0.25 },
+  pates: { nom: 'Pâtes à la sauce tomate', d: 1, dur: 30, portions: 3, faim: 35, moral: 5, xp: 0.4 },
+  bissara: { nom: 'Bissara (soupe de fèves)', d: 1, dur: 45, portions: 4, faim: 30, moral: 6, xp: 0.45 },
   loubia: { nom: 'Loubia (haricots blancs en sauce)', d: 1, dur: 60, portions: 4, faim: 40, moral: 6, xp: 0.5 },
+  kefta: { nom: 'Kefta aux œufs (tajine de boulettes)', d: 2, dur: 40, portions: 3, faim: 45, moral: 8, xp: 0.6 },
   msemen: { nom: 'Msemen', d: 2, dur: 45, portions: 4, faim: 22, moral: 5, xp: 0.6 },
+  batbout: { nom: 'Batbout (petits pains à la poêle)', d: 3, dur: 60, portions: 6, faim: 20, moral: 6, xp: 0.7 },
   harira: { nom: 'Harira', d: 3, dur: 90, portions: 6, faim: 35, moral: 9, xp: 0.8 },
   tajine: { nom: 'Tajine de poulet aux olives', d: 4, dur: 120, portions: 4, faim: 55, moral: 10, xp: 1 },
   couscous: { nom: 'Couscous aux sept légumes', d: 5, dur: 150, portions: 6, faim: 60, moral: 14, xp: 1.2, vendredi: true },
   rfissa: { nom: 'Rfissa', d: 6, dur: 180, portions: 6, faim: 60, moral: 16, xp: 1.4 },
   chebakia: { nom: 'Chebakia', d: 7, dur: 150, portions: 12, faim: 8, moral: 8, xp: 1.6 },
+  pastilla: { nom: 'Pastilla au poulet et aux amandes', d: 8, dur: 180, portions: 6, faim: 55, moral: 18, xp: 1.8 },
 };
 export const PLATS_SUCRES = ['the', 'chebakia'];
 export const QUAL = ['raté', 'correct', 'délicieux'];
 export const QUAL_MORAL = [-6, 2, 10];
 
 export const MARCHE = [
+  { id: 'tartines', nom: 'Pain, beurre et confiture', detail: 'Un petit-déjeuner, 5 minutes', prix: 6 },
+  { id: 'oeufs', nom: 'Œufs, oignons et cumin', detail: 'Pour une omelette (2 parts)', prix: 8 },
+  { id: 'salade', nom: 'Tomates, concombre et oignon', detail: 'Pour une salade (2 parts)', prix: 7 },
   { id: 'the', nom: 'Thé vert, menthe et sucre', detail: 'Pour une théière (3 verres)', prix: 12 },
+  { id: 'pates', nom: 'Pâtes et sauce tomate', detail: 'Pour un plat de pâtes (3 parts)', prix: 11 },
+  { id: 'bissara', nom: 'Fèves sèches, ail et cumin', detail: 'Pour une bissara (4 parts)', prix: 8 },
+  { id: 'kefta', nom: 'Viande hachée, œufs et tomates', detail: 'Pour une kefta aux œufs (3 parts)', prix: 40 },
+  { id: 'batbout', nom: 'Farine, levure et semoule fine', detail: 'Pour une fournée de batbout (6 pièces)', prix: 12 },
   { id: 'loubia', nom: 'Haricots blancs, tomates et épices', detail: 'Pour une loubia (4 parts)', prix: 14 },
   { id: 'msemen', nom: 'Farine, semoule et beurre', detail: 'Pour une fournée de msemen (4 parts)', prix: 18 },
   { id: 'harira', nom: 'Lentilles, pois chiches, tomates et viande', detail: 'Pour une marmite de harira (6 parts)', prix: 30 },
@@ -300,6 +322,7 @@ export const MARCHE = [
   { id: 'couscous', nom: 'Semoule, légumes et viande', detail: 'Pour un couscous (6 parts)', prix: 90 },
   { id: 'rfissa', nom: 'Poulet, lentilles, msemen et fenugrec', detail: 'Pour une rfissa (6 parts)', prix: 110 },
   { id: 'chebakia', nom: 'Farine, miel, sésame et amandes', detail: 'Pour une fournée de chebakia (12 pièces)', prix: 45 },
+  { id: 'pastilla', nom: 'Poulet, amandes, feuilles de brick et cannelle', detail: 'Pour une pastilla (6 parts)', prix: 140 },
   { id: 'snack', nom: 'Pain, fromage et olives', detail: 'Un casse-croûte, sans cuisiner', prix: 20 },
   { id: 'patee', nom: 'Restes de poulet et croquettes', detail: 'Pour nourrir un chien ou un chat', prix: 6 },
 ];
@@ -341,8 +364,8 @@ export const MILIEUX = {
     ],
   },
   aise: {
-    nom: 'Famille aisée', argent: 40000, loyer: 0, facture: 200,
-    desc: 'L\'appartement appartient à tes parents, qui t\'envoient de l\'argent de poche tant que tu vas au travail. Un poste dans l\'entreprise familiale et un compte épargne.',
+    nom: 'Famille aisée', argent: 40000, loyer: 0, loyerSeul: 1200, facture: 200,
+    desc: 'Tu vis chez tes parents : ta mère cuisine, ton père veille, et l\'argent de poche tombe tant que tu vas au travail. Un poste dans l\'entreprise familiale, un compte épargne, et l\'indépendance à gagner avec le temps.',
     revenus: ['poche', 'epargne'],
     jobs: [
       { titre: 'Stagiaire dans l\'entreprise familiale', salaire: 1500 },
@@ -364,7 +387,7 @@ export const BOULOTS = [
   { id: 'missions', npc: 'yassine', milieux: ['moyen'], nom: 'Mission informatique en ligne', dur: 180, paie: 200, rel: 20, ici: 'Sur une mission en ligne', eff: { energie: -10, social: 4 } },
 ];
 // Vente de plats faits maison (prix par part, selon la qualité : raté, correct, délicieux).
-export const VENTE = { msemen: [0, 8, 14], tajine: [0, 25, 40], loubia: [0, 10, 15], harira: [0, 10, 16], couscous: [0, 30, 45], rfissa: [0, 32, 50], chebakia: [0, 7, 12] };
+export const VENTE = { msemen: [0, 8, 14], tajine: [0, 25, 40], loubia: [0, 10, 15], harira: [0, 10, 16], couscous: [0, 30, 45], rfissa: [0, 32, 50], chebakia: [0, 7, 12], kefta: [0, 15, 22], batbout: [0, 4, 7], pastilla: [0, 45, 70] };
 export const VENTE_MAX = 8; // parts achetées par acheteur et par jour
 export const ACHETEURS = ['hamid', 'lahcen'];
 

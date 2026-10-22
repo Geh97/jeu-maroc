@@ -11,6 +11,7 @@ import * as Wd from './world.js';
 import { initSocial, socialMinute, remarque, rep, remiseHanout, creditPossible, evite } from './social.js';
 import { initFetes, fetesMinute, calendrier, ramadan, jeune, rompreJeune, cafeRamadan, finTravail, ferie } from './fetes.js';
 import { initVie, vieMinute } from './vie.js';
+import { initParents, parentsMinute, parentsView, parentLabel, startParent, arriveParent, finishParent } from './parents.js';
 import { initTravail, collegueDefs, personnaliser, effetCollegue, paie, extraNoir, finExtraNoir, potDepart, journeeAffaire, evenementAffaire, jourAffaire, hausseLoyer } from './travail.js';
 
 export const G = {
@@ -54,7 +55,8 @@ export const homeHere = () => G.s.quartier === G.s.chezMoi;
 export const prix = p => Math.round(p * Q().coeff);
 export const npcDefs = (q = G.s.quartier) => (q === 'anfa' ? NPCS_ANFA : q === 'corniche' ? NPCS_CORNICHE : NPCS).concat(q === G.s.chezMoi ? collegueDefs(G.s.milieu) : []);
 // Le loyer hebdomadaire : celui du milieu dans le quartier d'origine, sinon celui du quartier.
-export const loyerHebdo = (q = G.s.chezMoi) => Math.round((q === 'populaire' ? milieu().loyer : Math.max(700, milieu().loyer) * QUARTIERS[q].loyer) * (G.s.loyerMult || 1));
+const loyerMilieu = () => (G.s.independant && milieu().loyerSeul ? milieu().loyerSeul : milieu().loyer);
+export const loyerHebdo = (q = G.s.chezMoi) => Math.round((q === 'populaire' ? loyerMilieu() : Math.max(700, loyerMilieu()) * QUARTIERS[q].loyer) * (G.s.loyerMult || 1));
 export const vehicule = () => (G.s.vehicule ? VEHICULES[G.s.vehicule] : null);
 
 // ---------- Partie ----------
@@ -65,7 +67,7 @@ export function newGame(look) {
     v: 3, char: look, milieu: m, t: 7 * 60, money: MILIEUX[m].argent,
     needs: { faim: 70, energie: 80, hygiene: 75, social: 55, moral: 65 },
     skills: { cuisine: 0 },
-    inv: { the: 2, msemen: 1, tajine: 0, snack: 2, patee: 0 },
+    inv: { the: 2, msemen: 1, tajine: 0, snack: 2, patee: 0, tartines: 3, oeufs: 2, salade: 1 },
     plats: [],
     job: { level: 0, perf: 40, day: -1, week: 0, absences: 0, competence: 0, collegues: 50 },
     rel: {}, ventes: { day: -1 }, boulots: { day: -1 }, daret: null, epargne: 0, autoWork: false,
@@ -76,6 +78,7 @@ export function newGame(look) {
   initTravail(G.s);
   initFetes(G.s);
   initVie(G.s);
+  initParents(G.s);
   for (const a of ANIMAUX) G.s.animaux[a.id] = { confiance: 0, adopte: false, nom: '', faim: 70, fled: 0 };
   resetRuntime();
   save();
@@ -112,6 +115,7 @@ export function load() {
     initTravail(s);
     initFetes(s);
     initVie(s);
+    initParents(s);
     G.s = s; resetRuntime(); return true;
   } catch { return false; }
 }
@@ -158,6 +162,7 @@ export function itemLabel(it) {
   if (it.kind === 'quartier') return (it.to === G.s.chezMoi ? 'Rentrer ' : 'Aller ') + QUARTIERS[it.to].article + (vehicule() ? '' : ' (' + TAXI[it.taxi].nom.toLowerCase() + ')');
   if (it.kind === 'plage') return PLAGE_ACTS[it.act].nom;
   if (it.kind === 'animal') return ANIMAL_ACTS[it.act].label + ' : ' + animalName(it.id);
+  if (it.kind === 'parent') return parentLabel(it);
   if (it.kind === 'talk') {
     const n = getN(it.npc).def.nom;
     if (it.mode === 'boulot') return boulotOf(it.boulot).nom;
@@ -191,9 +196,12 @@ export function availableActions(fid) {
     if (a === 'cuisiner') {
       const lvl = Math.floor(s.skills.cuisine);
       info = `Cuisine : niveau ${lvl}. Les recettes difficiles ratent souvent au début.`;
+      let teaser = false;
       for (const r in RECETTES) {
         const R = RECETTES[r], n = s.inv[r] || 0;
-        const hard = R.d > lvl + 2;
+        const hard = R.d > lvl + 1;
+        // Les recettes trop difficiles restent cachées ; on montre juste la prochaine à débloquer.
+        if (R.d > lvl + 2) { if (!teaser) { teaser = true; items.push({ act: 'cuisiner', param: r, label: 'Bientôt : ' + R.nom, sub: `Se débloque au niveau ${R.d - 2} de cuisine`, disabled: true, why: 'Pas encore à ta portée.' }); } continue; }
         items.push({
           act: 'cuisiner', param: r, label: 'Préparer : ' + R.nom,
           sub: n ? `${fmtDur(R.dur)} · difficulté ${R.d}${hard ? ' (trop dur pour l\'instant)' : ''}${R.vendredi ? ' · le vendredi, moral en plus' : ''} · ${n} lot${n > 1 ? 's' : ''}` : `Difficulté ${R.d} · ingrédients au marché`,
@@ -356,7 +364,7 @@ function startItem(it) {
     if (!G.cur.path.length) G.cur.path.push(center(here));
     return path;
   };
-  if (it.kind === 'goto') { if (!go([{ x: it.x, z: it.z }])) fail(it, "Impossible d'aller là."); return; }
+  if (it.kind === 'goto') { if (!go([{ x: it.x, z: it.z }]) && !go(Wd.approachCells(home, [{ x: it.x, z: it.z }], blocked))) fail(it, "Impossible d'aller là."); return; }
   if (it.kind === 'out') { if (!go([RUE.coin])) fail(it, "Impossible d'atteindre le coin de la rue."); return; }
   if (it.kind === 'hanout') {
     if (!hanoutOuvert(s.t)) return fail(it, 'Le hanout est fermé.');
@@ -403,6 +411,7 @@ function startItem(it) {
     n.hold = s.t + 12; // le voisin attend qu'on arrive
     return;
   }
+  if (it.kind === 'parent') return startParent(it, go, home, blocked, fail, Wd.approachCells);
   if (it.kind === 'animal') {
     const a = getA(it.id);
     if (!animalHere(a)) return fail(it, `${animalName(it.id)} n'est pas ici.`);
@@ -513,6 +522,7 @@ function arrive(c) {
     c.stage = 'do'; c.t = 0; G.yaw = c.spot.yaw;
     return;
   }
+  if (it.kind === 'parent') { arriveParent(c); return; }
   if (it.kind === 'animal') {
     const a = getA(it.id), d = Math.hypot(a.x - s.pos.x, a.z - s.pos.z);
     if (d > 2.2) {
@@ -585,6 +595,7 @@ function finish(c) {
     return;
   }
   if (it.kind === 'plage') return finishPlage(it);
+  if (it.kind === 'parent') return finishParent(it);
   if (it.kind === 'animal') return finishAnimal(it);
   if (it.kind === 'talk') {
     const n = getN(it.npc);
@@ -1096,7 +1107,7 @@ function minuteEvent(T) {
   if (w === 4 && mm === 18 * 60) paie();
   if (w === 4 && mm === 18 * 60 + 40) potDepart();
   if (w === 5 && mm === 10 * 60) extraNoir();
-  if (w === 6 && mm === 10 * 60 && revenu('poche')) {
+  if (w === 6 && mm === 10 * 60 && revenu('poche') && !s.independant) {
     if (s.job.absences === 0) { s.money += POCHE; toast(`Tes parents t'envoient ton argent de poche : +${fmtDH(POCHE)}.`, 'good'); }
     else toast('Tes parents ont su que tu avais séché le travail : pas d\'argent de poche cette semaine.', 'bad');
   }
@@ -1105,6 +1116,7 @@ function minuteEvent(T) {
   socialMinute(T);
   fetesMinute(T);
   vieMinute(T);
+  parentsMinute(T);
   greetings();
 }
 // Les voisins qu'on connaît font signe quand on se croise.
@@ -1182,7 +1194,7 @@ function decide() {
     if (p && tryAct(['table', 'mida', 'banquette', 'pouf', 'frigo'], 'manger', p.r + ':' + p.q)) return;
     if (s.inv.snack > 0 && tryAct(['frigo'], 'casse')) return;
     const lvl = s.skills.cuisine;
-    const r = ['couscous', 'rfissa', 'tajine', 'harira', 'loubia', 'msemen'].find(r => s.inv[r] > 0 && RECETTES[r].d <= lvl + 2);
+    const r = ['couscous', 'rfissa', 'tajine', 'kefta', 'harira', 'loubia', 'pates', 'bissara', 'msemen', 'oeufs', 'salade', 'tartines'].find(r => s.inv[r] > 0 && RECETTES[r].d <= lvl + 2);
     if (r && tryAct(['cuisiniere'], 'cuisiner', r)) return;
     if (hanoutOuvert(s.t) && s.money >= 46) { enqueue({ kind: 'hanout', basket: { snack: 1, msemen: 1 }, auto: true }); return; }
   }
@@ -1316,7 +1328,7 @@ export function view() {
   const npcs = G.npcs.map(n => ({
     id: n.id, visible: n.visible, x: n.x, z: n.z, yaw: n.yaw, walkPhase: n.walkPhase,
     pose: n.state === 'walk' ? { base: 'walk' } : n.state === 'sit' ? { base: 'sit', h: 0.45, anim: 'eat' } : n.state === 'talk' ? { base: 'stand', anim: 'talk' } : { base: 'stand' },
-  })).concat(G.passants.map(p => ({ id: p.id, visible: p.visible, x: p.x, z: p.z, yaw: p.yaw, walkPhase: p.walkPhase, pose: { base: 'walk' } })));
+  })).concat(G.passants.map(p => ({ id: p.id, visible: p.visible, x: p.x, z: p.z, yaw: p.yaw, walkPhase: p.walkPhase, pose: { base: 'walk' } })), parentsView());
   const animaux = G.animaux.map(a => ({
     id: a.id, x: a.x, z: a.z, yaw: a.yaw, walkPhase: a.walkPhase, visible: animalHere(a),
     pose: a.state === 'walk' ? 'walk' : (h >= 23 || h < 7) && s.t >= a.hold ? 'lie' : 'idle',

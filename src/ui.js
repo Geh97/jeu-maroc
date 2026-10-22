@@ -13,6 +13,7 @@ import { PRATIQUES, socialInfo } from './social.js';
 import { fetesInfo, rompreJeune, jeune } from './fetes.js';
 import { travailInfo, chercherPoste, entretien, ouvrirAffaire, fermerAffaire, AFFAIRES, salaire, capitalDe } from './travail.js';
 import { vieInfo } from './vie.js';
+import { parentsInfo, independance } from './parents.js';
 
 export const $ = id => document.getElementById(id);
 export const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -36,6 +37,7 @@ export function initHud(handlers) {
   $('speeds').addEventListener('click', e => { const b = e.target.closest('[data-speed]'); if (b) H.onSpeed(+b.dataset.speed); });
   $('modeBtn').onclick = () => H.onMode();
   $('wallsBtn').onclick = () => H.onWalls();
+  $('centerBtn').onclick = () => H.onCenter();
   $('menuBtn').onclick = () => openMenu();
   $('portrait').onclick = () => openFiche();
   $('queue').addEventListener('click', e => { const b = e.target.closest('[data-cancel]'); if (b) cancel(+b.dataset.cancel); queueSig = ''; updateHud(); });
@@ -298,7 +300,7 @@ export function openFiche(tab = 'moi') {
       <small>Compétence : ${J.competence.toFixed(1)} / 10. Elle monte avec les jours travaillés, les formations et les livres de métier, et accélère la performance.</small></div>
     <div class="stat"><span>Cuisine</span><b>Niveau ${lvl}</b><div class="bar"><i style="width:${lvl >= 10 ? 100 : (sk - lvl) * 100}%"></i></div></div>
     <div class="stat"><span>Ambiance de la maison</span><b>${ambiance(s.home)} / 30</b><small>Plus elle est belle, mieux on s'y sent.</small></div>
-    <div class="stat"><span>Ingrédients au frais</span><small>Thé : ${s.inv.the || 0} · Msemen : ${s.inv.msemen || 0} · Tajine : ${s.inv.tajine || 0} · Casse-croûte : ${s.inv.snack || 0} · Restes pour animaux : ${s.inv.patee || 0}</small></div>
+    <div class="stat"><span>Ingrédients au frais</span><small>${[...Object.keys(RECETTES).filter(r => s.inv[r] > 0).map(r => `${esc(RECETTES[r].nom.split(' ')[0].replace(':', ''))} : ${s.inv[r]}`), `Casse-croûte : ${s.inv.snack || 0}`, `Restes pour animaux : ${s.inv.patee || 0}`].join(' · ')}</small></div>
     <div class="stat"><span>Plats prêts</span><small>${plats}</small></div>
     ${animaux ? `<div class="stat"><span>À la maison</span><small>${animaux}</small></div>` : ''}`;
   const argent = moneyWays();
@@ -320,6 +322,7 @@ export function openFiche(tab = 'moi') {
   if (daretBtn) daretBtn.onclick = () => { joinDaret(); openFiche('argent'); };
   sheet.querySelectorAll('[data-ep]').forEach(b => { b.onclick = () => { epargne(+b.dataset.ep); openFiche('argent'); }; });
   sheet.querySelectorAll('[data-dem]').forEach(b => { b.onclick = () => { closeModal(); demenager(b.dataset.dem); }; });
+  sheet.querySelectorAll('[data-indep]').forEach(b => { b.onclick = () => { closeModal(); independance(); }; });
   sheet.querySelectorAll('[data-chercher]').forEach(b => { b.onclick = () => { chercherPoste(); openFiche('argent'); }; });
   sheet.querySelectorAll('[data-entretien]').forEach(b => { b.onclick = () => { closeModal(); entretien(+b.dataset.entretien); }; });
   sheet.querySelectorAll('[data-affaire]').forEach(b => { b.onclick = () => { closeModal(); ouvrirAffaire(b.dataset.affaire); }; });
@@ -368,7 +371,9 @@ function moneyWays() {
   let dem;
   if (!s.visites[autre]) dem = `Pour louer ${QUARTIERS[autre].article}, il faut d'abord y aller voir (taxi depuis le coin de la rue).`;
   else dem = `Loyer ${fmtDH(loyerAutre)} par semaine, caution ${fmtDH(caution)} (${CAUTION_SEMAINES} semaines), première semaine d'avance : ${fmtDH(caution + loyerAutre)} à verser. Tes meubles suivent. <button class="btn small primary" data-dem="${autre}" ${s.money < caution + loyerAutre ? 'disabled' : ''}>Déménager ${QUARTIERS[autre].article}</button>`;
-  h += stat('icone-demenagement', `<span>Logement</span><b>Tu habites ${QUARTIERS[s.chezMoi].article}</b><small>${loyerHebdo() ? `Loyer ${fmtDH(loyerHebdo())} par semaine.` : 'Sans loyer.'} ${dem}</small>`);
+  const PI = parentsInfo();
+  if (PI.chez) h += stat('icone-demenagement', `<span>Logement</span><b>Tu habites chez tes parents</b><small>Pas de loyer, les plats de ta mère au frigo, l'argent de poche du dimanche… et le regard de ton père quand tu rentres tard. Prendre ton indépendance coûte ${fmtDH(PI.cout)} (caution et première semaine), puis ${fmtDH(PI.loyer)} de loyer par semaine, sans argent de poche. ${PI.partir.ok ? '' : esc(PI.partir.why)} <button class="btn small primary" data-indep ${PI.partir.ok ? '' : 'disabled'}>Prendre ton indépendance</button></small>`);
+  else h += stat('icone-demenagement', `<span>Logement</span><b>Tu habites ${QUARTIERS[s.chezMoi].article}</b><small>${loyerHebdo() ? `Loyer ${fmtDH(loyerHebdo())} par semaine.` : 'Sans loyer.'} ${dem}</small>`);
   // Se déplacer : le véhicule.
   const v = vehicule();
   h += stat(s.vehicule ? 'icone-' + s.vehicule : 'icone-taxi-petit', `<span>Se déplacer</span>${v ? `<b>${esc(v.nom)}</b><small>${esc(v.desc)}</small>` : `<small>Les taxis, en attendant mieux.</small><div class="list">${Object.entries(VEHICULES).map(([k, x]) => `<div class="opt line ico">${img('vehicule-' + k)}<span><b>${esc(x.nom)}</b><small>${esc(x.desc)}</small></span><button class="btn small" data-veh="${k}" ${s.money < x.prix ? 'disabled' : ''}>${fmtDH(x.prix)}</button></div>`).join('')}</div>`}`);

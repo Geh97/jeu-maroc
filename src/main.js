@@ -10,6 +10,7 @@ import * as UI from './ui.js';
 import * as BLD from './build.js';
 import * as TR from './travail.js';
 import * as FT from './fetes.js';
+import * as PR from './parents.js';
 
 const canvas = document.getElementById('c');
 S.initScene(canvas);
@@ -19,9 +20,9 @@ hooks.askWork = UI.askWork;
 hooks.workEvent = UI.workEvent;
 hooks.sortieEvent = UI.sortieEvent;
 hooks.lookChanged = () => S.setCharLook(G.s.char);
-const ctx = () => ({ quartier: G.s.quartier, withHome: homeHere(), vehicule: G.s.vehicule, npcs: npcDefs(), ramadan: FT.ramadan() });
+const ctx = () => ({ quartier: G.s.quartier, withHome: homeHere(), vehicule: G.s.vehicule, npcs: npcDefs().concat(PR.parentDefs()), ramadan: FT.ramadan() });
 hooks.quartierChanged = () => { S.setQuartier(ctx()); UI.updateHud(); };
-window.jeu = { G, advance, enqueue, hooks, debugCam: S.debugCam, debugChar: S.debugChar, npcActions, animalActions, newGame, start, rebuild: () => S.rebuildHome(G.s.home), setCam: S.setCam, setFollow: S.setFollow, demenager, acheterVehicule, travail: TR, fetes: FT }; // pour tester depuis la console du navigateur
+window.jeu = { G, advance, enqueue, hooks, debugCam: S.debugCam, debugChar: S.debugChar, npcActions, animalActions, newGame, start, rebuild: () => S.rebuildHome(G.s.home), setCam: S.setCam, setFollow: S.setFollow, demenager, acheterVehicule, travail: TR, fetes: FT, parents: PR }; // pour tester depuis la console du navigateur
 
 const walls = ['coupes', 'bas', 'hauts'];
 let wallIdx = 0, preview = null;
@@ -31,6 +32,7 @@ UI.initHud({
   onMode: () => toggleMode(),
   onWalls: () => { wallIdx = (wallIdx + 1) % 3; S.setWallMode(walls[wallIdx]); UI.setWallsLabel(walls[wallIdx]); },
   onNewGame: () => { UI.closeModal(); if (G.mode === 'build') toggleMode(); wipe(); creation(); },
+  onCenter: () => S.centerOn(),
 });
 BLD.initPanel();
 
@@ -144,6 +146,8 @@ function onTap(x, y, type) {
     UI.openFiche('argent');
   } else if (h.type === 'chair') {
     UI.showPop(x, y, chairActions(h.id), it => enqueue({ kind: 'cafe', chair: it.chair, opt: it.opt }));
+  } else if (h.type === 'npc' && PR.isParent(h.id)) {
+    UI.showPop(x, y, PR.parentActions(h.id), it => enqueue({ kind: 'parent', id: h.id, act: it.act }));
   } else if (h.type === 'npc') {
     if (!G.npcs.some(n => n.id === h.id)) { UI.toast('Un passant pressé.'); return; }
     UI.showPop(x, y, npcActions(h.id), it => enqueue({ kind: 'talk', npc: it.npc, mode: it.mode, boulot: it.boulot, plat: it.plat, sujet: it.sujet }));
@@ -168,6 +172,9 @@ addEventListener('keydown', e => {
   if (!G.s || G.modal || e.target.tagName === 'INPUT') return;
   if (e.key === ' ') { e.preventDefault(); G.speed = G.speed ? 0 : 1; }
   if (['1', '2', '3'].includes(e.key) && G.mode === 'live') G.speed = +e.key;
+  if (e.key === 'q' || e.key === 'a') S.rotateCam(1);
+  if (e.key === 'e' || e.key === 'd') S.rotateCam(-1);
+  if (e.key === 'c') S.centerOn();
   if (G.mode === 'build') BLD.key(e.key);
   UI.updateHud();
 });

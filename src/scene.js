@@ -18,7 +18,7 @@ const sky = { day: new THREE.Color('#a8d8f0'), dusk: new THREE.Color('#f2a65a'),
 export function initScene(canvas) {
   const mobile = matchMedia('(pointer: coarse)').matches;
   renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-  renderer.setPixelRatio(Math.min(devicePixelRatio, mobile ? 1.5 : 2));
+  renderer.setPixelRatio(Math.min(devicePixelRatio, mobile ? 1.25 : 2));
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   scene = new THREE.Scene();
@@ -30,11 +30,19 @@ export function initScene(canvas) {
   controls = new OrbitControls(camera, canvas);
   controls.target.set(W / 2, 0, D / 2);
   controls.enableDamping = true;
+  controls.dampingFactor = 0.09;
   controls.minDistance = 3;
   controls.maxDistance = 48;
   controls.minPolarAngle = 0.25;
   controls.maxPolarAngle = 1.3;
   controls.screenSpacePanning = false;
+  controls.rotateSpeed = 0.7; controls.zoomSpeed = 0.9; controls.panSpeed = 0.9;
+  // Un doigt ou le bouton gauche déplacent la vue ; deux doigts ou le bouton droit la font tourner et zoomer.
+  controls.mouseButtons = { LEFT: THREE.MOUSE.PAN, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.ROTATE };
+  controls.touches = { ONE: THREE.TOUCH.PAN, TWO: THREE.TOUCH.DOLLY_ROTATE };
+  controls.keys = { LEFT: 'ArrowLeft', UP: 'ArrowUp', RIGHT: 'ArrowRight', BOTTOM: 'ArrowDown' };
+  controls.keyPanSpeed = 18;
+  controls.listenToKeyEvents(window);
   controls.addEventListener('start', () => { userMovedAt = clock; });
   controls.update();
 
@@ -189,6 +197,19 @@ export function focusChar(on) {
 }
 export function setWallMode(m) { wallMode = m; }
 export const setFollow = on => { follow = on; };
+// Recentrer la vue sur le personnage, en gardant l'angle et la distance actuels ; le suivi reprend tout de suite.
+export function centerOn() {
+  if (!ch) return;
+  tmpV.set(ch.root.position.x, 0.4, ch.root.position.z).sub(controls.target);
+  controls.target.add(tmpV); camera.position.add(tmpV);
+  userMovedAt = -10; controls.update();
+}
+// Tourner la vue d'un quart de tour (touches Q et E).
+export function rotateCam(dir) {
+  const off = camera.position.clone().sub(controls.target);
+  off.applyAxisAngle(new THREE.Vector3(0, 1, 0), dir * Math.PI / 8);
+  camera.position.copy(controls.target).add(off); userMovedAt = clock; controls.update();
+}
 export const debugCam = () => ({ cam: camera.position.toArray(), target: controls.target.toArray() });
 export const debugChar = () => ch;
 export const setCam = (x, y, z, tx, ty, tz) => { camera.position.set(x, y, z); controls.target.set(tx, ty, tz); userMovedAt = clock; controls.update(); };
@@ -227,10 +248,11 @@ export function updateFrame(dt, v) {
       M.poseAnimal(a, av.pose, clock + av.x, av.walkPhase);
     }
     daylight(v.t);
-    // Dehors, la caméra suit le personnage (sauf juste après un geste du joueur).
-    if (follow && v.visible && v.outside && clock - userMovedAt > 2.5) {
-      tmpV.set(v.x, 0.4, v.z).sub(controls.target).multiplyScalar(Math.min(1, dt * 2.5));
-      controls.target.add(tmpV); camera.position.add(tmpV);
+    // La caméra suit le personnage en douceur, dedans comme dehors, sauf juste après un geste du joueur.
+    if (follow && v.visible && clock - userMovedAt > 3) {
+      tmpV.set(v.x, 0.4, v.z).sub(controls.target);
+      const far = tmpV.length();
+      if (far > 0.6) { tmpV.multiplyScalar(1 - Math.exp(-dt * (far > 8 ? 4 : 2.2))); controls.target.add(tmpV); camera.position.add(tmpV); }
     }
   }
   const t = controls.target;
