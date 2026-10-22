@@ -691,7 +691,7 @@ function amourFire(def, a, d) {
   v.jour.n++; a.next = d + (a.etape >= 6 ? 5 + Math.floor(Math.random() * 5) : 2 + Math.floor(Math.random() * 3));
   const choix = (typeof def.choix === 'function' ? def.choix(a) : def.choix).filter(c => okCond(c, s));
   const titre = typeof def.titre === 'function' ? def.titre(a) : def.titre;
-  hooks.sortieEvent({ titre, img: { rue: 'illu-cafe', cafe: 'illu-cafe', anfa: 'illu-californie', plage: 'illu-plage' }[a.lieu], texte: def.texte(a), choix }, i => { appliquer(choix[i], {}); save(); });
+  hooks.sortieEvent({ titre, img: 'portrait-' + a.id, texte: def.texte(a), choix }, i => { appliquer(choix[i], {}); save(); });
   return true;
 }
 function rupture(msg) {
@@ -717,7 +717,7 @@ export const vieInfo = () => {
   const v = V(), a = v.amour, c = a ? coutMariage() : null;
   return {
     etiquettes: etiquettes(),
-    amour: a && { nom: a.nom, desc: a.desc, etape: ETAPES[a.etape], score: a.score, famille: { inconnue: 'ne sait rien', favorable: 'approuve', contre: 's\'y oppose' }[a.famille], mariageCout: a.etape === 5 ? c.toi : 0, marie: a.etape >= 6 },
+    amour: a && { id: a.id, nom: a.nom, desc: a.desc, etape: ETAPES[a.etape], score: a.score, famille: { inconnue: 'ne sait rien', favorable: 'approuve', contre: 's\'y oppose' }[a.famille], mariageCout: a.etape === 5 ? c.toi : 0, marie: a.etape >= 6 },
     suites: v.suites.length,
     startup: !!v.flags.startup,
   };
