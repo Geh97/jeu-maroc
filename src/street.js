@@ -479,7 +479,7 @@ export function makeStreet(opts = {}) {
   if (opts.vehicule === 'scooter' && withHome) scooter(g, 7.5, D + 0.5);
   // Quand on n'habite pas ici, l'emplacement de l'appartement est un immeuble comme les autres.
   if (!withHome) {
-    if (chic) villa(g, 0, W, D, 6);
+    if (chic) villa(g, anfa ? -4 : 0, W, D, 6);
     else if (maarif) immeuble(g, W / 2, 1.5, W, 15, 16.6, 1, 8, 0);
     else { building(g, W / 2, 1.5, W, 15, 7.6, 1, 5, 0); door(g, 5, D, '#5a3423', 1.2); }
   }
@@ -605,9 +605,10 @@ export function makeStreet(opts = {}) {
 // Anfa (Californie) : rien que des villas, des cafés et des restaurants, un parc, et l'océan au bout de la rue.
 function anfaStreet(g, opts, plane) {
   // Notre côté : une villa, le glacier, l'épicerie fine, l'appartement, le café La Corniche, l'agence, une villa.
-  villa(g, X0 - 12, -17, D, 1);
-  restaurant(g, -17, -9, D + 0.2, 'glacier').rotation.y = Math.PI;
-  supermarche(g, -9, 0);
+  villa(g, X0 - 12, -22, D, 1);
+  restaurant(g, -22, -14, D + 0.2, 'glacier').rotation.y = Math.PI;
+  supermarche(g, -14, -4, 'supermarche', '#e8641a', -9);
+  if (opts.withHome !== false) jardinVilla(g);
   restaurant(g, W, 24, D + 0.2, 'cafe', { terrasse: false }).rotation.y = Math.PI;
   restaurant(g, 24, 32, D + 0.2, 'agence', { terrasse: false }).rotation.y = Math.PI;
   villa(g, 32, X1 + 12, D, 4);
@@ -797,8 +798,8 @@ function boucherie(g, B) {
   wallLantern(g, B.porte + 0.5, 2.9, D);
 }
 // Le supermarché d'Anfa : grande vitrine, bandeau orange, portes vitrées, chariots et rayon de fruits derrière la vitre.
-function supermarche(g, x0, x1, id = 'supermarche', couleur = '#e8641a') {
-  const w = x1 - x0, cx = (x0 + x1) / 2, H = RUE.hanout;
+function supermarche(g, x0, x1, id = 'supermarche', couleur = '#e8641a', porteX = RUE.hanout.porte) {
+  const w = x1 - x0, cx = (x0 + x1) / 2, H = { porte: porteX };
   box(g, w, 4.8, 9, murVilla(2, 1), cx, 2.4, D - 4.5);
   box(g, w + 0.4, 0.22, 9.4, mat('#e9e2d3'), cx, 4.91, D - 4.5);
   box(g, w - 0.2, 0.7, 0.1, mat(couleur), cx, 3.6, D + 0.06);
@@ -970,4 +971,44 @@ function maarifStreet(g, opts, plane) {
   arretTaxi(g);
   collectLamps(g);
   return g;
+}
+
+// La villa de la famille : la maison est l'appartement lui-même ; autour, un jardin à gauche qu'on parcourt à pied,
+// la piscine, la pergola et les palmiers derrière, un muret blanc et un portail côté rue.
+function jardinVilla(g) {
+  const white = murVilla(2, 1), cream = mat('#e9e2d3'), fer = mat('#1f232a');
+  // Les pelouses : à gauche de la maison, et derrière.
+  const lawn = new THREE.Mesh(new THREE.PlaneGeometry(4, D), pelouseMat(2, 4)); lawn.rotation.x = -Math.PI / 2; lawn.position.set(-2, 0.004, D / 2); lawn.receiveShadow = true; g.add(lawn);
+  const back = new THREE.Mesh(new THREE.PlaneGeometry(W + 4, 8), pelouseMat(8, 4)); back.rotation.x = -Math.PI / 2; back.position.set(W / 2 - 2, 0.004, -4); back.receiveShadow = true; g.add(back);
+  const allee = new THREE.Mesh(new THREE.PlaneGeometry(1.2, D), dallageChic(0.6, 4)); allee.rotation.x = -Math.PI / 2; allee.position.set(-2, 0.006, D / 2); g.add(allee);
+  // Les murs du jardin : à gauche, derrière, et le muret côté rue avec le portail.
+  box(g, 0.3, 2.0, D + 8, white, -4.15, 1.0, (D - 8) / 2);
+  box(g, W + 4.3, 2.0, 0.3, white, W / 2 - 2, 1.0, -8.15);
+  box(g, 0.3, 2.0, 8, white, W + 0.15, 1.0, -4);
+  box(g, 0.3, 0.9, 0.9, white, W + 0.15, 0.45, D - 0.45);
+  for (const dx of [-4.15, W + 0.15]) box(g, 0.5, 0.12, D + 8.6, cream, dx, 2.06, (D - 8) / 2);
+  box(g, W + 4.5, 0.12, 0.5, cream, W / 2 - 2, 2.06, -8.15);
+  // Côté rue : un muret bas devant la maison (sauf la porte) et, devant le jardin, deux piliers et un portail à barreaux.
+  for (const [x0, x1] of [[0, 4.6], [6.4, W]]) { box(g, x1 - x0, 0.9, 0.25, white, (x0 + x1) / 2, 0.45, D + 0.15); box(g, x1 - x0 + 0.1, 0.1, 0.35, cream, (x0 + x1) / 2, 0.95, D + 0.15); }
+  for (const x of [-4, -0.2]) { box(g, 0.5, 2.3, 0.5, white, x, 1.15, D + 0.1); const lamp = new THREE.MeshStandardMaterial({ color: '#ffcf86', emissive: '#ffb347', emissiveIntensity: 0.5 }); box(g, 0.16, 0.22, 0.12, lamp, x, 1.7, D + 0.4); g.userData.lamps = g.userData.lamps || []; g.userData.lamps.push({ mat: lamp, small: true }); }
+  for (const y of [0.12, 2.0]) box(g, 3.2, 0.08, 0.08, fer, -2.1, y, D + 0.1);
+  for (let i = -6; i <= 6; i++) box(g, 0.05, 1.9, 0.05, fer, -2.1 + i * 0.25, 1.05, D + 0.1);
+  box(g, 1.0, 1.0, 0.9, haieMat(), -3.3, 2.5, D - 0.4);
+  // Le jardin de gauche : palmier, cyprès, bougainvillier, une table ronde et deux chaises sous un parasol.
+  palm(g, -2, 1.6);
+  cypres(g, -3.6, 4.5, 4.8); cypres(g, -3.6, 7.5, 4.2);
+  bougainvillea(g, -3.3, 1.6, 0.4);
+  cyl(g, 0.4, 0.4, 0.04, mat('#f7f4ee', { roughness: 0.4 }), -1.6, 0.72, 6.5, 18); cyl(g, 0.03, 0.03, 0.7, iron(), -1.6, 0.36, 6.5, 8);
+  chaiseRotin(g, -2.3, 6.5, -Math.PI / 2); chaiseRotin(g, -0.9, 6.5, Math.PI / 2);
+  parasol(g, -1.6, 6.5, 2.4, 1.2);
+  // Derrière : la piscine avec ses transats, la pergola, les palmiers.
+  box(g, 6.4, 0.08, 4.4, mat('#f7f4ee'), 5, 0.04, -4);
+  box(g, 6, 0.06, 4, eauMat(), 5, 0.08, -4);
+  transat(g, 2.4, -6.8, Math.PI / 2); transat(g, 4.6, -6.8, Math.PI / 2); parasol(g, 3.5, -7.2, 2.3, 1.1);
+  for (const [dx, dz] of [[9, -1.5], [11.5, -1.5], [9, -4.5], [11.5, -4.5]]) box(g, 0.14, 2.8, 0.14, mat('#8a5a3b'), dx, 1.4, dz);
+  for (let i = 0; i < 7; i++) box(g, 3, 0.08, 0.12, boisPergola(), 10.25, 2.8, -1.5 - i * 0.5);
+  cyl(g, 0.4, 0.4, 0.04, mat('#f7f4ee', { roughness: 0.4 }), 10.25, 0.72, -3, 18); cyl(g, 0.03, 0.03, 0.7, iron(), 10.25, 0.36, -3, 8);
+  chaiseRotin(g, 9.5, -3, -Math.PI / 2); chaiseRotin(g, 11, -3, Math.PI / 2);
+  palm(g, -2.5, -6); palm(g, 0.5, -7); cypres(g, W - 0.6, -7.4, 5);
+  for (let i = 0; i < 4; i++) jardiniere(g, 1 + i * 3, -0.9, i % 2 === 0);
 }

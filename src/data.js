@@ -117,7 +117,7 @@ export const BOUTIQUES = {
       articles: art(['salade', 'loubia', 'bissara', 'snack'], { salade: { prix: 7 }, loubia: { prix: 14 }, bissara: { prix: 8 }, snack: { nom: 'Oranges et bananes', detail: 'Un casse-croûte, sans cuisiner', prix: 15 } }) },
   ],
   anfa: [
-    { id: 'supermarche', nom: 'Supermarché Anfa', img: 'illu-hanout', npc: null, ouvre: 8, ferme: 22, porte: { x: RUE.hanout.porte, z: D }, devant: { x: RUE.hanout.porte, z: D + 1 },
+    { id: 'supermarche', nom: 'Supermarché Anfa', img: 'illu-hanout', npc: null, ouvre: 8, ferme: 22, porte: { x: -9, z: D }, devant: { x: -9, z: D + 1 },
       intro: 'Tout sous un même toit, chariot compris, de 8 h à 22 h. Les prix d\'Anfa, sans discussion.',
       articles: art(Object.keys(ARTICLES)) },
   ],

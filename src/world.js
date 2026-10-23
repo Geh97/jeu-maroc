@@ -76,7 +76,8 @@ export function outdoorGrid() {
   vehiculeCells(blocking.vehicule).forEach(c => { g[idx(c.x, c.z)] = 1; });
   const inPlace = (x, z) => x >= PLACE.x0 && x < PLACE.x1 && z >= PLACE.z0 && z < PLACE.z1, corniche = blocking.quartier === 'corniche';
   for (let z = Z0; z < Z1; z++) for (let x = X0; x < X1; x++) {
-    if (z < D && !inHome(x, z)) g[idx(x, z)] = 1;                       // notre pâté de maisons
+    const jardin = blocking.quartier === 'anfa' && !blocking.noHome && x >= -4 && x < 0; // le jardin de la villa, à Anfa
+    if (z < D && !inHome(x, z) && !jardin) g[idx(x, z)] = 1;             // notre pâté de maisons
     if (z >= RUE.trottoirLoin[1] && !inPlace(x, z) && !corniche) g[idx(x, z)] = 1;   // les immeubles d'en face (à la corniche : la plage)
   }
   const mark = c => { if (inWorld(c.x, c.z)) g[idx(c.x, c.z)] = 1; };
