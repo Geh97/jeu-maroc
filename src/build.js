@@ -1,5 +1,6 @@
 // Mode construction : meubles, murs, sols, peinture. Le temps est arrêté.
 import { W, D, FURN, CATS, FLOORS, WALL_COLORS, WAINSCOTS, PAINT_PRICE, WAINSCOT_PRICE, WALL_PRICES, asset } from './data.js';
+import { floorSwatch } from './textures.js';
 import { G, spend, homeChanged, fmtDH } from './sim.js';
 import * as S from './scene.js';
 import * as Wd from './world.js';
@@ -60,7 +61,7 @@ export function render() {
   } else if (B.tab === 'sols') {
     hint = B.fill ? 'Touche une pièce pour changer tout son sol.' : 'Touche une case pour changer son sol.';
     items = `<div class="cards">${Object.entries(FLOORS).map(([k, f]) =>
-      `<button class="card-i ${B.floor === k ? 'on' : ''}" data-floor="${k}"><i class="sw-floor" style="background-image:url('${asset(f.img)}')"></i><b>${f.nom}</b><small>${f.prix} DH la case</small></button>`).join('')}</div>`;
+      `<button class="card-i ${B.floor === k ? 'on' : ''}" data-floor="${k}"><i class="sw-floor" style="background-image:url('${f.img ? asset(f.img) : floorSwatch(k)}')"></i><b>${f.nom}</b><small>${f.prix} DH la case</small></button>`).join('')}</div>`;
     acts = `<button class="btn ${B.fill ? 'on' : ''}" data-a="fill">Toute la pièce</button><button class="btn ${B.fill ? '' : 'on'}" data-a="one">Une case</button>`;
   } else {
     hint = `Couleur des murs : ${PAINT_PRICE} DH. Soubassement en zellige : ${WAINSCOT_PRICE} DH.`;

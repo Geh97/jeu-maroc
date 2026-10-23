@@ -325,6 +325,18 @@ export const FURN = {
   jarre: { nom: 'Grande jarre en terre cuite', prix: 350, w: 1, d: 1, cat: 'deco', beaute: 2, actions: [], img: 'meuble-jarre' },
   biblio: { nom: 'Bibliothèque', prix: 800, w: 2, d: 1, cat: 'salon', beaute: 2, actions: ['lire', 'lire_cuisine', 'lire_metier'] },
   plante: { nom: 'Plante en pot', prix: 150, w: 1, d: 1, cat: 'deco', beaute: 1, actions: [], img: 'meuble-plante' },
+  canape: { nom: 'Canapé moderne', prix: 2200, w: 2, d: 1, cat: 'salon', beaute: 2, assise: 0.42, actions: ['detente', 'manger', 'boire'] },
+  tableb: { nom: 'Table basse carrée', prix: 500, w: 1, d: 1, cat: 'salon', beaute: 1, actions: ['manger', 'boire'] },
+  tapis_rouge: { nom: 'Tapis rouge et or', prix: 1100, w: 2, d: 2, cat: 'salon', beaute: 3, sol: true, actions: [] },
+  commode: { nom: 'Commode peinte', prix: 1300, w: 2, d: 1, cat: 'chambre', beaute: 2, actions: [] },
+  bureau: { nom: 'Bureau et chaise', prix: 1600, w: 2, d: 1, cat: 'chambre', beaute: 1, assise: 0.45, actions: ['lire_metier', 'lire'] },
+  lampe: { nom: 'Lampe de chevet', prix: 250, w: 1, d: 1, cat: 'chambre', beaute: 1, lumiere: true, actions: [] },
+  machine: { nom: 'Machine à laver', prix: 2600, w: 1, d: 1, cat: 'eau', beaute: 0, actions: [] },
+  lustre: { nom: 'Lustre marocain en laiton', prix: 700, w: 1, d: 1, cat: 'deco', beaute: 3, lumiere: true, sol: true, actions: [] },
+  tableau: { nom: 'Tableau : la corniche', prix: 600, w: 1, d: 1, cat: 'deco', beaute: 2, sol: true, actions: [] },
+  miroir: { nom: 'Miroir en arcade', prix: 500, w: 1, d: 1, cat: 'deco', beaute: 2, sol: true, actions: [] },
+  etagere: { nom: 'Étagère murale', prix: 350, w: 1, d: 1, cat: 'deco', beaute: 1, sol: true, actions: [] },
+  palmier: { nom: 'Palmier d\'intérieur', prix: 400, w: 1, d: 1, cat: 'deco', beaute: 2, actions: [] },
 };
 
 // Actions à la maison. rates : effet par heure, en plus de l'usure normale.
@@ -461,6 +473,9 @@ export const FLOORS = {
   zellige_vert: { nom: 'Zellige vert', prix: 250, beaute: 1, img: 'sol-zellige-vert' },
   zellige_bleu: { nom: 'Zellige bleu', prix: 250, beaute: 1, img: 'sol-zellige-bleu' },
   marbre: { nom: 'Marbre blanc', prix: 350, beaute: 1, img: 'sol-marbre' },
+  ciment: { nom: 'Carreaux de ciment', prix: 200, beaute: 1 },
+  bejmat: { nom: 'Bejmat (terre cuite en briques)', prix: 110, beaute: 0.5 },
+  zellige_rouge: { nom: 'Zellige rouge', prix: 250, beaute: 1 },
 };
 export const WALL_COLORS = {
   chaux: { nom: 'Blanc chaux', c: '#f1ece2' },

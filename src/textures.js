@@ -63,6 +63,47 @@ export function zellige(main, accent, bg = '#f4efe3') {
     for (let i = 0; i < 2; i++) for (let j = 0; j < 2; j++) { star(g, (i + 0.5) * step, (j + 0.5) * step, step * 0.44); g.stroke(); }
   });
 }
+// Carreaux de ciment : un motif à quatre pétales, comme dans les maisons de la médina.
+export function ciment(a, b, bg = '#efe6d2') {
+  return make('cim' + a + b + bg, 256, (g, s) => {
+    g.fillStyle = bg; g.fillRect(0, 0, s, s);
+    const h = s / 2;
+    for (let i = 0; i < 2; i++) for (let j = 0; j < 2; j++) {
+      const cx = i * h + h / 2, cy = j * h + h / 2;
+      g.fillStyle = a;
+      for (const [dx, dy] of [[0, -1], [1, 0], [0, 1], [-1, 0]]) { g.beginPath(); g.ellipse(cx + dx * h * 0.22, cy + dy * h * 0.22, h * 0.17, h * 0.26, dx ? Math.PI / 2 : 0, 0, Math.PI * 2); g.fill(); }
+      g.fillStyle = b; g.beginPath(); g.arc(cx, cy, h * 0.1, 0, Math.PI * 2); g.fill();
+      g.fillStyle = b; for (const [dx, dy] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) { g.beginPath(); g.arc(cx + dx * h * 0.5, cy + dy * h * 0.5, h * 0.11, 0, Math.PI * 2); g.fill(); }
+    }
+    g.strokeStyle = 'rgba(0,0,0,0.12)'; g.lineWidth = 2;
+    g.beginPath(); g.moveTo(h, 0); g.lineTo(h, s); g.moveTo(0, h); g.lineTo(s, h); g.stroke();
+  });
+}
+// Bejmat : petites briques de terre cuite, posées en quinconce.
+export function bejmat() {
+  return make('bejmat', 256, (g, s) => {
+    const r = rng(77), bw = s / 4, bh = s / 8;
+    g.fillStyle = '#9a6a4a'; g.fillRect(0, 0, s, s);
+    for (let j = 0; j < 8; j++) for (let i = -1; i < 5; i++) {
+      const v = r(); g.fillStyle = `rgb(${190 + Math.floor(v * 30)},${120 + Math.floor(v * 25)},${85 + Math.floor(v * 20)})`;
+      g.fillRect(i * bw + (j % 2) * bw / 2 + 2, j * bh + 2, bw - 4, bh - 4);
+    }
+  });
+}
+// Un tableau : la corniche au coucher du soleil, en quelques aplats.
+export function peinture() {
+  return make('peinture', 256, (g, s) => {
+    const sky = g.createLinearGradient(0, 0, 0, s * 0.55); sky.addColorStop(0, '#f2a65a'); sky.addColorStop(1, '#f7d9a8');
+    g.fillStyle = sky; g.fillRect(0, 0, s, s * 0.55);
+    g.fillStyle = '#f6c15a'; g.beginPath(); g.arc(s * 0.68, s * 0.42, s * 0.1, 0, Math.PI * 2); g.fill();
+    g.fillStyle = '#2d8fc4'; g.fillRect(0, s * 0.55, s, s * 0.25);
+    g.fillStyle = '#eadcb4'; g.fillRect(0, s * 0.8, s, s * 0.2);
+    g.fillStyle = '#4b3a2a'; g.fillRect(s * 0.2, s * 0.3, s * 0.03, s * 0.55);
+    for (let i = 0; i < 6; i++) { g.beginPath(); g.ellipse(s * 0.21 + Math.cos(i) * s * 0.08, s * 0.3 + Math.sin(i) * s * 0.05, s * 0.11, s * 0.03, i, 0, Math.PI * 2); g.fill(); }
+    g.fillStyle = '#f7f4ee'; g.fillRect(s * 0.86, s * 0.38, s * 0.03, s * 0.2);
+  });
+}
+export const floorSwatch = type => floorTex(type).image.toDataURL();
 export function floorTex(type) {
   switch (type) {
     case 'zellige_vert': return imgTex('sol-zellige-vert', '#5f8f78');
@@ -70,6 +111,9 @@ export function floorTex(type) {
     case 'parquet': return imgTex('sol-parquet', '#b07a4c');
     case 'terre': return imgTex('sol-terre-cuite', '#c48a5e');
     case 'marbre': return imgTex('sol-marbre', '#efece6');
+    case 'ciment': return ciment('#2f4f7a', '#c99a3a');
+    case 'bejmat': return bejmat();
+    case 'zellige_rouge': return zellige('#9b2d2d', '#c99a3a');
     default: return imgTex('sol-carrelage-beige', '#e3d6bd');
   }
 }

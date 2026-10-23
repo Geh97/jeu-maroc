@@ -9,7 +9,7 @@ import { parseEdge, furnCenter, footprint } from './world.js';
 
 let renderer, scene, camera, controls, sun, hemi, amb, floorPlane, street;
 const homeG = new THREE.Group(), helpers = new THREE.Group();
-let segs = [], furnGroups = new Map(), lampLights = [], streetLights = [], ch = null, look = null;
+let segs = [], furnGroups = new Map(), lampLights = [], streetLights = [], ch = null, look = null, homeLight = null;
 const npcs = new Map(), animaux = new Map();
 let wallMode = 'coupes', clock = 0, savedCam = null, userMovedAt = -10, follow = false;
 const wallMat = new THREE.MeshStandardMaterial({ color: '#f1ece2', roughness: 0.9 });
@@ -21,6 +21,8 @@ export function initScene(canvas) {
   renderer.setPixelRatio(Math.min(devicePixelRatio, mobile ? 1.25 : 2));
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.25;
   scene = new THREE.Scene();
   scene.background = sky.day.clone();
   scene.fog = new THREE.Fog(scene.background, 60, 150);
@@ -56,10 +58,13 @@ export function initScene(canvas) {
   amb = new THREE.AmbientLight('#ffd49a', 0);
   wallMat.map = T.tadelakt();
   scene.add(hemi, sun, sun.target, amb, homeG, helpers);
-  for (let i = 0; i < 4; i++) {
+  for (let i = 0; i < 8; i++) {
     const l = new THREE.PointLight('#ffb35c', 0, 6, 2);
     scene.add(l); lampLights.push(l);
   }
+  // Le soir, une lumière chaude baigne tout l'appartement.
+  homeLight = new THREE.PointLight('#ffd9a6', 0, 16, 1.3);
+  homeLight.position.set(W / 2, 2.4, D / 2); scene.add(homeLight);
   setQuartier({ quartier: 'populaire', withHome: true, vehicule: null, npcs: [] });
   floorPlane = new THREE.Mesh(new THREE.PlaneGeometry(X1 - X0 + 60, Z1 + 60), new THREE.MeshBasicMaterial({ visible: false }));
   floorPlane.rotation.x = -Math.PI / 2;
@@ -277,6 +282,7 @@ function daylight(t) {
   else col.copy(sky.night);
   scene.fog.color.copy(col);
   for (const l of lampLights) l.intensity = l.userData.on ? (1 - day) * 6 + 0.4 : 0;
+  if (homeLight) homeLight.intensity = homeG.visible ? (1 - day) * 6 : 0;
   for (const l of streetLights) l.intensity = (1 - day) * 14;
   for (const g of furnGroups.values()) if (g.userData.glow) g.userData.glow.emissiveIntensity = 0.5 + (1 - day) * 1.8;
   for (const l of street.userData.lamps || []) l.mat.emissiveIntensity = (0.3 + (1 - day) * 1.6) * (l.k || 1);
