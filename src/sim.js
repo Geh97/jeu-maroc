@@ -4,9 +4,9 @@ import {
   MARCHE, LIEUX, RUE, CAFE, HANOUT, BOUTIQUES, NPCS, PASSANTS, SALUTS, X0, X1, D, matchEnCours, relLabel,
   MILIEUX, POCHE, EPARGNE_TAUX, DARET, BOULOTS, VENTE, VENTE_MAX, ACHETEURS, ANIMAUX, ADOPT_SEUIL,
   SUJETS, GOUTS, REPONSES, EVENEMENTS, PLATS_SUCRES, TAXI, SORTIES, MARCHANDAGE, OUTFIT_COLORS,
-  QUARTIERS, NPCS_ANFA, GOUTS_ANFA, BOULOTS_ANFA, CAUTION_SEMAINES, VEHICULES, NPCS_CORNICHE, GOUTS_CORNICHE, PLAGE, PLAGE_ACTS,
+  QUARTIERS, NPCS_ANFA, GOUTS_ANFA, BOULOTS_ANFA, CAUTION_SEMAINES, VEHICULES, NPCS_CORNICHE, GOUTS_CORNICHE, PLAGE, PLAGE_ACTS, NPCS_MAARIF, GOUTS_MAARIF,
 } from './data.js';
-const GOUTS_ALL = { ...GOUTS, ...GOUTS_ANFA, ...GOUTS_CORNICHE }, BOULOTS_ALL = [...BOULOTS, ...BOULOTS_ANFA];
+const GOUTS_ALL = { ...GOUTS, ...GOUTS_ANFA, ...GOUTS_CORNICHE, ...GOUTS_MAARIF }, BOULOTS_ALL = [...BOULOTS, ...BOULOTS_ANFA];
 import * as Wd from './world.js';
 import { initSocial, socialMinute, remarque, rep, remiseHanout, creditPossible, evite } from './social.js';
 import { initFetes, fetesMinute, calendrier, ramadan, jeune, rompreJeune, cafeRamadan, finTravail, ferie } from './fetes.js';
@@ -57,7 +57,7 @@ export const revenu = k => milieu().revenus.includes(k);
 export const Q = () => QUARTIERS[G.s.quartier];
 export const homeHere = () => G.s.quartier === G.s.chezMoi;
 export const prix = p => Math.round(p * Q().coeff);
-export const npcDefs = (q = G.s.quartier) => (q === 'anfa' ? NPCS_ANFA : q === 'corniche' ? NPCS_CORNICHE : NPCS).concat(q === G.s.chezMoi ? collegueDefs(G.s.milieu) : [], q === G.s.quartier ? amourNpcDefs() : []);
+export const npcDefs = (q = G.s.quartier) => (q === 'anfa' ? NPCS_ANFA : q === 'corniche' ? NPCS_CORNICHE : q === 'maarif' ? NPCS_MAARIF : NPCS).concat(q === G.s.chezMoi ? collegueDefs(G.s.milieu) : [], q === G.s.quartier ? amourNpcDefs() : []);
 // Quand la liste des gens du quartier change (une rencontre, un mariage), on la reconstruit sans perdre ceux qui sont là.
 export function refreshNpcs() {
   if (!G.s || !G.npcs) return;
@@ -67,8 +67,15 @@ export function refreshNpcs() {
   hooks.quartierChanged();
 }
 // Le loyer hebdomadaire : celui du milieu dans le quartier d'origine, sinon celui du quartier.
-const loyerMilieu = () => (G.s.independant && milieu().loyerSeul ? milieu().loyerSeul : milieu().loyer);
-export const loyerHebdo = (q = G.s.chezMoi) => Math.round((q === 'populaire' ? loyerMilieu() : Math.max(700, loyerMilieu()) * QUARTIERS[q].loyer) * (G.s.loyerMult || 1));
+// Le quartier où l'on commence, selon le milieu.
+export const quartierOrigine = m => ({ populaire: 'populaire', moyen: 'maarif', aise: 'anfa' }[m] || 'populaire');
+// Le loyer : rien chez les parents ; sinon celui du milieu, multiplié par le standing du quartier.
+export const loyerHebdo = (q = G.s.chezMoi) => {
+  const s = G.s;
+  if (s.milieu === 'aise') return s.independant ? Math.round(milieu().loyerSeul * (q === 'anfa' ? 1 : 0.5) * (s.loyerMult || 1)) : 0;
+  const base = q === 'populaire' ? milieu().loyer : Math.max(700, milieu().loyer) * QUARTIERS[q].loyer;
+  return Math.round(base * (s.loyerMult || 1));
+};
 export const vehicule = () => (G.s.vehicule ? VEHICULES[G.s.vehicule] : null);
 
 // ---------- Partie ----------
@@ -84,7 +91,7 @@ export function newGame(look) {
     job: { level: 0, perf: 40, day: -1, week: 0, absences: 0, competence: 0, collegues: 50 },
     rel: {}, ventes: { day: -1 }, boulots: { day: -1 }, daret: null, epargne: 0, autoWork: false,
     animaux: {}, stock: {}, home, pos: center(ent), away: null, lastBill: 0, autonomy: true,
-    quartier: 'populaire', chezMoi: 'populaire', visites: { populaire: true }, vehicule: null, pratique: look.pratique || 'occasionnel',
+    quartier: quartierOrigine(m), chezMoi: quartierOrigine(m), origine: quartierOrigine(m), visites: { [quartierOrigine(m)]: true }, vehicule: null, pratique: look.pratique || 'occasionnel',
   };
   initSocial(G.s);
   initTravail(G.s);
@@ -124,6 +131,7 @@ export function load() {
     if (s.job.competence == null) { s.job.competence = 0; s.job.collegues = 50; }
     if (!s.stock) s.stock = {};
     if (!s.quartier) { s.quartier = 'populaire'; s.chezMoi = 'populaire'; s.visites = { populaire: true }; s.vehicule = null; }
+    if (!s.origine) s.origine = s.chezMoi;
     initSocial(s);
     initTravail(s);
     initFetes(s);

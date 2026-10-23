@@ -573,7 +573,7 @@ function lieuActuel() {
   if (c && c.stage === 'do' && c.it.kind === 'cafe') return 'cafe';
   if (c && c.it && c.it.kind === 'plage') return 'plage';
   if (homeHere() && isHome()) return 'maison';
-  return { populaire: 'rue', anfa: 'anfa', corniche: 'plage' }[s.quartier];
+  return { populaire: 'rue', maarif: 'rue', anfa: 'anfa', corniche: 'plage' }[s.quartier];
 }
 const okCond = (c, s) => (!c.cond || c.cond(s));
 
@@ -667,7 +667,7 @@ function amourTick(lieu, d) {
     hooks.sortieEvent({ titre: def.titre, img: { rue: 'illu-cafe', cafe: 'illu-cafe', anfa: 'illu-californie', plage: 'illu-plage' }[lieu], texte: def.texte(c), choix }, i => {
       const ch = choix[i];
       if (!ch.cand) { toast('Tu restes dans ton coin.'); return; }
-      v.amour = { ...ch.cand, lieu, etape: 1, score: 20, sorties: 0, famille: 'inconnue', depuis: d, next: d + 2 + Math.floor(Math.random() * 3) };
+      v.amour = { ...ch.cand, lieu, quartier: s.quartier, etape: 1, score: 20, sorties: 0, famille: 'inconnue', depuis: d, next: d + 2 + Math.floor(Math.random() * 3) };
       s.needs.moral = clampv(s.needs.moral + 6, 0, 100);
       refreshNpcs();
       toast(`${ch.cand.nom}. ${ch.cand.desc} Vous avez parlé dix minutes. Tu y repenses le soir.`, 'good');
@@ -733,7 +733,7 @@ const QUARTIER_DE = { rue: 'populaire', cafe: 'populaire', anfa: 'anfa', plage: 
 // Dans le quartier de la rencontre, du numéro jusqu'aux fiançailles : on la croise dans la rue et au café.
 export function amourNpcDefs() {
   const a = G.s.vie && G.s.vie.amour;
-  if (!a || a.etape < 2 || a.etape >= 6 || QUARTIER_DE[a.lieu] !== G.s.quartier) return [];
+  if (!a || a.etape < 2 || a.etape >= 6 || (a.quartier || QUARTIER_DE[a.lieu]) !== G.s.quartier) return [];
   return [{ id: a.id, nom: a.nom, desc: a.desc, look: a.look, porte: { x: a.lieu === 'anfa' ? -8 : 27, z: 9 }, sorties: [[12, 14], [17.5, 20.5]], cafe: 0.7, lignes: a.lignes || ['Content(e) de te voir.'], amour: true }];
 }
 export const isConjoint = id => { const a = G.s.vie && G.s.vie.amour; return !!a && a.etape >= 6 && a.id === id; };

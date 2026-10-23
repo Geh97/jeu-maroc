@@ -46,7 +46,7 @@ export const OBJECTIFS = [
   { id: 'corniche', theme: 'La ville', nom: 'L\'air de la mer', desc: 'Aller à la corniche.', check: s => !!s.visites.corniche, prime: { moral: 6 } },
   { id: 'bain', theme: 'La ville', nom: 'Un bain de mer', desc: 'Se baigner à la plage.', check: () => F().bain, prime: { moral: 8 } },
   { id: 'foot', theme: 'La ville', nom: 'Le match sur le sable', desc: 'Jouer au foot à la plage.', check: () => F().foot, prime: { moral: 8 } },
-  { id: 'demenager', theme: 'La ville', nom: 'Changer de vie', desc: 'Déménager dans un autre quartier.', check: s => s.chezMoi !== 'populaire', prime: { moral: 12 } },
+  { id: 'demenager', theme: 'La ville', nom: 'Changer de vie', desc: 'Déménager dans un autre quartier.', check: s => s.chezMoi !== (s.origine || 'populaire'), prime: { moral: 12 } },
 ];
 
 export function initObjectifs(s) {

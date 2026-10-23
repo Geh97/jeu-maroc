@@ -121,6 +121,14 @@ export const BOUTIQUES = {
       intro: 'Tout sous un même toit, chariot compris, de 8 h à 22 h. Les prix d\'Anfa, sans discussion.',
       articles: art(Object.keys(ARTICLES)) },
   ],
+  maarif: [
+    { id: 'superette', nom: 'Supérette du Maârif', img: 'illu-hanout', npc: null, ouvre: 8, ferme: 22, porte: { x: RUE.hanout.porte, z: D }, devant: { x: RUE.hanout.porte, z: D + 1 },
+      intro: 'Presque tout, en rayon, de 8 h à 22 h. Un peu plus cher qu\'au quartier, moins qu\'à Anfa.',
+      articles: art(['tartines', 'oeufs', 'salade', 'the', 'pates', 'bissara', 'loubia', 'kefta', 'harira', 'tajine', 'couscous', 'snack', 'patee']) },
+    { id: 'boulangerie', nom: 'Boulangerie du Maârif', img: 'illu-hanout', npc: null, ouvre: 6, ferme: 20, porte: { x: RUE.mahlaba.porte, z: D }, devant: { x: RUE.mahlaba.porte, z: D + 1 },
+      intro: 'Pain, msemen, batbout et gâteaux, dès 6 h du matin. L\'odeur arrive jusqu\'au troisième étage.',
+      articles: art(['tartines', 'msemen', 'batbout', 'chebakia', 'snack'], { snack: { nom: 'Sandwich du jour', detail: 'Un casse-croûte, sans cuisiner', prix: 22 } }) },
+  ],
   corniche: [
     { id: 'kiosque', nom: 'Épicerie de la plage', img: 'illu-plage', npc: null, ouvre: 9, ferme: 21, porte: { x: RUE.hanout.porte, z: D }, devant: { x: RUE.hanout.porte, z: D + 1 },
       intro: 'Le strict nécessaire, de 9 h à 21 h, et de l\'eau fraîche. Les prix de la plage.',
@@ -429,7 +437,7 @@ export const MILIEUX = {
   },
   moyen: {
     nom: 'Classe moyenne', argent: 5000, loyer: 700, facture: 120,
-    desc: 'Un emploi de bureau, un loyer à payer, et des voisins qui peuvent te proposer des cours particuliers ou des missions. La daret aide pour les gros achats.',
+    desc: 'Un appartement au Maârif, un emploi de bureau, un loyer à payer, et des voisins qui peuvent te proposer des cours particuliers ou des missions. La daret aide pour les gros achats.',
     revenus: ['cours', 'daret'],
     jobs: [
       { titre: 'Assistant(e) administratif(ve)', salaire: 1300 },
@@ -438,7 +446,7 @@ export const MILIEUX = {
     ],
   },
   aise: {
-    nom: 'Famille aisée', argent: 40000, loyer: 0, loyerSeul: 1200, facture: 200,
+    nom: 'Famille aisée', argent: 40000, loyer: 0, loyerSeul: 2500, facture: 200,
     desc: 'Tu vis chez tes parents : ta mère cuisine, ton père veille, et l\'argent de poche tombe tant que tu vas au travail. Un poste dans l\'entreprise familiale, un compte épargne, et l\'indépendance à gagner avec le temps.',
     revenus: ['poche', 'epargne'],
     jobs: [
@@ -583,6 +591,13 @@ export const QUARTIERS = {
     trajet: { petit: { prix: 40, dur: 25 }, grand: { prix: 12, dur: 35 } },
     accueil: { populaire: 'On te regarde de haut, ici. Il faudra faire tes preuves.', moyen: 'Les gens sont polis, sans plus.', aise: 'Tu es chez toi, ici.' },
   },
+  maarif: {
+    nom: 'Le Maârif', article: 'au Maârif', coeff: 1.6, loyer: 1.15, habitable: true, icone: 'icone-quartier-maarif', illu: 'illu-travail',
+    desc: 'Immeubles récents, balcons vitrés, platanes, une pharmacie, une supérette, une boulangerie et un café où le thé coûte trente dirhams. Le quartier de la classe moyenne.',
+    cafeNom: 'Café Maârif', boutiqueNom: 'Supérette du Maârif', regard: { populaire: 0.85, moyen: 1, aise: 1 },
+    trajet: { petit: { prix: 30, dur: 20 }, grand: { prix: 10, dur: 30 } },
+    accueil: { populaire: 'Les gens sont polis, mais personne ne te connaît.', moyen: 'Tu es chez toi : l\'immeuble, le gardien, le café d\'en bas.', aise: 'Ça manque un peu de verdure, mais on y vit bien.' },
+  },
   corniche: {
     nom: 'La corniche', article: 'à la corniche', coeff: 2, loyer: 0, habitable: false, icone: 'icone-plage', illu: 'illu-plage',
     desc: 'Aïn Diab : la plage, les parasols, un match de foot sur le sable, les cafés face à l\'océan et le phare au bout de la jetée.',
@@ -714,4 +729,43 @@ export const GOUTS_CORNICHE = {
   youssef: { nouvelles: 1, quartier: 1, foot: 0, blague: 1, confier: 1 },
   imane: { nouvelles: 1, quartier: 0, foot: 0, blague: 1, confier: 1 },
   moh: { nouvelles: 1, quartier: 1, foot: 1, blague: -1, confier: 0 },
+};
+export const NPCS_MAARIF = [
+  {
+    id: 'rkia', nom: 'Lalla Rkia', desc: 'Retraitée du troisième. Elle arrose ses géraniums et surveille la rue depuis son balcon.',
+    look: { skin: '#d19e78', hair: 'foulard', scarfColor: '#7a2e3a', outfit: 'caftan', outfitColor: '#2e6b57' },
+    porte: { x: -8, z: D }, sorties: [[9, 11], [17, 19]], cafe: 0.3,
+    lignes: ['Avant, ici, c\'était un quartier calme. Maintenant, les voitures…', 'Tu as vu le nouveau café ? Trente dirhams le thé !', 'Mon fils vit à Montréal. Il appelle le dimanche.', 'Si tu as besoin de quelque chose, troisième étage, à droite.'],
+  },
+  {
+    id: 'hicham', nom: 'Hicham', desc: 'Jeune cadre du quatrième, toujours pressé, toujours au téléphone. Il connaît tout le monde au bureau.',
+    look: { skin: '#b07a55', hair: 'courte', hairColor: '#1d1714', outfit: 'costume', outfitColor: '#2f4f7a' },
+    porte: { x: 27, z: D }, sorties: [[7.5, 8.5], [18.5, 21]], cafe: 0.8,
+    lignes: ['Désolé, un appel. Je reviens.', 'Le marché de l\'emploi bouge, en ce moment. Il faut être prêt.', 'Un café en terrasse, c\'est ma seule pause de la journée.', 'Si tu cherches un poste, dis-le-moi. Je connais des gens.'],
+  },
+  {
+    id: 'amina', nom: 'Amina', desc: 'Infirmière à la clinique d\'à côté. Les horaires décalés, le sourire quand même.',
+    look: { skin: '#e6b994', hair: 'attachee', hairColor: '#3b2618', outfit: 'jean', outfitColor: '#f2ede3' },
+    porte: { x: -8, z: D }, sorties: [[12, 13.5], [19, 21]], cafe: 0.5,
+    lignes: ['Garde de nuit hier. Je ne sais plus quel jour on est.', 'Mange des légumes. Je le dis à tout le monde, mais quand même.', 'La clinique cherche du monde, si tu connais quelqu\'un.', 'Le dimanche, je dors. C\'est sacré.'],
+  },
+  {
+    id: 'gardien', nom: 'Si Brahim', desc: 'Le gardien de l\'immeuble. Il connaît les voitures, les visiteurs et les retards de loyer.',
+    look: { skin: '#8a5a3c', hair: 'rasee', hairColor: '#9a958f', outfit: 'djellaba', outfitColor: '#8c6a4f' },
+    porte: { x: 2, z: D + 13 }, sorties: [[7, 22]], cafe: 0.1, poste: { x: 14, z: D + 1 },
+    lignes: ['Le syndic passe demain. Dis-le aux autres.', 'J\'ai gardé ton colis, il est dans la loge.', 'Il y a une place qui se libère au parking, si ça t\'intéresse.', 'La nuit, c\'est moi qui ferme. Rentre avant minuit, c\'est plus simple.'],
+  },
+  {
+    id: 'samir', nom: 'Samir', desc: 'Le serveur du café Maârif. Il retient les commandes de tout le monde et les prénoms de personne.',
+    look: { skin: '#b07a55', hair: 'courte', hairColor: '#1d1714', outfit: 'jean', outfitColor: '#1f232a' },
+    porte: { x: CAFE.porte.x, z: D }, sorties: [[7, 23]], serveur: true, cafe: 0,
+    lignes: ['Un noisette, comme d\'habitude ?', 'La terrasse, c\'est 5 DH de plus. C\'est le patron.', 'Le wifi, c\'est le nom du café, sans espace.', 'Le match de ce soir, on le met sur le grand écran.'],
+  },
+];
+export const GOUTS_MAARIF = {
+  rkia: { nouvelles: 1, quartier: 1, foot: -1, blague: 0, confier: 1 },
+  hicham: { nouvelles: 1, quartier: 0, foot: 1, blague: 1, confier: 0 },
+  amina: { nouvelles: 0, quartier: 1, foot: 0, blague: 1, confier: 1 },
+  gardien: { nouvelles: 1, quartier: 1, foot: 1, blague: 0, confier: 0 },
+  samir: { nouvelles: 1, quartier: 1, foot: 1, blague: 1, confier: 0 },
 };

@@ -1,7 +1,7 @@
 // Démarrage, boucle de jeu et gestion du toucher / de la souris.
 import { SPEEDS, PLAGE_ACTS } from './data.js';
 import {
-  G, hooks, newGame, load, save, wipe, advance, view, enqueue, enqueueWork, cancelAll, isHome, homeHere, npcDefs, demenager, acheterVehicule,
+  G, hooks, newGame, load, save, wipe, advance, view, enqueue, enqueueWork, cancelAll, isHome, homeHere, npcDefs, demenager, acheterVehicule, quartierOrigine,
   availableActions, doorActions, chairActions, npcActions, animalActions,
 } from './sim.js';
 import { defaultHome, entrance, doorstep } from './world.js';
@@ -66,7 +66,7 @@ function creation() {
   let shown = null;
   const refresh = l => {
     S.setCharLook(l);
-    if (shown !== l.milieu) { shown = l.milieu; S.rebuildHome(defaultHome(l.milieu)); }
+    if (shown !== l.milieu) { shown = l.milieu; S.setQuartier({ quartier: quartierOrigine(l.milieu), withHome: true, vehicule: null, npcs: [] }); S.rebuildHome(defaultHome(l.milieu)); }
   };
   refresh(look);
   preview = { visible: true, x: 4.5, z: 6.2, yaw: 0, pose: { base: 'stand' }, walkPhase: 0, t: 11 * 60, active: null, npcs: [], animaux: [] };

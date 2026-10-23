@@ -455,16 +455,17 @@ export function guirlandes() {
   return g;
 }
 export function makeStreet(opts = {}) {
-  const quartier = opts.quartier || 'populaire', anfa = quartier === 'anfa', corniche = quartier === 'corniche', chic = anfa || corniche, withHome = opts.withHome !== false;
+  const quartier = opts.quartier || 'populaire', anfa = quartier === 'anfa', corniche = quartier === 'corniche', maarif = quartier === 'maarif', chic = anfa || corniche, withHome = opts.withHome !== false;
   const g = new THREE.Group();
-  const ground = new THREE.Mesh(new THREE.PlaneGeometry(200, 200), mat(chic ? '#e4dac4' : '#cdbfa6'));
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(200, 200), mat(chic ? '#e4dac4' : maarif ? '#d6d2ca' : '#cdbfa6'));
   ground.rotation.x = -Math.PI / 2; ground.position.set(W / 2, -0.02, D / 2); ground.receiveShadow = true; g.add(ground);
   const plane = (w, d, m, x, z, y = 0) => {
     const p = new THREE.Mesh(new THREE.PlaneGeometry(w, d), m); p.rotation.x = -Math.PI / 2; p.position.set(x, y, z); p.receiveShadow = true; g.add(p); return p;
   };
   const cx = (X0 + X1) / 2, len = X1 - X0 + 40;
   const tr = T.dallage().clone(); tr.repeat.set(len / 2, 1.5); tr.needsUpdate = true;
-  const trM = chic ? dallageChic(len / 2, 1) : new THREE.MeshStandardMaterial({ map: tr, roughness: 0.9 });
+  const trt = T.trottoir().clone(); trt.repeat.set(len / 2, 1.5); trt.needsUpdate = true;
+  const trM = chic ? dallageChic(len / 2, 1) : maarif ? new THREE.MeshStandardMaterial({ map: trt, roughness: 0.9 }) : new THREE.MeshStandardMaterial({ map: tr, roughness: 0.9 });
   plane(len, 3, trM, cx, D + 1.5, 0.005);
   box(g, len, 0.15, 0.25, mat(chic ? '#e9e2d3' : '#bdb5a6'), cx, 0.06, D + 3);
   const as = T.asphalte().clone(); as.repeat.set(len / 2, 4); as.needsUpdate = true;
@@ -479,10 +480,12 @@ export function makeStreet(opts = {}) {
   // Quand on n'habite pas ici, l'emplacement de l'appartement est un immeuble comme les autres.
   if (!withHome) {
     if (chic) villa(g, 0, W, D, 6);
+    else if (maarif) immeuble(g, W / 2, 1.5, W, 15, 16.6, 1, 8, 0);
     else { building(g, W / 2, 1.5, W, 15, 7.6, 1, 5, 0); door(g, 5, D, '#5a3423', 1.2); }
   }
   if (anfa) return anfaStreet(g, opts, plane);
   if (corniche) return cornicheStreet(g, opts, plane);
+  if (maarif) return maarifStreet(g, opts, plane);
 
   // Notre pâté de maisons : deux immeubles de part et d'autre de l'appartement, boutiques au rez-de-chaussée.
   const lw = 12 - X0, rw = X1 + 12 - W;
@@ -794,11 +797,11 @@ function boucherie(g, B) {
   wallLantern(g, B.porte + 0.5, 2.9, D);
 }
 // Le supermarché d'Anfa : grande vitrine, bandeau orange, portes vitrées, chariots et rayon de fruits derrière la vitre.
-function supermarche(g, x0, x1) {
+function supermarche(g, x0, x1, id = 'supermarche', couleur = '#e8641a') {
   const w = x1 - x0, cx = (x0 + x1) / 2, H = RUE.hanout;
   box(g, w, 4.8, 9, murVilla(2, 1), cx, 2.4, D - 4.5);
   box(g, w + 0.4, 0.22, 9.4, mat('#e9e2d3'), cx, 4.91, D - 4.5);
-  box(g, w - 0.2, 0.7, 0.1, mat('#e8641a'), cx, 3.6, D + 0.06);
+  box(g, w - 0.2, 0.7, 0.1, mat(couleur), cx, 3.6, D + 0.06);
   box(g, w - 0.2, 0.05, 0.14, mat('#f7f4ee'), cx, 3.25, D + 0.07);
   const vit = new THREE.Group(); g.add(vit);
   box(vit, w - 0.6, 2.6, 0.06, new THREE.MeshStandardMaterial({ color: '#34414f', emissive: '#ffe3b0', emissiveIntensity: 0.18, roughness: 0.15, metalness: 0.2 }), cx, 1.55, D + 0.04);
@@ -811,7 +814,7 @@ function supermarche(g, x0, x1) {
     box(vit, w - 1.4, 0.04, 0.5, mat('#d9d2c2'), cx, 0.7 + i * 0.65, D - 0.5);
     for (let j = 0; j < 8; j++) box(vit, 0.35, 0.45, 0.3, mat(['#e8641a', '#c8102e', '#2e6b57', '#e0a526', '#2f4f7a', '#f2ede3'][(i + j) % 6]), x0 + 1 + j * (w - 2) / 7, 0.95 + i * 0.65, D - 0.5);
   }
-  vit.traverse(o => { o.userData.hanout = 'supermarche'; });
+  vit.traverse(o => { o.userData.hanout = id; });
   for (let i = 0; i < 3; i++) {
     const c = new THREE.Group(); c.position.set(x1 - 0.8, 0, D + 0.8 + i * 0.5); g.add(c);
     box(c, 0.5, 0.45, 0.7, mat('#9aa3ad', { metalness: 0.5, roughness: 0.4 }), 0, 0.6, 0);
@@ -837,4 +840,118 @@ function kiosque(g, x0, x1) {
   for (const dx of [-0.6, 0.6]) { const b = box(g, 0.08, 1.8, 0.08, mat('#f7f4ee'), x1 - 1.2 + dx, 0.9, D + 0.6); const p = box(g, 0.45, 1.4, 0.06, mat(dx < 0 ? '#e0a526' : '#2f4f7a'), x1 - 1.2 + dx, 0.9, D + 0.66); p.rotation.x = -0.25; }
   parasol(g, x0 + 1, D + 1.2, 2.3, 1.1);
   jardiniere(g, x1 - 0.6, D + 2.5, true);
+}
+
+// ---------- Le Maârif : la classe moyenne, immeubles récents, commerces et platanes ----------
+// Immeuble moderne : façade claire, balcons filants à garde-corps de verre, grandes fenêtres, toit-terrasse.
+function immeuble(g, x, z, w, d, h, face, seed, y0 = 0) {
+  const b = new THREE.Group(); b.position.set(x, 0, z); g.add(b);
+  const col = ['#f3efe6', '#ece4d6', '#f6f2ea', '#e9e3d8'][seed % 4];
+  box(b, w, h - y0, d, platre(col, w / 3, (h - y0) / 3), 0, y0 + (h - y0) / 2, 0);
+  const fz = face * (d / 2), cream = mat(CREME);
+  if (!y0) { box(b, w - 1, 2.6, 0.06, mat('#2b3440', { roughness: 0.15 }), 0, 1.5, fz + face * 0.03); box(b, 1.2, 2.3, 0.08, mat('#1f232a'), 0, 1.15, fz + face * 0.06); }
+  for (const dx of [-w / 2 + 0.12, w / 2 - 0.12]) box(b, 0.24, h - y0, 0.1, mat('#d9d2c2'), dx, y0 + (h - y0) / 2, fz + face * 0.04);
+  box(b, w + 0.2, 0.5, 0.15, cream, 0, h + 0.25, fz);
+  cyl(b, 0.06, 0.06, h - y0 - 0.4, mat('#8a8a86'), w / 2 - 0.5, y0 + (h - y0) / 2, fz + face * 0.1, 8);
+  let row = 0;
+  for (let fy = y0 + 1.6; fy < h - 1; fy += 3, row++) {
+    // Le balcon filant et son garde-corps de verre.
+    box(b, w - 0.6, 0.16, 1.0, cream, 0, fy - 1.0, fz + face * 0.5);
+    box(b, w - 0.7, 0.9, 0.03, GLASS(), 0, fy - 0.45, fz + face * 0.98);
+    box(b, w - 0.6, 0.04, 0.06, mat('#9aa3ad', { metalness: 0.6 }), 0, fy, fz + face * 0.98);
+    for (let fx = -w / 2 + 1.4; fx < w / 2 - 1; fx += 2.6) {
+      box(b, 1.7, 1.6, 0.08, mat('#f8f3e8'), fx, fy + 0.3, fz + face * 0.02);
+      box(b, 1.5, 1.4, 0.06, mat('#2b3440', { roughness: 0.2 }), fx, fy + 0.3, fz + face * 0.06);
+      box(b, 0.05, 1.4, 0.07, mat('#f8f3e8'), fx, fy + 0.3, fz + face * 0.07);
+      if ((seed + row + Math.round(fx)) % 3 === 0) { const p = makeFurniture('plante'); p.scale.set(0.5, 0.5, 0.5); p.position.set(fx + 0.6, fy - 0.92, fz + face * 0.5); b.add(p); }
+      if ((seed + row + Math.round(fx)) % 4 === 1) box(b, 0.5, 0.9, 0.02, mat(['#2f4f7a', '#f2ede3', '#c99a3a'][(seed + row) % 3], { side: THREE.DoubleSide }), fx - 0.9, fy - 0.5, fz + face * 0.9);
+    }
+  }
+  rooftop(b, 0, 0, w, d, h, seed);
+  return b;
+}
+// Platane : tronc clair tacheté et grosse couronne ronde.
+function platane(g, x, z) {
+  cyl(g, 0.14, 0.2, 2.6, mat('#b9a98a'), x, 1.3, z, 8);
+  for (let i = 0; i < 5; i++) sph(g, 0.05, mat('#8f8366'), x + Math.cos(i * 2) * 0.16, 0.5 + i * 0.4, z + Math.sin(i * 2) * 0.16);
+  sph(g, 1.5, mat('#4f8a3a'), x, 3.8, z); sph(g, 1.1, mat('#5e9c45'), x + 0.7, 4.4, z - 0.4); sph(g, 1.0, mat('#44793a'), x - 0.8, 4.2, z + 0.5);
+}
+// La boulangerie moderne : store beige, vitrine de pains et de viennoiseries.
+function boulangerie(g, B) {
+  awning(g, B.x0, B.x1, D, 1.2, 2.75, T.rayures('#8a5a3b', '#f2ede3'));
+  box(g, B.x1 - B.x0 - 0.4, 0.45, 0.08, mat('#6b4430'), (B.x0 + B.x1) / 2, 3.25, D + 0.04);
+  door(g, B.porte, D, '#6b4430', 1.2, 'hanout:boulangerie', false);
+  const vit = new THREE.Group(); g.add(vit);
+  box(vit, 2.6, 1.4, 0.06, mat('#3a3d44', { roughness: 0.3 }), B.porte + 2.3, 1.55, D + 0.03);
+  box(vit, 2.6, 0.1, 0.3, mat('#f8f3e8'), B.porte + 2.3, 0.85, D + 0.12);
+  for (let i = 0; i < 5; i++) { const p = sph(vit, 0.12, mat(i % 2 ? '#d9a35c' : '#c58a45'), B.porte + 1.3 + i * 0.5, 1.0, D + 0.14); p.scale.set(1.4, 0.7, 1); }
+  for (let i = 0; i < 4; i++) { const b = cyl(vit, 0.05, 0.05, 0.6, mat('#d7a35c'), B.porte + 1.4 + i * 0.6, 1.7, D + 0.1, 8); b.rotation.z = 0.5; }
+  vit.traverse(o => { o.userData.hanout = 'boulangerie'; });
+  wallLantern(g, B.porte + 0.5, 2.9, D);
+}
+// La pharmacie : façade blanche et croix verte lumineuse (décor).
+function pharmacie(g, x0, x1) {
+  const cx = (x0 + x1) / 2;
+  box(g, x1 - x0 - 0.4, 0.5, 0.08, mat('#f7f4ee'), cx, 3.25, D + 0.04);
+  box(g, x1 - x0 - 1.2, 2.2, 0.06, mat('#2b3440', { roughness: 0.15 }), cx, 1.5, D + 0.03);
+  for (let i = 0; i < 3; i++) box(g, 0.08, 2.2, 0.08, mat('#f7f4ee'), x0 + 0.6 + i * (x1 - x0 - 1.2) / 2, 1.5, D + 0.04);
+  const g2 = new THREE.MeshStandardMaterial({ color: '#2fbf71', emissive: '#1fa05a', emissiveIntensity: 0.6 });
+  box(g, 0.7, 0.2, 0.08, g2, cx, 3.25, D + 0.1); box(g, 0.2, 0.7, 0.08, g2, cx, 3.25, D + 0.1);
+  door(g, Math.round(cx) - 1, D, '#f7f4ee', 1.2, null, false);
+  g.userData.lamps = g.userData.lamps || []; g.userData.lamps.push({ mat: g2, small: true, k: 0.5 });
+}
+// Le jardin du quartier : pelouse, allées, bancs, platanes et un toboggan pour les enfants.
+function jardin(g, P) {
+  const lawn = new THREE.Mesh(new THREE.PlaneGeometry(P.x1 - P.x0, P.z1 - P.z0), pelouseMat(4, 2));
+  lawn.rotation.x = -Math.PI / 2; lawn.position.set((P.x0 + P.x1) / 2, 0.006, (P.z0 + P.z1) / 2); lawn.receiveShadow = true; g.add(lawn);
+  const path = new THREE.Mesh(new THREE.PlaneGeometry(P.x1 - P.x0 - 2, 1.2), dallageChic(6, 0.5));
+  path.rotation.x = -Math.PI / 2; path.position.set((P.x0 + P.x1) / 2, 0.008, P.fontaine.z + 0.5); g.add(path);
+  const path2 = new THREE.Mesh(new THREE.PlaneGeometry(1.2, P.z1 - P.z0 - 1), dallageChic(0.5, 3));
+  path2.rotation.x = -Math.PI / 2; path2.position.set(P.fontaine.x, 0.008, (P.z0 + P.z1) / 2); g.add(path2);
+  for (const o of P.orangers) platane(g, o.x + 0.5, o.z + 0.5);
+  for (const b of P.bancs) bench(g, b.x + 1, b.z + 0.5, b.r);
+  // Le toboggan et le bac à sable, à la place de la fontaine.
+  const F = P.fontaine, sx = F.x + 2, sz = F.z + 2;
+  box(g, 3.6, 0.1, 3.6, mat('#ecd7a6'), sx, 0.05, sz);
+  for (const [dx, dz] of [[-0.8, -0.8], [0.8, -0.8]]) box(g, 0.1, 1.6, 0.1, mat('#2f4f7a'), sx + dx, 0.8, sz + dz);
+  box(g, 1.4, 0.08, 0.9, mat('#2f4f7a'), sx, 1.6, sz - 0.8);
+  const slide = box(g, 0.8, 0.06, 2.2, mat('#e0a526'), sx, 0.9, sz + 0.4); slide.rotation.x = 0.6;
+  for (let i = 0; i < 5; i++) box(g, 0.5, 0.03, 0.03, mat('#9aa3ad'), sx - 0.8, 0.3 + i * 0.3, sz - 0.8 - i * 0.12);
+  for (const x of [P.x0 + 1, P.x1 - 1]) platane(g, x, P.z1 - 1);
+}
+function maarifStreet(g, opts, plane) {
+  // Notre côté : la pharmacie, la supérette, l'appartement, le café, la boulangerie, et les étages au-dessus.
+  const lw = 12 - X0, rw = X1 + 12 - W;
+  immeuble(g, -lw / 2, 1.5, lw, 15, 16.6, 1, 2, 3.1);
+  immeuble(g, W + rw / 2, 1.5, rw, 15, 16.6, 1, 5, 3.1);
+  box(g, lw, 3.1, 15, platre('#f3efe6', lw / 3, 1), -lw / 2, 1.55, 1.5);
+  box(g, rw, 3.1, 15, platre('#f3efe6', rw / 3, 1), W + rw / 2, 1.55, 1.5);
+  for (const [x0, x1] of [[X0 - 12, 0], [W, X1 + 12]]) box(g, x1 - x0, 0.16, 0.14, mat(CREME), (x0 + x1) / 2, 3.05, D + 0.05);
+  pharmacie(g, RUE.four.x0, RUE.four.x1);
+  supermarche(g, -9, 0, 'superette', '#2e8b57');
+  door(g, RUE.portes[0].x, D, '#1f232a');
+  wallLantern(g, RUE.portes[0].x + 0.5, 2.9, D);
+  cafeChic(g);
+  box(g, CAFE.x1 - CAFE.x0 - 0.4, 0.45, 0.08, mat('#1f232a'), (CAFE.x0 + CAFE.x1) / 2, 3.25, D + 0.04);
+  const M = RUE.mahlaba;
+  boulangerie(g, { x0: M.x0, x1: M.x1, porte: M.porte });
+  // Les étages du bloc d'en face, le jardin, la mosquée, et les immeubles derrière.
+  jardin(g, PLACE);
+  mosque(g, PLACE.mosquee.x0, PLACE.mosquee.x1, PLACE.mosquee.z);
+  let seed = 11;
+  for (let x = X0 - 10; x < X1 + 10; x += 8) {
+    if (x + 3.8 > PLACE.x0 && x - 3.8 < PLACE.x1) continue;
+    immeuble(g, x, D + 18, 7.4, 8, 13 + ((seed * 5) % 3) * 3, -1, seed++);
+  }
+  for (let x = X0 - 10; x < X1 + 10; x += 8) immeuble(g, x, -12, 7.4, 12, 16 + ((seed * 3) % 3) * 3, 1, seed++);
+  for (const p of RUE.portes.slice(2)) door(g, p.x, D + 14 - 0.1, '#1f232a', 1, null, false);
+  // La rue : lampadaires, platanes, voitures garées, l'arrêt de taxi.
+  for (const l of RUE.lampes) lampadaire(g, l.x + 0.5, l.z + 0.5);
+  for (const p of RUE.palmiers) platane(g, p.x + 0.5, p.z + 0.5);
+  for (let x = X0 - 10; x < X1 + 12; x += 7) if (x < 5 || x > 13) jardiniere(g, x, D + 2.55, x % 2 === 0);
+  const B = RUE.banc; bench(g, B.x + 1, B.z + 0.5, 0);
+  voiture(g, -3, D + 4); voitureBlanche(g, 20, D + 4); voiture(g, 29, D + 9.4);
+  arretTaxi(g);
+  collectLamps(g);
+  return g;
 }

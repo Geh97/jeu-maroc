@@ -5,7 +5,7 @@ import {
   MILIEUX, MILIEU_IDS, BOULOTS, VENTE, DARET, POCHE, EPARGNE_TAUX, ANIMAUX, SORTIES, TAXI, QUARTIERS, VEHICULES, CAUTION_SEMAINES,
 } from './data.js';
 import {
-  G, dow, dayIdx, fmtTime, fmtDH, fmtDur, enqueue, cancel, comeBack, awayPhase, basketCost, progress, hanoutOuvert, hanoutCost, boutique, boutiques,
+  G, dow, dayIdx, fmtTime, fmtDH, fmtDur, enqueue, cancel, comeBack, awayPhase, basketCost, progress, hanoutOuvert, hanoutCost, boutique, boutiques, quartierOrigine,
   milieu, jobOf, revenu, joinDaret, epargne, enqueueWork, skipWork, animalName, sortieCost, Q, prix, homeHere, loyerHebdo, vehicule, demenager, acheterVehicule, quartierCost, npcDefs,
 } from './sim.js';
 import { ambiance } from './world.js';
@@ -61,7 +61,7 @@ let queueSig = '';
 export function updateHud() {
   const s = G.s;
   const F = fetesInfo();
-  $('day').textContent = `${JOURS[dow(s.t)]} · jour ${dayIdx(s.t) + 1}${s.quartier !== 'populaire' ? ' · ' + Q().nom : ''}${F.c.ramadan ? ` · Ramadan ${F.c.jourRamadan}` : F.c.aid ? (F.c.aid === 'fitr' ? ' · Aïd el-Fitr' : ' · Aïd el-Adha') : ''}`;
+  $('day').textContent = `${JOURS[dow(s.t)]} · jour ${dayIdx(s.t) + 1}${' · ' + Q().nom}${F.c.ramadan ? ` · Ramadan ${F.c.jourRamadan}` : F.c.aid ? (F.c.aid === 'fitr' ? ' · Aïd el-Fitr' : ' · Aïd el-Adha') : ''}`;
   $('time').textContent = fmtTime(s.t);
   $('money').lastChild.textContent = fmtDH(s.money);
   $('money').classList.toggle('neg', s.money < 0);
@@ -374,10 +374,11 @@ function moneyWays() {
       <div class="bacts"><button class="btn small" data-ep="1000" ${s.money < 1000 ? 'disabled' : ''}>Placer 1 000 DH</button><button class="btn small" data-ep="5000" ${s.money < 5000 ? 'disabled' : ''}>Placer 5 000 DH</button><button class="btn small" data-ep="-1" ${s.epargne ? '' : 'disabled'}>Tout retirer</button></div>`);
   }
   // Logement : où l'on habite, et où l'on pourrait déménager.
-  const autre = s.chezMoi === 'anfa' ? 'populaire' : 'anfa', loyerAutre = loyerHebdo(autre), caution = loyerAutre * CAUTION_SEMAINES;
-  let dem;
-  if (!s.visites[autre]) dem = `Pour louer ${QUARTIERS[autre].article}, il faut d'abord y aller voir (taxi depuis le coin de la rue).`;
-  else dem = `Loyer ${fmtDH(loyerAutre)} par semaine, caution ${fmtDH(caution)} (${CAUTION_SEMAINES} semaines), première semaine d'avance : ${fmtDH(caution + loyerAutre)} à verser. Tes meubles suivent. <button class="btn small primary" data-dem="${autre}" ${s.money < caution + loyerAutre ? 'disabled' : ''}>Déménager ${QUARTIERS[autre].article}</button>`;
+  const dem = Object.keys(QUARTIERS).filter(q => QUARTIERS[q].habitable && q !== s.chezMoi).map(autre => {
+    const loyerAutre = loyerHebdo(autre), caution = loyerAutre * CAUTION_SEMAINES;
+    if (!s.visites[autre]) return `<br>${esc(QUARTIERS[autre].nom)} : il faut d'abord y aller voir (taxi depuis le coin de la rue).`;
+    return `<br>${esc(QUARTIERS[autre].nom)} : loyer ${fmtDH(loyerAutre)} par semaine, caution ${fmtDH(caution)}, première semaine d'avance, soit ${fmtDH(caution + loyerAutre)} à verser. Tes meubles suivent. <button class="btn small primary" data-dem="${autre}" ${s.money < caution + loyerAutre ? 'disabled' : ''}>Déménager ${QUARTIERS[autre].article}</button>`;
+  }).join('');
   const PI = parentsInfo();
   if (PI.chez) h += stat('portrait-mere', `<span>Logement</span><b>Tu habites chez tes parents</b><small>Pas de loyer, les plats de ta mère au frigo, l'argent de poche du dimanche… et le regard de ton père quand tu rentres tard. Prendre ton indépendance coûte ${fmtDH(PI.cout)} (caution et première semaine), puis ${fmtDH(PI.loyer)} de loyer par semaine, sans argent de poche. ${PI.partir.ok ? '' : esc(PI.partir.why)} <button class="btn small primary" data-indep ${PI.partir.ok ? '' : 'disabled'}>Prendre ton indépendance</button></small>`);
   else h += stat('icone-demenagement', `<span>Logement</span><b>Tu habites ${QUARTIERS[s.chezMoi].article}</b><small>${loyerHebdo() ? `Loyer ${fmtDH(loyerHebdo())} par semaine.` : 'Sans loyer.'} ${dem}</small>`);
