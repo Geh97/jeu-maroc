@@ -929,6 +929,22 @@ function maarifStreet(g, opts, plane) {
   for (const [x0, x1] of [[X0 - 12, 0], [W, X1 + 12]]) box(g, x1 - x0, 0.16, 0.14, mat(CREME), (x0 + x1) / 2, 3.05, D + 0.05);
   pharmacie(g, RUE.four.x0, RUE.four.x1);
   supermarche(g, -9, 0, 'superette', '#2e8b57');
+  if (opts.withHome !== false) {
+    // Le rez-de-chaussée de notre immeuble : le hall vitré, les boîtes aux lettres, et la dalle du premier étage où est l'appartement.
+    box(g, W, 3.0, 15, platre('#f3efe6', 4, 1), W / 2, 1.5, 1.5);
+    box(g, W + 0.4, 0.2, 15.4, mat(CREME), W / 2, 3.0, 1.5);
+    box(g, 3.2, 2.5, 0.08, mat('#2b3440', { roughness: 0.15 }), 5.5, 1.25, D + 0.05);
+    for (const dx of [-1.6, 1.6]) box(g, 0.1, 2.5, 0.12, mat('#1f232a'), 5.5 + dx, 1.25, D + 0.06);
+    box(g, 1.2, 2.3, 0.1, mat('#1f232a'), 5.5, 1.15, D + 0.08);
+    box(g, 0.04, 2.3, 0.12, mat('#f7f4ee'), 5.5, 1.15, D + 0.1);
+    for (let i = 0; i < 6; i++) box(g, 0.3, 0.3, 0.06, mat('#9aa3ad', { metalness: 0.5 }), 1.8 + (i % 3) * 0.4, 1.3 + Math.floor(i / 3) * 0.4, D + 0.05);
+    box(g, 2, 1.6, 0.06, mat('#2b3440', { roughness: 0.15 }), 9.5, 1.6, D + 0.05);
+    wallLantern(g, 5.5, 2.75, D);
+    // Le garde-corps du balcon, devant l'appartement.
+    for (let i = 0; i <= 12; i++) box(g, 0.03, 0.9, 0.03, mat('#9aa3ad', { metalness: 0.6 }), i, 3.55, D + 0.25);
+    box(g, W, 0.04, 0.04, mat('#9aa3ad', { metalness: 0.6 }), W / 2, 4.0, D + 0.25);
+    box(g, W, 0.9, 0.02, GLASS(), W / 2, 3.55, D + 0.25);
+  }
   door(g, RUE.portes[0].x, D, '#1f232a');
   wallLantern(g, RUE.portes[0].x + 0.5, 2.9, D);
   cafeChic(g);

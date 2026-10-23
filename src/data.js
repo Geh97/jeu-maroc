@@ -592,7 +592,7 @@ export const QUARTIERS = {
     accueil: { populaire: 'On te regarde de haut, ici. Il faudra faire tes preuves.', moyen: 'Les gens sont polis, sans plus.', aise: 'Tu es chez toi, ici.' },
   },
   maarif: {
-    nom: 'Le Maârif', article: 'au Maârif', coeff: 1.6, loyer: 1.15, habitable: true, icone: 'icone-quartier-maarif', illu: 'illu-travail',
+    nom: 'Le Maârif', article: 'au Maârif', coeff: 1.6, loyer: 1.15, habitable: true, icone: 'icone-quartier-maarif', illu: 'illu-maarif',
     desc: 'Immeubles récents, balcons vitrés, platanes, une pharmacie, une supérette, une boulangerie et un café où le thé coûte trente dirhams. Le quartier de la classe moyenne.',
     cafeNom: 'Café Maârif', boutiqueNom: 'Supérette du Maârif', regard: { populaire: 0.85, moyen: 1, aise: 1 },
     trajet: { petit: { prix: 30, dur: 20 }, grand: { prix: 10, dur: 30 } },

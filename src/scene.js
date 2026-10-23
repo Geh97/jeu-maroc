@@ -10,6 +10,11 @@ import { parseEdge, furnCenter, footprint } from './world.js';
 let renderer, scene, camera, controls, sun, hemi, amb, floorPlane, street;
 const homeG = new THREE.Group(), helpers = new THREE.Group();
 let segs = [], furnGroups = new Map(), lampLights = [], streetLights = [], ch = null, look = null, homeLight = null;
+// Au Maârif, l'appartement est au premier étage d'un immeuble : tout ce qui est chez soi monte de ETAGE.
+const ETAGE = 3.1;
+let homeY = 0, homePlane = null;
+const inRect = (x, z) => x >= 0 && x < W && z >= 0 && z < D;
+const yAt = (x, z) => (homeY && homeG.visible && inRect(x, z) ? homeY : 0);
 const npcs = new Map(), animaux = new Map();
 let wallMode = 'coupes', clock = 0, savedCam = null, userMovedAt = -10, follow = false;
 const wallMat = new THREE.MeshStandardMaterial({ color: '#f1ece2', roughness: 0.9 });
@@ -71,6 +76,9 @@ export function initScene(canvas) {
   floorPlane.position.set((X0 + X1) / 2, 0, Z1 / 2);
   floorPlane.userData.floor = true;
   scene.add(floorPlane);
+  homePlane = new THREE.Mesh(new THREE.PlaneGeometry(W, D), new THREE.MeshBasicMaterial({ visible: false }));
+  homePlane.rotation.x = -Math.PI / 2; homePlane.position.set(W / 2, 0, D / 2); homePlane.userData.floor = true;
+  scene.add(homePlane);
   PASSANTS.forEach((look, i) => addNpc('p' + i, look));
   for (const def of ANIMAUX) {
     const a = M.makeAnimal(def);
@@ -140,7 +148,7 @@ export function rebuildHome(home) {
     g.traverse(o => { o.userData.fid = f.id; });
     homeG.add(g); furnGroups.set(f.id, g);
     if (g.userData.glow && li < lampLights.length) {
-      const l = lampLights[li++]; l.position.set(c.x, g.userData.lightY, c.z); l.userData.on = true;
+      const l = lampLights[li++]; l.position.set(c.x, g.userData.lightY + homeY, c.z); l.userData.on = true; g.userData.light = l;
     }
   }
 }
@@ -175,6 +183,10 @@ export function setQuartier(ctx) {
     p.position.set(l.x, l.y, l.z); scene.add(p); streetLights.push(p);
   }
   homeG.visible = ctx.withHome;
+  homeY = ctx.quartier === 'maarif' && ctx.withHome ? ETAGE : 0;
+  homeG.position.y = homeY; helpers.position.y = homeY; if (homePlane) homePlane.position.y = homeY;
+  if (homeLight) homeLight.position.y = 2.4 + homeY;
+  for (const [, g] of furnGroups) if (g.userData.light) g.userData.light.position.y = g.userData.lightY + homeY;
   if (ctx.ramadan) street.add(guirlandes());
   for (const [id, n] of [...npcs]) if (!id.startsWith('p')) { scene.remove(n.root); npcs.delete(id); }
   for (const def of ctx.npcs) addNpc(def.id, def.look);
@@ -193,8 +205,8 @@ export function focusChar(on) {
     savedCam = { p: camera.position.clone(), t: controls.target.clone() };
     // La fenêtre de création occupe la droite (ordinateur) ou le bas (téléphone).
     const p = ch.root.position, narrow = innerWidth < 700;
-    controls.target.set(p.x + (narrow ? 0 : 0.55), narrow ? -0.4 : 1, p.z);
-    camera.position.set(p.x + (narrow ? 0.5 : 0.95), narrow ? 1.6 : 1.8, p.z + (narrow ? 6 : 3.4));
+    controls.target.set(p.x + (narrow ? 0 : 0.55), p.y + (narrow ? -0.4 : 1), p.z);
+    camera.position.set(p.x + (narrow ? 0.5 : 0.95), p.y + (narrow ? 1.6 : 1.8), p.z + (narrow ? 6 : 3.4));
   } else if (savedCam) {
     camera.position.copy(savedCam.p); controls.target.copy(savedCam.t); savedCam = null;
   }
@@ -205,7 +217,7 @@ export const setFollow = on => { follow = on; };
 // Recentrer la vue sur le personnage, en gardant l'angle et la distance actuels ; le suivi reprend tout de suite.
 export function centerOn() {
   if (!ch) return;
-  tmpV.set(ch.root.position.x, 0.4, ch.root.position.z).sub(controls.target);
+  tmpV.set(ch.root.position.x, 0.4 + ch.root.position.y, ch.root.position.z).sub(controls.target);
   controls.target.add(tmpV); camera.position.add(tmpV);
   userMovedAt = -10; controls.update();
 }
@@ -225,7 +237,7 @@ export function updateFrame(dt, v) {
   clock += dt;
   if (v && ch) {
     ch.root.visible = v.visible;
-    ch.root.position.set(v.x, 0, v.z);
+    ch.root.position.set(v.x, yAt(v.x, v.z), v.z);
     ch.root.rotation.y = v.yaw;
     M.pose(ch, v.pose, clock, v.walkPhase);
     for (const [id, g] of furnGroups) {
@@ -242,26 +254,26 @@ export function updateFrame(dt, v) {
       if (!n) continue;
       n.root.visible = nv.visible;
       if (!nv.visible) continue;
-      n.root.position.set(nv.x, 0, nv.z); n.root.rotation.y = nv.yaw;
+      n.root.position.set(nv.x, yAt(nv.x, nv.z), nv.z); n.root.rotation.y = nv.yaw;
       M.pose(n, nv.pose, clock + nv.x, nv.walkPhase);
     }
     for (const av of v.animaux || []) {
       const a = animaux.get(av.id);
       if (!a) continue;
       a.root.visible = av.visible !== false;
-      a.root.position.set(av.x, 0, av.z); a.root.rotation.y = av.yaw;
+      a.root.position.set(av.x, yAt(av.x, av.z), av.z); a.root.rotation.y = av.yaw;
       M.poseAnimal(a, av.pose, clock + av.x, av.walkPhase);
     }
     daylight(v.t);
     // La caméra suit le personnage en douceur, dedans comme dehors, sauf juste après un geste du joueur.
     if (follow && v.visible && clock - userMovedAt > 3) {
-      tmpV.set(v.x, 0.4, v.z).sub(controls.target);
+      tmpV.set(v.x, 0.4 + yAt(v.x, v.z), v.z).sub(controls.target);
       const far = tmpV.length();
       if (far > 0.6) { tmpV.multiplyScalar(1 - Math.exp(-dt * (far > 8 ? 4 : 2.2))); controls.target.add(tmpV); camera.position.add(tmpV); }
     }
   }
   const t = controls.target;
-  const dx = Math.max(X0 + 2, Math.min(X1 - 2, t.x)) - t.x, dz = Math.max(-3, Math.min(Z1, t.z)) - t.z, dy = Math.max(0, Math.min(2, t.y)) - t.y;
+  const dx = Math.max(X0 + 2, Math.min(X1 - 2, t.x)) - t.x, dz = Math.max(-3, Math.min(Z1, t.z)) - t.z, dy = Math.max(0, Math.min(2 + homeY, t.y)) - t.y;
   t.x += dx; t.z += dz; t.y += dy; camera.position.x += dx; camera.position.z += dz;
   controls.update();
   cutaway();
@@ -311,7 +323,7 @@ export function pick(px, py, opts = {}) {
   ndc.set(px / innerWidth * 2 - 1, -(py / innerHeight) * 2 + 1);
   ray.setFromCamera(ndc, camera);
   if (!chairMeshes) { chairMeshes = []; street.traverse(o => { if (o.isMesh && (o.userData.chair != null || o.userData.hanout || o.userData.taxi || o.userData.agence || o.userData.plage)) chairMeshes.push(o); }); }
-  const objs = [...(homeG.visible ? [...furnGroups.values(), ...segs.map(s => s.g)] : []), ...chairMeshes, floorPlane];
+  const objs = [...(homeG.visible ? [...furnGroups.values(), ...segs.map(s => s.g)] : []), ...chairMeshes, ...(homeY ? [homePlane] : []), floorPlane];
   if (!opts.build) {
     for (const n of npcs.values()) if (n.root.visible) objs.unshift(n.root);
     for (const a of animaux.values()) if (a.root.visible) objs.unshift(a.root);
@@ -396,7 +408,7 @@ export function markFurn(id) {
 }
 export function markGoto(x, z) {
   const m = new THREE.Mesh(new THREE.RingGeometry(0.18, 0.3, 24), markOk);
-  m.rotation.x = -Math.PI / 2; m.position.set(x + 0.5, 0.04, z + 0.5); m.renderOrder = 10;
+  m.rotation.x = -Math.PI / 2; m.position.set(x + 0.5, 0.04 + yAt(x + 0.5, z + 0.5) - homeY, z + 0.5); m.renderOrder = 10;
   marks.add(m);
   setTimeout(() => { marks.remove(m); m.geometry.dispose(); }, 700);
 }
