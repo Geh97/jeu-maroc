@@ -5,7 +5,7 @@ import {
   MILIEUX, MILIEU_IDS, BOULOTS, VENTE, DARET, POCHE, EPARGNE_TAUX, ANIMAUX, SORTIES, TAXI, QUARTIERS, VEHICULES, CAUTION_SEMAINES,
 } from './data.js';
 import {
-  G, dow, dayIdx, fmtTime, fmtDH, fmtDur, enqueue, cancel, comeBack, awayPhase, basketCost, progress, hanoutOuvert, hanoutCost,
+  G, dow, dayIdx, fmtTime, fmtDH, fmtDur, enqueue, cancel, comeBack, awayPhase, basketCost, progress, hanoutOuvert, hanoutCost, boutique, boutiques,
   milieu, jobOf, revenu, joinDaret, epargne, enqueueWork, skipWork, animalName, sortieCost, Q, prix, homeHere, loyerHebdo, vehicule, demenager, acheterVehicule, quartierCost, npcDefs,
 } from './sim.js';
 import { ambiance } from './world.js';
@@ -249,12 +249,14 @@ function openMarche() {
     go: basket => enqueue({ kind: 'out', lieu: 'marche', basket }),
   });
 }
-export function openHanout() {
-  if (!hanoutOuvert(G.s.t)) { toast(`Le hanout est fermé. Il ouvre à ${HANOUT.ouvre} h.`); return; }
+export function openHanout(id) {
+  const b = boutique(id);
+  if (!b) { toast('Pas de commerce ici.'); return; }
+  if (!hanoutOuvert(G.s.t, b.id)) { toast(`${b.nom} : c'est fermé. Ouvert de ${b.ouvre} h à ${b.ferme} h.`); return; }
   openCourses({
-    titre: Q().boutiqueNom, img: 'illu-hanout', articles: HANOUT.articles.map(a => ({ ...a, prix: prix(a.prix) })), cost: hanoutCost, verbe: 'Aller acheter',
-    intro: G.s.quartier === 'anfa' ? 'Produits fins, prix fins. Mais c\'est à deux pas.' : `L'épicerie du coin, ouverte de ${HANOUT.ouvre} h à ${HANOUT.ferme} h. Un peu plus cher qu'au marché, mais c'est à deux pas.`,
-    go: basket => enqueue({ kind: 'hanout', basket }),
+    titre: b.nom, img: b.img, articles: b.articles.map(a => ({ ...a, prix: prix(a.prix) })), cost: bk => hanoutCost(bk, b.id), verbe: 'Aller acheter',
+    intro: esc(b.intro),
+    go: basket => enqueue({ kind: 'hanout', boutique: b.id, basket }),
   });
 }
 function openCourses(o) {

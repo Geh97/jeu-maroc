@@ -1,7 +1,7 @@
 // La simulation : temps, besoins, actions, quartier, voisins, animaux, argent, sauvegarde.
 import {
   SAVE_KEY, WALK, FURN, ACT, RECETTES, QUAL, QUAL_MORAL,
-  MARCHE, LIEUX, RUE, CAFE, HANOUT, NPCS, PASSANTS, SALUTS, X0, X1, D, matchEnCours, relLabel,
+  MARCHE, LIEUX, RUE, CAFE, HANOUT, BOUTIQUES, NPCS, PASSANTS, SALUTS, X0, X1, D, matchEnCours, relLabel,
   MILIEUX, POCHE, EPARGNE_TAUX, DARET, BOULOTS, VENTE, VENTE_MAX, ACHETEURS, ANIMAUX, ADOPT_SEUIL,
   SUJETS, GOUTS, REPONSES, EVENEMENTS, PLATS_SUCRES, TAXI, SORTIES, MARCHANDAGE, OUTFIT_COLORS,
   QUARTIERS, NPCS_ANFA, GOUTS_ANFA, BOULOTS_ANFA, CAUTION_SEMAINES, VEHICULES, NPCS_CORNICHE, GOUTS_CORNICHE, PLAGE, PLAGE_ACTS,
@@ -45,8 +45,11 @@ export const fmtTime = t => { const { h, m } = hm(t); return String(h).padStart(
 export const fmtDH = n => Math.round(n).toLocaleString('fr-FR').replace(/ /g, ' ') + ' DH';
 export const fmtDur = m => (m < 60 ? m + ' min' : Math.floor(m / 60) + ' h' + (m % 60 ? ' ' + (m % 60) : ''));
 export const cafeOuvert = t => (ramadan() ? cafeRamadan(hour(t)) : hour(t) >= CAFE.ouvre && hour(t) < CAFE.ferme);
-export const hanoutOuvert = t => hour(t) >= HANOUT.ouvre && hour(t) < HANOUT.ferme;
-export const hanoutCost = b => Math.round(HANOUT.articles.reduce((t, m) => t + (b[m.id] || 0) * prix(m.prix), 0) * remiseHanout());
+// Les commerces du quartier où l'on est.
+export const boutiques = () => BOUTIQUES[G.s.quartier] || [];
+export const boutique = id => boutiques().find(b => b.id === id) || boutiques()[0];
+export const hanoutOuvert = (t, id) => { const b = boutique(id); return !!b && hour(t) >= b.ouvre && hour(t) < b.ferme; };
+export const hanoutCost = (bk, id) => { const b = boutique(id); return b ? Math.round(b.articles.reduce((t, m) => t + (bk[m.id] || 0) * prix(m.prix), 0) * (b.credit ? remiseHanout() : 1)) : 0; };
 export const milieu = () => MILIEUX[G.s.milieu];
 export const jobOf = () => milieu().jobs[G.s.job.level];
 export const revenu = k => milieu().revenus.includes(k);
@@ -168,7 +171,7 @@ export function itemLabel(it) {
     return o ? o.nom : 'Courses au marché';
   }
   if (it.kind === 'cafe') return 'Café : ' + CAFE.options.find(o => o.id === it.opt).nom.toLowerCase();
-  if (it.kind === 'hanout') return 'Courses au hanout';
+  if (it.kind === 'hanout') return 'Courses : ' + (boutique(it.boutique) || {}).nom;
   if (it.kind === 'sortie') return SORTIES[it.dest].nom + (vehicule() ? '' : ' (' + TAXI[it.taxi].nom.toLowerCase() + ')');
   if (it.kind === 'quartier') return (it.to === G.s.chezMoi ? 'Rentrer ' : 'Aller ') + QUARTIERS[it.to].article + (vehicule() ? '' : ' (' + TAXI[it.taxi].nom.toLowerCase() + ')');
   if (it.kind === 'plage') return PLAGE_ACTS[it.act].nom;
@@ -257,7 +260,7 @@ export function doorActions() {
     title: "Porte d'entrée",
     items: [
       { act: 'rue', label: isHome() ? 'Sortir dans la rue' : 'Rentrer à la maison', sub: isHome() ? 'Le café est juste à droite' : '' },
-      { act: 'hanout', label: 'Courses au hanout', sub: hanoutOuvert(G.s.t) ? 'À côté, un peu plus cher' : `Fermé (ouvre à ${HANOUT.ouvre} h)`, disabled: !hanoutOuvert(G.s.t) },
+      ...boutiques().map(b => ({ act: 'hanout', param: b.id, label: 'Courses : ' + b.nom, sub: hanoutOuvert(G.s.t, b.id) ? `De ${b.ouvre} h à ${b.ferme} h, à deux pas` : `Fermé (ouvre à ${b.ouvre} h)`, disabled: !hanoutOuvert(G.s.t, b.id) })),
       { act: 'sorties', label: 'Sortir en ville (taxi)', sub: 'Anfa, la corniche, le mall, la médina' },
       { act: 'lieu', param: 'hammam', label: 'Aller au hammam', sub: 'À deux rues, 8 min' },
       { act: 'lieu', param: 'marche', label: 'Faire les courses au marché', sub: 'À deux rues, 8 min' },
@@ -379,9 +382,11 @@ function startItem(it) {
   if (it.kind === 'goto') { if (!go([{ x: it.x, z: it.z }]) && !go(Wd.approachCells(home, [{ x: it.x, z: it.z }], blocked))) fail(it, "Impossible d'aller là."); return; }
   if (it.kind === 'out') { if (!go([RUE.coin])) fail(it, "Impossible d'atteindre le coin de la rue."); return; }
   if (it.kind === 'hanout') {
-    if (!hanoutOuvert(s.t)) return fail(it, 'Le hanout est fermé.');
-    if (!go([HANOUT.devant])) return fail(it, "Impossible d'atteindre le hanout.");
-    G.cur.spot = { x: HANOUT.devant.x + 0.5, z: HANOUT.devant.z + 0.5, yaw: Math.PI, pose: 'stand', anim: 'talk', h: 0 };
+    const b = boutique(it.boutique);
+    if (!b) return fail(it, 'Pas de commerce ici.');
+    if (!hanoutOuvert(s.t, b.id)) return fail(it, `${b.nom} : c'est fermé.`);
+    if (!go([b.devant])) return fail(it, `Impossible d'atteindre ${b.nom}.`);
+    G.cur.spot = { x: b.devant.x + 0.5, z: b.devant.z + 0.5, yaw: Math.PI, pose: 'stand', anim: 'talk', h: 0 };
     return;
   }
   if (it.kind === 'sortie' || it.kind === 'quartier') {
@@ -508,10 +513,10 @@ function arrive(c) {
   if (it.kind === 'sortie') { departSortie(it); return; }
   if (it.kind === 'quartier') { departQuartier(it); return; }
   if (it.kind === 'hanout') {
-    const cost = hanoutCost(it.basket), n = Object.values(it.basket).reduce((a, b) => a + b, 0);
-    if (!hanoutOuvert(s.t)) return fail(it, 'La boutique vient de fermer.');
+    const cost = hanoutCost(it.basket, it.boutique), n = Object.values(it.basket).reduce((a, b) => a + b, 0), bq = boutique(it.boutique);
+    if (!hanoutOuvert(s.t, it.boutique)) return fail(it, 'La boutique vient de fermer.');
     if (cost > s.money) {
-      if (!creditPossible()) return fail(it, "Pas assez d'argent pour ça.");
+      if (!(bq && bq.credit) || !creditPossible()) return fail(it, "Pas assez d'argent pour ça.");
       s.dette += cost; toast(`Ba Lahcen : « Tu me paieras la semaine prochaine, je te connais. » (dette : ${fmtDH(s.dette)})`);
     } else s.money -= cost;
     c.dur = 3 + n * 1.5; c.stage = 'do'; c.t = 0; G.yaw = c.spot.yaw;
@@ -591,9 +596,9 @@ function finish(c) {
   G.cur = null;
   if (it.kind === 'hanout') {
     for (const k in it.basket) s.inv[k] = (s.inv[k] || 0) + it.basket[k];
-    const l = getN('lahcen');
-    if (l && l.visible) { addRel(l, 1.5); toast(`Ba Lahcen : « ${pick(l.def.lignes)} »`); }
-    toast(it.auto ? `${nm()} a acheté de quoi manger au hanout.` : 'Courses faites. Tout est au frigo.');
+    const bq = boutique(it.boutique), l = bq && bq.npc ? getN(bq.npc) : null;
+    if (l && l.visible) { addRel(l, 1.5); toast(`${l.def.nom} : « ${pick(l.def.lignes)} »`); }
+    toast(it.auto ? `${nm()} a acheté de quoi manger.` : 'Courses faites. Tout est au frigo.');
     return;
   }
   if (it.kind === 'cafe') {
@@ -1212,7 +1217,8 @@ function decide() {
     const lvl = s.skills.cuisine;
     const r = ['couscous', 'rfissa', 'tajine', 'kefta', 'harira', 'loubia', 'pates', 'bissara', 'msemen', 'oeufs', 'salade', 'tartines'].find(r => s.inv[r] > 0 && RECETTES[r].d <= lvl + 2);
     if (r && tryAct(['cuisiniere'], 'cuisiner', r)) return;
-    if (hanoutOuvert(s.t) && s.money >= 46) { enqueue({ kind: 'hanout', basket: { snack: 1, msemen: 1 }, auto: true }); return; }
+    const bq = boutiques().find(b => b.articles.some(a => a.id === 'snack') && hanoutOuvert(s.t, b.id));
+    if (bq && s.money >= 60) { enqueue({ kind: 'hanout', boutique: bq.id, basket: { snack: 1, tartines: 1 }, auto: true }); return; }
   }
   if (n.hygiene < 30 && tryAct(['douche'], 'douche')) return;
   if (n.social < 35 && h >= 8 && h < 22 && cafeOuvert(s.t) && s.money >= 10 && !jeune()) {
@@ -1245,8 +1251,9 @@ function choose(n) {
     return goTo(n, [{ x: 13 + Math.floor(Math.random() * 9), z: D + 1 }], 'stroll');
   }
   if (def.boutique) {
-    if (r < 0.75) return goTo(n, [HANOUT.porte], 'post');
-    return goTo(n, [{ x: RUE.hanout.x0 + 4 + Math.floor(Math.random() * 6), z: D + 1 }], 'stroll');
+    const b = boutiques().find(x => x.id === def.boutiqueId), post = def.poste || (b ? b.devant : def.porte);
+    if (r < 0.75) return goTo(n, [post], 'post');
+    return goTo(n, [{ x: post.x - 3 + Math.floor(Math.random() * 6), z: D + 1 }], 'stroll');
   }
   if (def.poste && r < 0.5) return goTo(n, [def.poste], 'stroll');
   if (r < def.cafe && cafeOuvert(s.t)) {

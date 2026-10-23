@@ -81,6 +81,52 @@ export const HANOUT = {
   ],
 };
 
+// Le catalogue des articles (prix de base du quartier populaire ; chaque commerce et chaque quartier applique sa marge).
+export const ARTICLES = {
+  tartines: { nom: 'Pain, beurre et confiture', detail: 'Un petit-déjeuner, 5 minutes', prix: 8 },
+  oeufs: { nom: 'Œufs, oignons et cumin', detail: 'Pour une omelette (2 parts)', prix: 10 },
+  salade: { nom: 'Tomates, concombre et oignon', detail: 'Pour une salade (2 parts)', prix: 9 },
+  the: { nom: 'Thé vert, menthe et sucre', detail: 'Pour une théière (3 verres)', prix: 15 },
+  pates: { nom: 'Pâtes et sauce tomate', detail: 'Pour un plat de pâtes (3 parts)', prix: 14 },
+  bissara: { nom: 'Fèves sèches, ail et cumin', detail: 'Pour une bissara (4 parts)', prix: 10 },
+  loubia: { nom: 'Haricots blancs, tomates et épices', detail: 'Pour une loubia (4 parts)', prix: 17 },
+  msemen: { nom: 'Farine, semoule et beurre', detail: 'Pour une fournée de msemen (4 parts)', prix: 22 },
+  batbout: { nom: 'Farine, levure et semoule fine', detail: 'Pour une fournée de batbout (6 pièces)', prix: 14 },
+  harira: { nom: 'Lentilles, pois chiches, tomates et viande', detail: 'Pour une marmite de harira (6 parts)', prix: 36 },
+  kefta: { nom: 'Viande hachée, œufs et tomates', detail: 'Pour une kefta aux œufs (3 parts)', prix: 48 },
+  tajine: { nom: 'Poulet, légumes et olives', detail: 'Pour un tajine (4 parts)', prix: 90 },
+  couscous: { nom: 'Semoule, légumes et viande', detail: 'Pour un couscous (6 parts)', prix: 105 },
+  rfissa: { nom: 'Poulet, lentilles, msemen et fenugrec', detail: 'Pour une rfissa (6 parts)', prix: 125 },
+  chebakia: { nom: 'Farine, miel, sésame et amandes', detail: 'Pour une fournée de chebakia (12 pièces)', prix: 52 },
+  pastilla: { nom: 'Poulet, amandes, feuilles de brick et cannelle', detail: 'Pour une pastilla (6 parts)', prix: 160 },
+  snack: { nom: 'Pain, fromage et olives', detail: 'Un casse-croûte, sans cuisiner', prix: 24 },
+  patee: { nom: 'Restes de poulet et croquettes', detail: 'Pour nourrir un chien ou un chat', prix: 8 },
+};
+const art = (ids, extra = {}) => ids.map(id => ({ id, ...ARTICLES[id], ...(extra[id] || {}) }));
+// Les commerces : au quartier, trois petits commerçants qui ont chacun leur rayon ; à Anfa, un supermarché qui a tout.
+export const BOUTIQUES = {
+  populaire: [
+    { id: 'hanout', nom: 'Hanout de Ba Lahcen', img: 'illu-hanout', npc: 'lahcen', credit: true, ouvre: 7, ferme: 22, porte: { x: RUE.hanout.porte, z: D }, devant: { x: RUE.hanout.porte, z: D + 1 },
+      intro: 'L\'épicerie du coin, de 7 h à 22 h : de quoi faire un petit-déjeuner, un thé, des pâtes. Pour la viande, va chez le boucher ; pour les légumes, à la charrette.',
+      articles: art(['tartines', 'oeufs', 'the', 'pates', 'bissara', 'msemen', 'snack', 'patee']) },
+    { id: 'boucher', nom: 'Boucherie Si Mustapha', img: 'illu-marche', npc: 'mustapha', ouvre: 8, ferme: 20, porte: { x: RUE.mahlaba.porte, z: D }, devant: { x: RUE.mahlaba.porte, z: D + 1 },
+      intro: 'La viande du quartier, de 8 h à 20 h. Si Mustapha prépare les sachets pour la kefta, le tajine, la harira, le couscous.',
+      articles: art(['kefta', 'tajine', 'harira', 'couscous', 'rfissa']) },
+    { id: 'fruits', nom: 'La charrette de Ba Moussa', img: 'illu-marche', npc: 'moussa', ouvre: 8, ferme: 19, porte: { x: RUE.charrette.x + 1, z: D + 1 }, devant: { x: RUE.charrette.x + 1, z: D + 2 },
+      intro: 'Fruits et légumes du jour, de 8 h à 19 h, à la charrette. Moins cher qu\'ailleurs, et Ba Moussa ajoute toujours une orange.',
+      articles: art(['salade', 'loubia', 'bissara', 'snack'], { salade: { prix: 7 }, loubia: { prix: 14 }, bissara: { prix: 8 }, snack: { nom: 'Oranges et bananes', detail: 'Un casse-croûte, sans cuisiner', prix: 15 } }) },
+  ],
+  anfa: [
+    { id: 'supermarche', nom: 'Supermarché Anfa', img: 'illu-hanout', npc: null, ouvre: 8, ferme: 22, porte: { x: RUE.hanout.porte, z: D }, devant: { x: RUE.hanout.porte, z: D + 1 },
+      intro: 'Tout sous un même toit, chariot compris, de 8 h à 22 h. Les prix d\'Anfa, sans discussion.',
+      articles: art(Object.keys(ARTICLES)) },
+  ],
+  corniche: [
+    { id: 'kiosque', nom: 'Épicerie de la plage', img: 'illu-plage', npc: null, ouvre: 9, ferme: 21, porte: { x: RUE.hanout.porte, z: D }, devant: { x: RUE.hanout.porte, z: D + 1 },
+      intro: 'Le strict nécessaire, de 9 h à 21 h, et de l\'eau fraîche. Les prix de la plage.',
+      articles: art(['tartines', 'oeufs', 'salade', 'the', 'snack', 'patee'], { snack: { prix: 30 } }) },
+  ],
+};
 // Les animaux errants du quartier. On les apprivoise en les nourrissant, puis on peut les adopter.
 export const ANIMAUX = [
   { id: 'chien', espece: 'chien', nom: 'Chien errant', desc: 'Un chien beige qui traîne près du café, la queue basse. Il a faim.', couleur: '#c8a46a', coin: { x: 23, z: D + 1 }, vitesse: 2 },
@@ -139,7 +185,7 @@ export const NPCS = [
     lignes: ['Je t\'emmène quelque part ? Je rigole, je suis en pause.', 'La circulation à Casa, je ne te raconte pas.', "Le compteur, je le mets toujours, moi.", 'Un jour je m\'achète un grand taxi.'],
   },
   {
-    id: 'lahcen', nom: 'Ba Lahcen', desc: "L'épicier. Son hanout est ouvert de 7 h à 22 h, et il fait crédit aux habitués.",
+    id: 'lahcen', nom: 'Ba Lahcen', desc: "L'épicier. Son hanout est ouvert de 7 h à 22 h, et il fait crédit aux habitués.", boutiqueId: 'hanout',
     look: { skin: '#8a5a3c', hair: 'rasee', hairColor: '#9a958f', outfit: 'djellaba', outfitColor: '#f2ede3' },
     porte: { x: RUE.hanout.porte, z: D }, sorties: [[7, 22]], boutique: true,
     lignes: ['Il me reste du pain chaud, tu en veux ?', 'Tu paieras la prochaine fois, je te connais.', 'La menthe est arrivée ce matin, elle sent bon.', 'Dis bonjour à ta mère de ma part.'],
@@ -151,6 +197,20 @@ export const NPCS = [
     lignes: ['Un thé ? Je te l\'apporte tout de suite.', 'Assieds-toi, il y a de la place.', 'Le match commence bientôt, prends une bonne place.', 'Si Driss est déjà là, comme tous les jours.'],
   },
 ];
+NPCS.push(
+  {
+    id: 'mustapha', nom: 'Si Mustapha', desc: 'Le boucher. Sa boucherie est ouverte de 8 h à 20 h ; il connaît les goûts de chaque famille.', boutiqueId: 'boucher',
+    look: { skin: '#b07a55', hair: 'rasee', hairColor: '#1d1714', outfit: 'djellaba', outfitColor: '#f2ede3' },
+    porte: { x: RUE.mahlaba.porte, z: D }, sorties: [[8, 20]], boutique: true, cafe: 0,
+    lignes: ['Pour le tajine, prends les cuisses, pas les blancs.', 'Vendredi, c\'est la viande du couscous. Passe tôt.', 'Ta mère prenait toujours la même chose. Toi aussi, tu verras.', 'La bonne viande, ça se voit à la couleur.'],
+  },
+  {
+    id: 'moussa', nom: 'Ba Moussa', desc: 'Le marchand de fruits et légumes, à sa charrette au bout de la rue, de 8 h à 19 h.', boutiqueId: 'fruits',
+    look: { skin: '#8a5a3c', hair: 'rasee', hairColor: '#9a958f', outfit: 'djellaba', outfitColor: '#8c6a4f' },
+    porte: { x: RUE.portes[0].x, z: D }, sorties: [[8, 19]], boutique: true, cafe: 0.1, poste: { x: RUE.charrette.x + 1, z: D + 2 },
+    lignes: ['Les oranges, c\'est de Berkane. Goûte.', 'Le matin, les légumes sont frais. Le soir, ils sont moins chers.', 'Une orange de plus, pour la route.', 'Avant, je faisais le marché de gros à 4 h. Maintenant, mon fils y va.'],
+  },
+);
 export const PASSANTS = [
   { skin: '#e6b994', hair: 'longue', hairColor: '#1d1714', outfit: 'jean', outfitColor: '#2e6b57' },
   { skin: '#b07a55', hair: 'courte', hairColor: '#1d1714', outfit: 'costume', outfitColor: '#3a3a3a' },
@@ -175,6 +235,8 @@ export const GOUTS = {
   omar: { nouvelles: 0, quartier: 1, foot: 1, blague: 1, confier: 0 },
   hamid: { nouvelles: 1, quartier: 1, foot: 1, blague: 0, confier: -1 },
   lahcen: { nouvelles: 1, quartier: 1, foot: 0, blague: 1, confier: 0 },
+  mustapha: { nouvelles: 1, quartier: 1, foot: 1, blague: 0, confier: 0 },
+  moussa: { nouvelles: 0, quartier: 1, foot: 0, blague: 1, confier: 1 },
 };
 // Réponses selon la réaction : [aime, indifférent, agacé].
 export const REPONSES = {

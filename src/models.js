@@ -186,11 +186,18 @@ function archFill(open = 0.8, spring = 1.75) {
   return s;
 }
 let archGeo, fillGeo;
+// Les finitions des murs : corniche claire au plafond, frise dorée au-dessus du soubassement, linteau de bois aux fenêtres.
+const CORNICHE = mat('#f7f2e9', { roughness: 0.9 }), FRISE = mat('#b98b4a', { metalness: 0.25, roughness: 0.5 }), LINTEAU = mat('#5a3423', { roughness: 0.7 });
+function finitions(g, haut = true) {
+  if (haut) box(g, 1, 0.09, T_W + 0.08, CORNICHE, 0, WALL_H - 0.045, 0);
+  box(g, 1, 0.035, T_W + 0.03, FRISE, 0, 0.62, 0);
+}
 export function makeWall(type, wallMat, wsMat) {
   const g = new THREE.Group();
   if (type === 'wall') {
     box(g, 1, WALL_H - 0.6, T_W, wallMat, 0, 0.6 + (WALL_H - 0.6) / 2, 0);
     box(g, 1, 0.6, T_W + 0.01, wsMat, 0, 0.3, 0);
+    finitions(g);
   } else if (type === 'window') {
     box(g, 1, 0.6, T_W + 0.01, wsMat, 0, 0.3, 0);
     box(g, 1, 0.3, T_W, wallMat, 0, 0.75, 0);
@@ -201,10 +208,13 @@ export function makeWall(type, wallMat, wsMat) {
     for (const x of [-0.2, 0, 0.2]) box(g, 0.025, 1.1, 0.03, grid, x, 1.45, 0);
     for (const y of [1.1, 1.45, 1.8]) box(g, 0.8, 0.025, 0.03, grid, 0, y, 0);
     box(g, 1.02, 0.05, 0.22, mat('#e9e2d4'), 0, 0.92, 0);
+    box(g, 1.02, 0.07, T_W + 0.06, LINTEAU, 0, 2.03, 0);
+    finitions(g);
   } else {
     archGeo = archGeo || new THREE.ExtrudeGeometry(archShape(), { depth: T_W, bevelEnabled: false, curveSegments: 16 });
     const m = new THREE.Mesh(archGeo, wallMat); m.position.z = -T_W / 2; add(g, m);
     for (const x of [-0.45, 0.45]) box(g, 0.1, 0.6, T_W + 0.01, wsMat, x, 0.3, 0);
+    box(g, 1, 0.09, T_W + 0.08, CORNICHE, 0, WALL_H - 0.045, 0);
     if (type === 'entree') {
       fillGeo = fillGeo || new THREE.ExtrudeGeometry(archFill(), { depth: 0.05, bevelEnabled: false, curveSegments: 16 });
       const door = new THREE.Mesh(fillGeo, mat('#1f5a45')); door.position.z = -0.025; add(g, door);
@@ -222,6 +232,8 @@ export function makePillar(wallMat, wsMat) {
   const g = new THREE.Group();
   box(g, 0.13, WALL_H, 0.13, wallMat, 0, WALL_H / 2, 0);
   box(g, 0.14, 0.6, 0.14, wsMat, 0, 0.3, 0);
+  box(g, 0.21, 0.09, 0.21, CORNICHE, 0, WALL_H - 0.045, 0);
+  box(g, 0.16, 0.035, 0.16, FRISE, 0, 0.62, 0);
   return g;
 }
 

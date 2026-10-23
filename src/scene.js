@@ -317,7 +317,7 @@ export function pick(px, py, opts = {}) {
     if (u.npc) return { type: 'npc', id: u.npc };
     if (u.animal) return { type: 'animal', id: u.animal };
     if (u.chair != null) return { type: 'chair', id: u.chair };
-    if (u.hanout && !opts.build) return { type: 'hanout' };
+    if (u.hanout && !opts.build) return { type: 'hanout', id: typeof u.hanout === 'string' ? u.hanout : 'hanout' };
     if (u.taxi && !opts.build) return { type: 'taxi' };
     if (u.agence && !opts.build) return { type: 'agence' };
     if (u.plage && !opts.build) return { type: 'plage', act: u.plage, x: Math.floor(h.point.x), z: Math.floor(h.point.z), px: u.px, pz: u.pz };
